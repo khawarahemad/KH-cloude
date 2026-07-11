@@ -446,19 +446,34 @@ export class ProjectsService {
           
           // Case 1: Node.js Project (package.json exists)
           if (fs.existsSync(path.join(buildDir, 'package.json'))) {
-            appendLog('Detected Node.js application (package.json found). Parsing scripts...');
+            appendLog('Detected Node.js application (package.json found). Checking package manager...');
+            let installSteps = 'RUN npm install';
+            let buildSteps = 'RUN npm run build --if-present';
             let detectedStartCommand = 'npm start';
             let detectedPort = project.port || 3000;
+
+            if (fs.existsSync(path.join(buildDir, 'pnpm-lock.yaml'))) {
+              appendLog('pnpm-lock.yaml detected. Using pnpm package manager...');
+              installSteps = 'RUN npm install -g pnpm && pnpm install';
+              buildSteps = 'RUN pnpm build --if-present';
+              detectedStartCommand = 'pnpm start';
+            } else if (fs.existsSync(path.join(buildDir, 'yarn.lock'))) {
+              appendLog('yarn.lock detected. Using yarn package manager...');
+              installSteps = 'RUN yarn install';
+              buildSteps = 'RUN yarn build --if-present';
+              detectedStartCommand = 'yarn start';
+            }
 
             try {
               const packageJson = JSON.parse(fs.readFileSync(path.join(buildDir, 'package.json'), 'utf8'));
               const scripts = packageJson.scripts || {};
               
               if (scripts.start) {
-                detectedStartCommand = 'npm start';
+                // Keep default detectedStartCommand
               } else if (scripts.dev) {
                 appendLog('No "start" script found. Falling back to "dev" script...');
-                detectedStartCommand = 'npm run dev';
+                detectedStartCommand = installSteps.includes('pnpm') ? 'pnpm run dev' :
+                                       installSteps.includes('yarn') ? 'yarn dev' : 'npm run dev';
               } else if (packageJson.main && fs.existsSync(path.join(buildDir, packageJson.main))) {
                 appendLog(`No start script found. Launching main entrypoint file: node ${packageJson.main}`);
                 detectedStartCommand = `node ${packageJson.main}`;
@@ -470,7 +485,7 @@ export class ProjectsService {
                   appendLog(`Detected entrypoint file "${found}". Launching: node ${found}`);
                   detectedStartCommand = `node ${found}`;
                 } else {
-                  appendLog('Warning: No clear startup script or entrypoint file detected. Defaulting to: npm start');
+                  appendLog(`Warning: No clear startup script detected. Defaulting to: ${detectedStartCommand}`);
                 }
               }
             } catch (err) {
@@ -478,7 +493,7 @@ export class ProjectsService {
             }
 
             const runCmdText = project.startCommand || detectedStartCommand;
-            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nRUN npm run build --if-present\nEXPOSE ${detectedPort}\nCMD ${runCmdText}`;
+            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\\nCOPY pnpm-lock.yaml* yarn.lock* package-lock.json* ./\n${installSteps}\nCOPY . .\n${buildSteps}\nEXPOSE ${detectedPort}\nCMD ${runCmdText}`;
             fs.writeFileSync(dockerfilePath, defaultDockerfile);
             appendLog(`Generated Node.js Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText})`);
             
