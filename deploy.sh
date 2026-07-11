@@ -33,9 +33,8 @@ sudo chmod -R 777 /var/lib/kh-cloud/
 sudo touch /var/lib/kh-cloud/traefik-acme/acme.json
 sudo chmod 600 /var/lib/kh-cloud/traefik-acme/acme.json
 
-echo "=== [3/5] Starting KH Cloud Service Containers ==="
-# Spin up production containers in detached mode
-sudo docker compose -f docker-compose.prod.yml up --build -d
+sudo docker compose -f docker-compose.prod.yml build --no-cache
+sudo docker compose -f docker-compose.prod.yml up -d
 
 echo "=== [4/5] Running Database Schema Sync (Prisma) ==="
 # Allow backend container 5 seconds to warm up
