@@ -175,6 +175,18 @@ export class ProjectsService {
     });
     if (!project) throw new NotFoundException('Project not found.');
 
+    const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+
+    // Trigger Docker restart asynchronously on the VPS
+    exec(`docker restart ${containerName}`, (error, stdout, stderr) => {
+      if (error) {
+        this.logger.error(`Failed to restart container ${containerName}: ${stderr}`);
+      } else {
+        this.logger.log(`Successfully restarted container ${containerName}`);
+      }
+    });
+
     await this.prisma.project.update({
       where: { id: projectId },
       data: { status: 'READY' },
@@ -379,7 +391,7 @@ export class ProjectsService {
         // 4. Build Docker Image
         const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
         const imageTag = `kh-cloud-${cleanSlug}:${deploymentId}`;
-        const containerName = `kh-cloud-app-${cleanSlug}`;
+        const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
 
         appendLog(`Starting Docker image build: ${imageTag}`);
         const buildRes = await runCmd(`docker build -t ${imageTag} .`, buildDir);
@@ -398,8 +410,16 @@ export class ProjectsService {
         await runCmd(`docker stop ${containerName}`, buildDir).catch(() => null);
         await runCmd(`docker rm ${containerName}`, buildDir).catch(() => null);
 
-        // 7. Start container with Traefik routing labels
+        // 7. Start container with Traefik routing labels and environment variables
+        
+        // Fetch all active domains associated with the project
+        const projectDomains = await this.prisma.domain.findMany({
+          where: { projectId },
+        });
         const targetDomain = `${project.slug}.khawarahemad.com`;
+        const hostnames = Array.from(new Set([targetDomain, ...projectDomains.map(d => d.hostname)]));
+        const hostRules = hostnames.map(hn => `Host(\`${hn}\`)`).join(' || ');
+
         // Use auto-generated Node server port (3000) or static nginx port (80)
         let containerPort = project.port || 3000;
         if (!fs.existsSync(path.join(buildDir, 'package.json')) && !fs.existsSync(dockerfilePath)) {
@@ -407,18 +427,26 @@ export class ProjectsService {
           containerPort = 80;
         }
 
+        // Fetch custom environment variables configured for this project
+        const envVars = await this.prisma.envVar.findMany({
+          where: { projectId },
+        });
+        const envFlags = envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`).join(' ');
+
         const runCmdString = [
           'docker run -d',
           `--name ${containerName}`,
           `--network kh-cloud-network`,
+          `-e PORT=${containerPort}`,
+          envFlags,
           `--restart unless-stopped`,
           `-l "traefik.enable=true"`,
-          `-l "traefik.http.routers.${containerName}.rule=Host(\`${targetDomain}\`)"`,
+          `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
           `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
           `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
           `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
           imageTag
-        ].join(' ');
+        ].filter(Boolean).join(' ');
 
         appendLog(`Deploying container to Traefik routing mesh...`);
         const runRes = await runCmd(runCmdString, buildDir);
