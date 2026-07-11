@@ -493,7 +493,7 @@ export class ProjectsService {
             }
 
             const runCmdText = project.startCommand || detectedStartCommand;
-            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\\nCOPY pnpm-lock.yaml* yarn.lock* package-lock.json* ./\n${installSteps}\nCOPY . .\n${buildSteps}\nEXPOSE ${detectedPort}\nCMD ${runCmdText}`;
+            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nCOPY pnpm-lock.yaml* yarn.lock* package-lock.json* ./\n${installSteps}\nCOPY . .\n${buildSteps}\nEXPOSE ${detectedPort}\nCMD ${runCmdText}`;
             fs.writeFileSync(dockerfilePath, defaultDockerfile);
             appendLog(`Generated Node.js Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText})`);
             
