@@ -20,6 +20,7 @@ export class ProjectsService {
     teamId: string;
     githubRepo?: string;
     githubBranch?: string;
+    rootDirectory?: string;
     buildCommand?: string;
     installCommand?: string;
     startCommand?: string;
@@ -44,6 +45,7 @@ export class ProjectsService {
         teamId: data.teamId,
         githubRepo: data.githubRepo,
         githubBranch: data.githubBranch || 'main',
+        rootDirectory: data.rootDirectory || '',
         buildCommand: data.buildCommand || 'npm run build',
         installCommand: data.installCommand || 'npm install',
         startCommand: data.startCommand || 'npm run start',
@@ -497,7 +499,7 @@ export class ProjectsService {
 
   async updateProject(
     projectId: string,
-    data: { name?: string; buildCommand?: string; startCommand?: string; port?: number; githubBranch?: string; teamId: string }
+    data: { name?: string; buildCommand?: string; startCommand?: string; port?: number; githubBranch?: string; rootDirectory?: string; teamId: string }
   ) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId: data.teamId },
@@ -512,6 +514,7 @@ export class ProjectsService {
         startCommand: data.startCommand ?? project.startCommand,
         port: data.port !== undefined ? data.port : project.port,
         githubBranch: data.githubBranch ?? project.githubBranch,
+        rootDirectory: data.rootDirectory !== undefined ? data.rootDirectory : project.rootDirectory,
       },
     });
 
@@ -703,23 +706,36 @@ export class ProjectsService {
           throw new Error('Failed to clone Git repository');
         }
 
-        // Patch Vite configuration for host check bypass
-        patchViteConfig(buildDir);
+        // Compute effective build directory if project.rootDirectory is configured
+        let effectiveBuildDir = buildDir;
+        if (project.rootDirectory) {
+          const relativePath = project.rootDirectory.replace(/^\/+/, '');
+          const targetPath = path.resolve(buildDir, relativePath);
+          if (targetPath.startsWith(buildDir)) {
+            effectiveBuildDir = targetPath;
+            appendLog(`[Smart Builder] Using custom root directory: ${relativePath}`);
+          } else {
+            appendLog(`[Smart Builder] Warning: Invalid root directory path "${project.rootDirectory}". Defaulting to repository root.`);
+          }
+        }
+
+        // Patch Vite configuration for host check bypass inside effective directory
+        patchViteConfig(effectiveBuildDir);
 
         // 3. Auto-generate Dockerfile if none exists
-        const dockerfilePath = path.join(buildDir, 'Dockerfile');
+        const dockerfilePath = path.join(effectiveBuildDir, 'Dockerfile');
         if (!fs.existsSync(dockerfilePath)) {
           appendLog('No Dockerfile found in root directory. Running smart engine to auto-generate one...');
           
           // Case 1: Node.js Project (package.json exists)
-          if (fs.existsSync(path.join(buildDir, 'package.json'))) {
+          if (fs.existsSync(path.join(effectiveBuildDir, 'package.json'))) {
             appendLog('Detected Node.js application (package.json found). Checking build configuration...');
             let hasBuildScript = false;
             let detectedStartCommand = 'npm start';
             let detectedPort = project.port || 3000;
             
-            const isPnpm = fs.existsSync(path.join(buildDir, 'pnpm-lock.yaml'));
-            const isYarn = fs.existsSync(path.join(buildDir, 'yarn.lock'));
+            const isPnpm = fs.existsSync(path.join(effectiveBuildDir, 'pnpm-lock.yaml'));
+            const isYarn = fs.existsSync(path.join(effectiveBuildDir, 'yarn.lock'));
 
             if (isPnpm) {
               appendLog('pnpm-lock.yaml detected. Preparing pnpm manager configuration...');
@@ -730,7 +746,7 @@ export class ProjectsService {
             }
 
             try {
-              const packageJson = JSON.parse(fs.readFileSync(path.join(buildDir, 'package.json'), 'utf8'));
+              const packageJson = JSON.parse(fs.readFileSync(path.join(effectiveBuildDir, 'package.json'), 'utf8'));
               const scripts = packageJson.scripts || {};
               hasBuildScript = !!scripts.build;
               
@@ -740,13 +756,13 @@ export class ProjectsService {
                 appendLog('No "start" script found. Falling back to "dev" script...');
                 detectedStartCommand = isPnpm ? 'pnpm run dev' :
                                        isYarn ? 'yarn dev' : 'npm run dev';
-              } else if (packageJson.main && fs.existsSync(path.join(buildDir, packageJson.main))) {
+              } else if (packageJson.main && fs.existsSync(path.join(effectiveBuildDir, packageJson.main))) {
                 appendLog(`No start script found. Launching main entrypoint file: node ${packageJson.main}`);
                 detectedStartCommand = `node ${packageJson.main}`;
               } else {
                 // Look for common files
                 const entries = ['server.js', 'app.js', 'index.js', 'main.js'];
-                const found = entries.find(f => fs.existsSync(path.join(buildDir, f)));
+                const found = entries.find(f => fs.existsSync(path.join(effectiveBuildDir, f)));
                 if (found) {
                   appendLog(`Detected entrypoint file "${found}". Launching: node ${found}`);
                   detectedStartCommand = `node ${found}`;
@@ -795,13 +811,13 @@ export class ProjectsService {
             }
           }
           // Case 2: Python Project (requirements.txt exists)
-          else if (fs.existsSync(path.join(buildDir, 'requirements.txt'))) {
+          else if (fs.existsSync(path.join(effectiveBuildDir, 'requirements.txt'))) {
             appendLog('Detected Python application (requirements.txt found). Generating configuration...');
             let detectedStartCommand = 'python app.py';
             let detectedPort = project.port || 8000;
 
             const entrypoints = ['app.py', 'main.py', 'server.py', 'wsgi.py'];
-            const found = entrypoints.find(f => fs.existsSync(path.join(buildDir, f)));
+            const found = entrypoints.find(f => fs.existsSync(path.join(effectiveBuildDir, f)));
             if (found) {
               detectedStartCommand = `python ${found}`;
             }
@@ -818,7 +834,7 @@ export class ProjectsService {
             }
           }
           // Case 3: Go Project (go.mod exists)
-          else if (fs.existsSync(path.join(buildDir, 'go.mod'))) {
+          else if (fs.existsSync(path.join(effectiveBuildDir, 'go.mod'))) {
             appendLog('Detected Go application (go.mod found). Generating builder configuration...');
             let detectedPort = project.port || 8080;
             const defaultDockerfile = `FROM golang:1.21-alpine AS builder\nWORKDIR /app\nCOPY go.mod go.sum* ./\nRUN go mod download --if-present\nCOPY . .\nRUN CGO_ENABLED=0 GOOS=linux go build -o main .\nFROM alpine:latest\nWORKDIR /app\nCOPY --from=builder /app/main .\nEXPOSE ${detectedPort}\nCMD ["./main"]`;
@@ -854,7 +870,7 @@ export class ProjectsService {
         const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
 
         appendLog(`Starting Docker image build: ${imageTag}`);
-        const buildRes = await runCmd(`docker build -t ${imageTag} .`, buildDir);
+        const buildRes = await runCmd(`docker build -t ${imageTag} .`, effectiveBuildDir);
         if (buildRes.code !== 0) {
           throw new Error('Docker build process failed');
         }
@@ -882,7 +898,7 @@ export class ProjectsService {
 
         // Use auto-generated Node server port (3000) or static nginx port (80)
         let containerPort = project.port || 3000;
-        if (!fs.existsSync(path.join(buildDir, 'package.json')) && !fs.existsSync(dockerfilePath)) {
+        if (!fs.existsSync(path.join(effectiveBuildDir, 'package.json')) && !fs.existsSync(dockerfilePath)) {
           // If we auto-generated nginx, the containerPort is 80
           containerPort = 80;
         }
@@ -893,7 +909,7 @@ export class ProjectsService {
         });
         
         // Auto-inject HOST=0.0.0.0 for Node/web framework routing safety
-        const isNodeProject = fs.existsSync(path.join(buildDir, 'package.json'));
+        const isNodeProject = fs.existsSync(path.join(effectiveBuildDir, 'package.json'));
         const autoEnvFlags = isNodeProject ? '-e HOST=0.0.0.0' : '';
         
         // Auto-inject Vite allowedHosts parameter to bypass host checks in Vite 6+

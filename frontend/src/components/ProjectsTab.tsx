@@ -56,6 +56,7 @@ export default function ProjectsTab() {
   const [buildCommand, setBuildCommand] = useState('npm run build');
   const [startCommand, setStartCommand] = useState('npm run start');
   const [port, setPort] = useState(3000);
+  const [rootDir, setRootDir] = useState('');
   const [rawEnvText, setRawEnvText] = useState('');
   const [parsedEnvVars, setParsedEnvVars] = useState<{ key: string; value: string; isSecret: boolean }[]>([]);
 
@@ -81,6 +82,7 @@ export default function ProjectsTab() {
   const [editStartCmd, setEditStartCmd] = useState('');
   const [editPort, setEditPort] = useState(3000);
   const [editBranch, setEditBranch] = useState('main');
+  const [editRootDir, setEditRootDir] = useState('');
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   // Env vars UI state
@@ -178,6 +180,7 @@ export default function ProjectsTab() {
       setEditStartCmd(projectDetails.startCommand || '');
       setEditPort(projectDetails.port || 3000);
       setEditBranch(projectDetails.githubBranch || 'main');
+      setEditRootDir(projectDetails.rootDirectory || '');
     }
   }, [projectDetails]);
 
@@ -298,6 +301,7 @@ export default function ProjectsTab() {
           teamId: activeTeam.id,
           githubRepo: selectedRepo,
           githubBranch: selectedBranch,
+          rootDirectory: rootDir.trim(),
           buildCommand,
           startCommand,
           port,
@@ -315,6 +319,7 @@ export default function ProjectsTab() {
       setWizardStep(1);
       setNewProjectName('');
       setSelectedRepo('');
+      setRootDir('');
       setRawEnvText('');
       
       // Select the new project immediately
@@ -376,6 +381,7 @@ export default function ProjectsTab() {
           startCommand: editStartCmd,
           port: editPort,
           githubBranch: editBranch,
+          rootDirectory: editRootDir.trim(),
           teamId: activeTeam.id,
         }),
       });
@@ -1193,6 +1199,19 @@ export default function ProjectsTab() {
                         />
                       </div>
                       <div>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Root Directory</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. frontend (leave blank for root)"
+                          value={editRootDir}
+                          onChange={(e) => setEditRootDir(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
+                        />
+                        <span className="text-[9px] text-zinc-500 block mt-1 leading-normal">
+                          The subdirectory containing your app code.
+                        </span>
+                      </div>
+                      <div>
                         <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Port</label>
                         <input
                           type="number"
@@ -1439,6 +1458,20 @@ export default function ProjectsTab() {
                         className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Root Directory</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. frontend (leave blank to deploy from repository root)"
+                      value={rootDir}
+                      onChange={(e) => setRootDir(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
+                    />
+                    <span className="text-[9px] text-zinc-500 block mt-1 leading-normal">
+                      The folder within your repository where your code lives (like frontend/ or client/).
+                    </span>
                   </div>
 
                   <div>

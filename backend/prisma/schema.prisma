@@ -138,6 +138,7 @@ model Project {
   team           Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
   githubRepo     String?       // Format: owner/repo
   githubBranch   String?       @default("main")
+  rootDirectory  String?       @default("")
   buildCommand   String?
   installCommand String?
   startCommand   String?
