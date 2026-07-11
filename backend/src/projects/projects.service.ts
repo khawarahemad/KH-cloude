@@ -644,9 +644,16 @@ export class ProjectsService {
         const envVars = await this.prisma.envVar.findMany({
           where: { projectId },
         });
-        const envFlags = envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`).join(' ');
+        
+        // Auto-inject HOST=0.0.0.0 for Node/web framework routing safety
+        const isNodeProject = fs.existsSync(path.join(buildDir, 'package.json'));
+        const autoEnvFlags = isNodeProject ? '-e HOST=0.0.0.0' : '';
+        const envFlags = [
+          autoEnvFlags,
+          ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
+        ].filter(Boolean).join(' ');
 
-        const runCmdString = [
+        let runCmdString = [
           'docker run -d',
           `--name ${containerName}`,
           `--network kh-cloud-network`,
@@ -663,15 +670,78 @@ export class ProjectsService {
         ].filter(Boolean).join(' ');
 
         appendLog(`Deploying container to Traefik routing mesh...`);
-        const runRes = await runCmd(runCmdString, buildDir);
+        let runRes = await runCmd(runCmdString, buildDir);
         if (runRes.code !== 0) {
           throw new Error('Failed to run container');
         }
 
-        // 8. Health check validation (wait 5s)
-        appendLog(`Waiting for container initialization and routing mesh propagation...`);
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        // 8. Smart port auto-detection & health validation
+        appendLog(`Waiting for container initialization and reading startup logs...`);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
         
+        const logsRes = await runCmd(`docker logs ${containerName}`, buildDir).catch(() => ({ stdout: '', stderr: '' }));
+        const logsCombined = (logsRes.stdout || '') + '\n' + (logsRes.stderr || '');
+
+        const detectPortFromLogs = (logText: string): number | null => {
+          const regexes = [
+            /localhost:(\d+)/i,
+            /127\.0\.0\.1:(\d+)/i,
+            /0\.0\.0\.0:(\d+)/i,
+            /network.*?:\s*http:\/\/.*?:(\d+)/i,
+            /listening\s+on\s+(?:port\s+)?(\d+)/i,
+            /listening\s+at\s+.*?:\s*(\d+)/i,
+            /port\s*:\s*(\d+)/i
+          ];
+          for (const rx of regexes) {
+            const match = logText.match(rx);
+            if (match) {
+              const p = parseInt(match[1], 10);
+              if (p >= 80 && p <= 65535) return p;
+            }
+          }
+          return null;
+        };
+
+        const detectedPort = detectPortFromLogs(logsCombined);
+        if (detectedPort && detectedPort !== containerPort) {
+          appendLog(`Smart Engine: Auto-detected container listening on port ${detectedPort} (configured: ${containerPort}).`);
+          appendLog(`Smart Engine: Re-routing Traefik load balancer to port ${detectedPort}...`);
+
+          // Update project target port in DB
+          await this.prisma.project.update({
+            where: { id: projectId },
+            data: { port: detectedPort }
+          });
+
+          // Stop and remove old mismatched container
+          await runCmd(`docker stop ${containerName}`, buildDir).catch(() => null);
+          await runCmd(`docker rm ${containerName}`, buildDir).catch(() => null);
+
+          // Rebuild run string with the auto-detected port
+          containerPort = detectedPort;
+          runCmdString = [
+            'docker run -d',
+            `--name ${containerName}`,
+            `--network kh-cloud-network`,
+            `-e PORT=${containerPort}`,
+            envFlags,
+            `--restart unless-stopped`,
+            `-l "traefik.enable=true"`,
+            `-l "traefik.docker.network=kh-cloud-network"`,
+            `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
+            `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
+            `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
+            `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+            imageTag
+          ].filter(Boolean).join(' ');
+
+          runRes = await runCmd(runCmdString, buildDir);
+          if (runRes.code !== 0) {
+            throw new Error(`Failed to restart container with auto-detected port ${detectedPort}`);
+          }
+        }
+
+        // Final verification
         const inspectRes = await runCmd(`docker inspect -f '{{.State.Running}}' ${containerName}`, buildDir);
         const isRunning = inspectRes.stdout.trim() === 'true';
 
