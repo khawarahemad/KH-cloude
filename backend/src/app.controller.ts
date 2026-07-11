@@ -479,6 +479,140 @@ export class AppController {
       return [];
     }
   }
+
+  @Get('github/repos/detect')
+  async detectGithubProject(
+    @Query('userId') userId: string,
+    @Query('repo') repo: string,
+    @Query('branch') branch?: string,
+    @Query('rootDir') rootDir?: string
+  ) {
+    if (!userId || !repo) throw new BadRequestException('User ID and repo are required.');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.githubAccessToken) {
+      throw new BadRequestException('GitHub access token not found for user.');
+    }
+
+    const token = user.githubAccessToken;
+    const ref = branch ? `?ref=${branch}` : '';
+    const cleanRootDir = rootDir ? rootDir.replace(/^\/|\/$/g, '') : '';
+    const contentsUrl = `https://api.github.com/repos/${repo}/contents/${cleanRootDir}${ref}`;
+
+    try {
+      const res = await fetch(contentsUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+          'User-Agent': 'KH-Cloud-Backend',
+        },
+      });
+
+      if (!res.ok) {
+        return {
+          type: 'STATIC',
+          port: 80,
+          buildCommand: '',
+          startCommand: '',
+          installCommand: '',
+        };
+      }
+
+      const files = await res.json();
+      if (!Array.isArray(files)) {
+        return {
+          type: 'STATIC',
+          port: 80,
+          buildCommand: '',
+          startCommand: '',
+          installCommand: '',
+        };
+      }
+
+      const hasFile = (name: string) => files.some((f: any) => f.name.toLowerCase() === name.toLowerCase());
+
+      if (hasFile('package.json')) {
+        const pkgFile = files.find((f: any) => f.name === 'package.json');
+        let scripts: any = {};
+        if (pkgFile && pkgFile.download_url) {
+          try {
+            const pkgRes = await fetch(pkgFile.download_url, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (pkgRes.ok) {
+              const pkgJson = await pkgRes.json();
+              scripts = pkgJson.scripts || {};
+            }
+          } catch (e) {}
+        }
+
+        let buildCommand = 'npm run build';
+        if (!scripts.build) {
+          buildCommand = '';
+        }
+
+        let startCommand = 'npm run dev';
+        if (scripts.start) {
+          startCommand = 'npm run start';
+        } else if (scripts.dev) {
+          startCommand = 'npm run dev';
+        } else if (scripts.serve) {
+          startCommand = 'npm run serve';
+        }
+
+        return {
+          type: 'NODE',
+          port: 3000,
+          buildCommand,
+          startCommand,
+          installCommand: 'npm install',
+        };
+      }
+
+      if (hasFile('requirements.txt') || hasFile('pipfile') || hasFile('pyproject.toml')) {
+        let startCommand = 'python app.py';
+        if (hasFile('main.py')) {
+          startCommand = 'python main.py';
+        } else if (hasFile('manage.py')) {
+          startCommand = 'python manage.py runserver 0.0.0.0:8000';
+        }
+
+        return {
+          type: 'PYTHON',
+          port: 8000,
+          buildCommand: '',
+          startCommand,
+          installCommand: 'pip install -r requirements.txt',
+        };
+      }
+
+      if (hasFile('go.mod')) {
+        return {
+          type: 'GO',
+          port: 8080,
+          buildCommand: 'go build -o main .',
+          startCommand: './main',
+          installCommand: 'go mod download',
+        };
+      }
+
+      return {
+        type: 'STATIC',
+        port: 80,
+        buildCommand: '',
+        startCommand: '',
+        installCommand: '',
+      };
+    } catch (err) {
+      return {
+        type: 'STATIC',
+        port: 80,
+        buildCommand: '',
+        startCommand: '',
+        installCommand: '',
+      };
+    }
+  }
 }
 
 function pathName(key: string): string {

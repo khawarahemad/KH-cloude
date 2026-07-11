@@ -55,6 +55,7 @@ export default function ProjectsTab() {
   const [selectedBranch, setSelectedBranch] = useState('main');
   const [buildCommand, setBuildCommand] = useState('npm run build');
   const [startCommand, setStartCommand] = useState('npm run start');
+  const [installCommand, setInstallCommand] = useState('npm install');
   const [port, setPort] = useState(3000);
   const [rootDir, setRootDir] = useState('');
   const [rawEnvText, setRawEnvText] = useState('');
@@ -89,10 +90,13 @@ export default function ProjectsTab() {
   const [editName, setEditName] = useState('');
   const [editBuildCmd, setEditBuildCmd] = useState('');
   const [editStartCmd, setEditStartCmd] = useState('');
+  const [editInstallCmd, setEditInstallCmd] = useState('');
   const [editPort, setEditPort] = useState(3000);
   const [editBranch, setEditBranch] = useState('main');
   const [editRootDir, setEditRootDir] = useState('');
   const [settingsSaving, setSettingsSaving] = useState(false);
+
+  const [detectingProject, setDetectingProject] = useState(false);
 
   // Env vars UI state
   const [envSaving, setEnvSaving] = useState(false);
@@ -187,6 +191,7 @@ export default function ProjectsTab() {
       setEditName(projectDetails.name || '');
       setEditBuildCmd(projectDetails.buildCommand || '');
       setEditStartCmd(projectDetails.startCommand || '');
+      setEditInstallCmd(projectDetails.installCommand || '');
       setEditPort(projectDetails.port || 3000);
       setEditBranch(projectDetails.githubBranch || 'main');
       setEditRootDir(projectDetails.rootDirectory || '');
@@ -335,6 +340,47 @@ export default function ProjectsTab() {
     }
   };
 
+  const handleConfigureSettings = async () => {
+    if (!selectedRepo || !user) return;
+    setDetectingProject(true);
+    try {
+      const res = await apiRequest(
+        `/github/repos/detect?userId=${user.id}&repo=${selectedRepo}&branch=${selectedBranch}&rootDir=${rootDir}`
+      );
+      setPort(res.port);
+      setBuildCommand(res.buildCommand);
+      setStartCommand(res.startCommand);
+      setInstallCommand(res.installCommand);
+      setWizardStep(2);
+    } catch (err) {
+      setPort(3000);
+      setBuildCommand('npm run build');
+      setStartCommand('npm run start');
+      setInstallCommand('npm install');
+      setWizardStep(2);
+    } finally {
+      setDetectingProject(false);
+    }
+  };
+
+  const reDetectProjectConfig = async () => {
+    if (!selectedRepo || !user) return;
+    setDetectingProject(true);
+    try {
+      const res = await apiRequest(
+        `/github/repos/detect?userId=${user.id}&repo=${selectedRepo}&branch=${selectedBranch}&rootDir=${rootDir}`
+      );
+      setPort(res.port);
+      setBuildCommand(res.buildCommand);
+      setStartCommand(res.startCommand);
+      setInstallCommand(res.installCommand);
+    } catch (err) {
+      // ignore
+    } finally {
+      setDetectingProject(false);
+    }
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectName.trim() || !activeTeam) return;
@@ -348,8 +394,9 @@ export default function ProjectsTab() {
           githubRepo: selectedRepo,
           githubBranch: selectedBranch,
           rootDirectory: rootDir.trim(),
-          buildCommand,
+           buildCommand,
           startCommand,
+          installCommand,
           port,
           envVars: parsedEnvVars,
         }),
@@ -425,6 +472,7 @@ export default function ProjectsTab() {
           name: editName,
           buildCommand: editBuildCmd,
           startCommand: editStartCmd,
+          installCommand: editInstallCmd,
           port: editPort,
           githubBranch: editBranch,
           rootDirectory: editRootDir.trim(),
@@ -1271,6 +1319,16 @@ export default function ProjectsTab() {
                         </span>
                       </div>
                       <div>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Install Command</label>
+                        <input
+                          type="text"
+                          required
+                          value={editInstallCmd}
+                          onChange={(e) => setEditInstallCmd(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
+                        />
+                      </div>
+                      <div>
                         <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Build Command</label>
                         <input
                           type="text"
@@ -1534,11 +1592,16 @@ export default function ProjectsTab() {
                     </button>
                     <button
                       type="button"
-                      disabled={!newProjectName.trim() || !selectedRepo}
-                      onClick={() => setWizardStep(2)}
-                      className="h-9 px-4 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs disabled:bg-zinc-700 disabled:text-zinc-400 transition-colors"
+                      disabled={!newProjectName.trim() || !selectedRepo || detectingProject}
+                      onClick={handleConfigureSettings}
+                      className="h-9 px-4 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs disabled:bg-zinc-700 disabled:text-zinc-400 transition-colors flex items-center gap-1.5"
                     >
-                      Configure Settings
+                      {detectingProject ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin text-black" />
+                          Analyzing Repository...
+                        </>
+                      ) : 'Configure Settings'}
                     </button>
                   </div>
                 </div>
@@ -1571,13 +1634,28 @@ export default function ProjectsTab() {
 
                   <div>
                     <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Root Directory</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. frontend (leave blank to deploy from repository root)"
-                      value={rootDir}
-                      onChange={(e) => setRootDir(e.target.value)}
-                      className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. frontend (leave blank to deploy from repository root)"
+                        value={rootDir}
+                        onChange={(e) => setRootDir(e.target.value)}
+                        className="flex-1 h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={reDetectProjectConfig}
+                        disabled={detectingProject}
+                        className="h-10 px-3 rounded-xl border border-white/10 hover:bg-white/5 text-[10px] font-bold text-zinc-400 hover:text-white transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1"
+                      >
+                        {detectingProject ? (
+                          <>
+                            <Loader2 size={10} className="animate-spin text-indigo-500" />
+                            Scanning...
+                          </>
+                        ) : 'Detect Config'}
+                      </button>
+                    </div>
                     <span className="text-[9px] text-zinc-500 block mt-1 leading-normal">
                       The folder within your repository where your code lives (like frontend/ or client/).
                     </span>
@@ -1588,9 +1666,10 @@ export default function ProjectsTab() {
                     <input
                       type="text"
                       required
-                      value="npm install"
-                      disabled
-                      className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white opacity-60"
+                      value={installCommand}
+                      onChange={(e) => setInstallCommand(e.target.value)}
+                      placeholder="e.g. npm install"
+                      className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
                     />
                   </div>
 
