@@ -626,16 +626,16 @@ export class ProjectsService {
               const exportDefaultRegex = /export\s+default\s*\{/;
               const moduleExportsRegex = /module\.exports\s*=\s*\{/;
 
-              if (returnRegex.test(content)) {
-                content = content.replace(returnRegex, 'return {\n      server: { host: true, allowedHosts: true },');
-              } else if (arrowReturnRegex.test(content)) {
-                content = content.replace(arrowReturnRegex, '=> ({\n      server: { host: true, allowedHosts: true },');
-              } else if (defineConfigRegex.test(content)) {
+              if (defineConfigRegex.test(content)) {
                 content = content.replace(defineConfigRegex, 'defineConfig({\n  server: {\n    host: true,\n    allowedHosts: true\n  },');
               } else if (exportDefaultRegex.test(content)) {
                 content = content.replace(exportDefaultRegex, 'export default {\n  server: {\n    host: true,\n    allowedHosts: true\n  },');
               } else if (moduleExportsRegex.test(content)) {
                 content = content.replace(moduleExportsRegex, 'module.exports = {\n  server: {\n    host: true,\n    allowedHosts: true\n  },');
+              } else if (arrowReturnRegex.test(content)) {
+                content = content.replace(arrowReturnRegex, '=> ({\n      server: { host: true, allowedHosts: true },');
+              } else if (returnRegex.test(content)) {
+                content = content.replace(returnRegex, 'return {\n      server: { host: true, allowedHosts: true },');
               }
             }
 
