@@ -433,16 +433,104 @@ export class ProjectsService {
         // 3. Auto-generate Dockerfile if none exists
         const dockerfilePath = path.join(buildDir, 'Dockerfile');
         if (!fs.existsSync(dockerfilePath)) {
-          appendLog('No Dockerfile found in root directory. Scanning for package.json to auto-generate one...');
+          appendLog('No Dockerfile found in root directory. Running smart engine to auto-generate one...');
+          
+          // Case 1: Node.js Project (package.json exists)
           if (fs.existsSync(path.join(buildDir, 'package.json'))) {
-            const runCmdText = project.startCommand || 'npm start';
-            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nRUN npm run build --if-present\nEXPOSE ${project.port || 3000}\nCMD ${runCmdText}`;
+            appendLog('Detected Node.js application (package.json found). Parsing scripts...');
+            let detectedStartCommand = 'npm start';
+            let detectedPort = project.port || 3000;
+
+            try {
+              const packageJson = JSON.parse(fs.readFileSync(path.join(buildDir, 'package.json'), 'utf8'));
+              const scripts = packageJson.scripts || {};
+              
+              if (scripts.start) {
+                detectedStartCommand = 'npm start';
+              } else if (scripts.dev) {
+                appendLog('No "start" script found. Falling back to "dev" script...');
+                detectedStartCommand = 'npm run dev';
+              } else if (packageJson.main && fs.existsSync(path.join(buildDir, packageJson.main))) {
+                appendLog(`No start script found. Launching main entrypoint file: node ${packageJson.main}`);
+                detectedStartCommand = `node ${packageJson.main}`;
+              } else {
+                // Look for common files
+                const entries = ['server.js', 'app.js', 'index.js', 'main.js'];
+                const found = entries.find(f => fs.existsSync(path.join(buildDir, f)));
+                if (found) {
+                  appendLog(`Detected entrypoint file "${found}". Launching: node ${found}`);
+                  detectedStartCommand = `node ${found}`;
+                } else {
+                  appendLog('Warning: No clear startup script or entrypoint file detected. Defaulting to: npm start');
+                }
+              }
+            } catch (err) {
+              appendLog(`Failed to parse package.json: ${err.message}. Defaulting to npm start.`);
+            }
+
+            const runCmdText = project.startCommand || detectedStartCommand;
+            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nRUN npm run build --if-present\nEXPOSE ${detectedPort}\nCMD ${runCmdText}`;
             fs.writeFileSync(dockerfilePath, defaultDockerfile);
-          } else {
-            appendLog('No package.json found. Creating default HTML static server...');
+            appendLog(`Generated Node.js Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText})`);
+            
+            // Sync port to DB if not set
+            if (!project.port) {
+              await this.prisma.project.update({ where: { id: projectId }, data: { port: detectedPort } });
+              project.port = detectedPort;
+            }
+          }
+          // Case 2: Python Project (requirements.txt exists)
+          else if (fs.existsSync(path.join(buildDir, 'requirements.txt'))) {
+            appendLog('Detected Python application (requirements.txt found). Generating configuration...');
+            let detectedStartCommand = 'python app.py';
+            let detectedPort = project.port || 8000;
+
+            const entrypoints = ['app.py', 'main.py', 'server.py', 'wsgi.py'];
+            const found = entrypoints.find(f => fs.existsSync(path.join(buildDir, f)));
+            if (found) {
+              detectedStartCommand = `python ${found}`;
+            }
+
+            const runCmdText = project.startCommand || detectedStartCommand;
+            const defaultDockerfile = `FROM python:3.10-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY . .\nEXPOSE ${detectedPort}\nCMD ${runCmdText}`;
+            fs.writeFileSync(dockerfilePath, defaultDockerfile);
+            appendLog(`Generated Python Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText})`);
+            
+            // Sync port to DB if not set
+            if (!project.port) {
+              await this.prisma.project.update({ where: { id: projectId }, data: { port: detectedPort } });
+              project.port = detectedPort;
+            }
+          }
+          // Case 3: Go Project (go.mod exists)
+          else if (fs.existsSync(path.join(buildDir, 'go.mod'))) {
+            appendLog('Detected Go application (go.mod found). Generating builder configuration...');
+            let detectedPort = project.port || 8080;
+            const defaultDockerfile = `FROM golang:1.21-alpine AS builder\nWORKDIR /app\nCOPY go.mod go.sum* ./\nRUN go mod download --if-present\nCOPY . .\nRUN CGO_ENABLED=0 GOOS=linux go build -o main .\nFROM alpine:latest\nWORKDIR /app\nCOPY --from=builder /app/main .\nEXPOSE ${detectedPort}\nCMD ["./main"]`;
+            fs.writeFileSync(dockerfilePath, defaultDockerfile);
+            appendLog(`Generated Go builder Dockerfile (Port: ${detectedPort})`);
+            
+            // Sync port to DB if not set
+            if (!project.port) {
+              await this.prisma.project.update({ where: { id: projectId }, data: { port: detectedPort } });
+              project.port = detectedPort;
+            }
+          }
+          // Case 4: Static HTML Nginx fallback
+          else {
+            appendLog('No code dependency files found. Generating static Nginx web server...');
             const defaultDockerfile = `FROM nginx:alpine\nCOPY . /usr/share/nginx/html\nEXPOSE 80`;
             fs.writeFileSync(dockerfilePath, defaultDockerfile);
+            appendLog('Generated static HTML Nginx Dockerfile (Port: 80)');
+            
+            // Force port 80 for static
+            if (project.port !== 80) {
+              await this.prisma.project.update({ where: { id: projectId }, data: { port: 80 } });
+              project.port = 80;
+            }
           }
+        } else {
+          appendLog('Dockerfile detected in repository root. Using repository Dockerfile for deployment.');
         }
 
         // 4. Build Docker Image
