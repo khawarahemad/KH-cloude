@@ -26,6 +26,9 @@ RUN npm prune --omit=dev
 # --- Production Stage ---
 FROM node:20-alpine AS runner
 
+# Install git and docker-cli for live deployment engine
+RUN apk add --no-cache git docker-cli
+
 WORKDIR /usr/src/app
 
 COPY package*.json ./
