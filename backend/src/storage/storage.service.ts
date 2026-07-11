@@ -64,6 +64,14 @@ export class StorageService implements OnModuleInit {
   }
 
   async createBucket(name: string, isPublic: boolean, teamId: string) {
+    const subscription = await this.prisma.billingSubscription.findUnique({
+      where: { teamId },
+    });
+    const isPro = subscription && (subscription.planId === 'pro' || subscription.planId === 'enterprise') && subscription.status === 'active';
+    if (!isPro) {
+      throw new BadRequestException('Object Storage is only available for Pro users. Please upgrade your subscription.');
+    }
+
     // Validate bucket name
     if (!/^[a-z0-9.-]{3,63}$/.test(name)) {
       throw new BadRequestException('Bucket name must be 3-63 characters, lowercase letters, numbers, dots, or hyphens.');
@@ -194,6 +202,14 @@ export class StorageService implements OnModuleInit {
       throw new BadRequestException('Bucket not found.');
     }
 
+    const subscription = await this.prisma.billingSubscription.findUnique({
+      where: { teamId },
+    });
+    const isPro = subscription && (subscription.planId === 'pro' || subscription.planId === 'enterprise') && subscription.status === 'active';
+    if (!isPro) {
+      throw new BadRequestException('Object Storage is only available for Pro users. Please upgrade your subscription.');
+    }
+
     let processedBuffer = fileBuffer;
     let finalContentType = contentType;
 
@@ -218,6 +234,18 @@ export class StorageService implements OnModuleInit {
     }
 
     const fileSize = processedBuffer.length;
+
+    const existingFile = await this.prisma.objectMetadata.findUnique({
+      where: { bucketId_key: { bucketId, key } },
+    });
+    const oldSize = existingFile ? existingFile.size : BigInt(0);
+
+    const projectedSize = bucket.sizeUsed - oldSize + BigInt(fileSize);
+    if (projectedSize > bucket.sizeLimit) {
+      throw new BadRequestException(
+        `Upload exceeds bucket storage limit. Limit: ${(Number(bucket.sizeLimit) / (1024 * 1024)).toFixed(2)}MB, Projected: ${(Number(projectedSize) / (1024 * 1024)).toFixed(2)}MB.`
+      );
+    }
 
     // Save binary
     if (this.useMock) {

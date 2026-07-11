@@ -7,11 +7,13 @@ import { HardDrive, Plus, Folder, File, ArrowLeft, Loader2, Upload, Trash, Copy,
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function StorageTab() {
-  const { activeTeam } = useAppStore();
+  const { activeTeam, setActiveTab } = useAppStore();
   
   // Bucket list state
   const [buckets, setBuckets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [billing, setBilling] = useState<any | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [bucketName, setBucketName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
@@ -72,8 +74,24 @@ export default function StorageTab() {
     }
   };
 
+  const fetchBillingInfo = async () => {
+    if (!activeTeam) return;
+    setBillingLoading(true);
+    try {
+      const data = await apiRequest(`/billing?teamId=${activeTeam.id}`);
+      setBilling(data);
+    } catch (err) {
+      setBilling({
+        subscription: { planId: 'hobby' }
+      });
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchBuckets();
+    fetchBillingInfo();
   }, [activeTeam]);
 
   useEffect(() => {
@@ -372,11 +390,58 @@ client.put_object()
 
       {/* Main Container */}
       <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
+        {billingLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
             <Loader2 className="animate-spin text-indigo-400" size={32} />
-            <span className="text-xs">Fetching storage buckets...</span>
+            <span className="text-xs">Checking subscription plan...</span>
           </div>
+        ) : (billing?.subscription?.planId !== 'pro' && billing?.subscription?.planId !== 'enterprise') ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center max-w-xl mx-auto">
+            <div className="relative mb-6 text-indigo-400">
+              <div className="absolute inset-0 rounded-3xl bg-indigo-500/20 blur-xl animate-pulse"></div>
+              <div className="relative w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+                <Sparkles size={28} className="animate-bounce" />
+              </div>
+            </div>
+            
+            <h3 className="font-extrabold text-xl mb-2 text-white">Object Storage is a Pro Feature</h3>
+            <p className="text-xs text-zinc-400 max-w-sm mb-8 leading-relaxed">
+              Store and serve files, images, database backups, and static assets globally with S3 compatibility. Upgrade your team subscription to unlock high-performance Object Storage.
+            </p>
+
+            <div className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-5 mb-8 text-left space-y-3.5">
+              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Plan Benefits Included:</div>
+              <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                <div className="flex items-center gap-2 text-zinc-300">
+                  <span className="text-indigo-400">✓</span> High-performance MinIO/S3 compatible storage
+                </div>
+                <div className="flex items-center gap-2 text-zinc-300">
+                  <span className="text-indigo-400">✓</span> Global Traefik routing with CDN acceleration
+                </div>
+                <div className="flex items-center gap-2 text-zinc-300">
+                  <span className="text-indigo-400">✓</span> Automatic Image optimization & webp conversion
+                </div>
+                <div className="flex items-center gap-2 text-zinc-300">
+                  <span className="text-indigo-400">✓</span> Granular Read/Write API Access Keys
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('billing')}
+              className="h-10 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-bold text-xs transition-all shadow-md shadow-indigo-500/10 active:scale-95 duration-100 flex items-center gap-2"
+            >
+              <Zap size={12} className="text-white" />
+              Upgrade to Pro Plan
+            </button>
+          </div>
+        ) : (
+          <>
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
+                <Loader2 className="animate-spin text-indigo-400" size={32} />
+                <span className="text-xs">Fetching storage buckets...</span>
+              </div>
         ) : !activeBucket ? (
           /* BUCKETS GRID LIST */
           buckets.length === 0 ? (
@@ -642,7 +707,9 @@ client.put_object()
             </div>
           </div>
         )}
-      </div>
+      </>
+    )}
+  </div>
 
       {/* Bucket Creation Modal */}
       {createOpen && (
