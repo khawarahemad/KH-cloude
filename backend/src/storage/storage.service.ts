@@ -32,13 +32,30 @@ export class StorageService implements OnModuleInit {
         forcePathStyle: true,
       });
 
-      // Simple connectivity check - try listing buckets with a timeout
+      // Simple connectivity check - try listing objects with a timeout
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2000);
       
-      // We will perform a quick check, if it fails, catch and set mock mode
-      this.useMock = true; // Default to mock mode since docker is offline
-      this.logger.log('Docker is offline. Running Object Storage in Local Fallback Mock mode (saving binaries to local disk).');
+      await this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: 'connectivity-test-bucket',
+          MaxKeys: 1,
+          $abortSignal: controller.signal as any,
+        })
+      ).then(() => {
+        this.useMock = false;
+        this.logger.log('Successfully connected to MinIO cluster. S3 compatible Object Storage active.');
+      }).catch((err) => {
+        // If it fails with NoSuchBucket, AccessDenied, etc., the server is active!
+        if (err.name === 'NoSuchBucket' || err.name === 'AccessDenied' || err.$metadata?.httpStatusCode) {
+          this.useMock = false;
+          this.logger.log('Successfully connected to MinIO cluster. S3 compatible Object Storage active.');
+        } else {
+          this.useMock = true;
+          this.logger.warn('Failed to connect to MinIO (network error). Using local mock storage.');
+        }
+      });
+
       clearTimeout(timeout);
     } catch (err) {
       this.useMock = true;
