@@ -444,15 +444,26 @@ export class ProjectsService {
               continue;
             }
 
-            if (content.includes('server:')) {
-              content = content.replace(/server\s*:\s*\{/, 'server: {\n    allowedHosts: true,');
+            const serverRegex = /(['"]?)server\1\s*:\s*\{/;
+            if (serverRegex.test(content)) {
+              content = content.replace(serverRegex, (match) => `${match}\n    allowedHosts: true,`);
             } else {
-              if (content.includes('defineConfig(')) {
-                content = content.replace(/defineConfig\s*\(\s*\{/, 'defineConfig({\n  server: {\n    allowedHosts: true\n  },');
-              } else if (content.includes('export default {')) {
-                content = content.replace(/export\s+default\s*\{/, 'export default {\n  server: {\n    allowedHosts: true\n  },');
-              } else if (content.includes('module.exports = {')) {
-                content = content.replace(/module\.exports\s*=\s*\{/, 'module.exports = {\n  server: {\n    allowedHosts: true\n  },');
+              const returnRegex = /return\s*\{/;
+              const arrowReturnRegex = /=>\s*\(\s*\{/;
+              const defineConfigRegex = /defineConfig\s*\(\s*\{/;
+              const exportDefaultRegex = /export\s+default\s*\{/;
+              const moduleExportsRegex = /module\.exports\s*=\s*\{/;
+
+              if (returnRegex.test(content)) {
+                content = content.replace(returnRegex, 'return {\n      server: { allowedHosts: true },');
+              } else if (arrowReturnRegex.test(content)) {
+                content = content.replace(arrowReturnRegex, '=> ({\n      server: { allowedHosts: true },');
+              } else if (defineConfigRegex.test(content)) {
+                content = content.replace(defineConfigRegex, 'defineConfig({\n  server: {\n    allowedHosts: true\n  },');
+              } else if (exportDefaultRegex.test(content)) {
+                content = content.replace(exportDefaultRegex, 'export default {\n  server: {\n    allowedHosts: true\n  },');
+              } else if (moduleExportsRegex.test(content)) {
+                content = content.replace(moduleExportsRegex, 'module.exports = {\n  server: {\n    allowedHosts: true\n  },');
               }
             }
 
