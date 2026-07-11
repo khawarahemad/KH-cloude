@@ -75,6 +75,8 @@ services:
       - MINIO_ENDPOINT=https://storage.khawarahemad.com
       - MINIO_ACCESS_KEY=khcloudroot
       - MINIO_SECRET_KEY=khcloudrootpassword
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
     volumes:
       - /var/lib/kh-cloud/db:/usr/src/app/data
       - /var/lib/kh-cloud/storage-mock:/usr/src/app/storage-mock
@@ -96,6 +98,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: kh-cloud-frontend
+    environment:
+      - NEXT_PUBLIC_GITHUB_CLIENT_ID=${NEXT_PUBLIC_GITHUB_CLIENT_ID}
     depends_on:
       - backend
     restart: unless-stopped
