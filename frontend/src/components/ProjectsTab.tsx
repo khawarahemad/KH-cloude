@@ -677,72 +677,102 @@ export default function ProjectsTab() {
                   </div>
 
                   {/* DNS Guide Box */}
-                  <div className="glass p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/5 max-w-lg text-[10px] space-y-3">
-                    <h5 className="font-bold text-indigo-400">DNS Setup Instructions</h5>
-                    <p className="text-zinc-400 leading-relaxed">
-                      Add the following DNS records in your DNS provider depending on your domain type:
-                    </p>
+                  <div className="glass p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/5 max-w-lg text-[10px] space-y-4">
+                    <div className="flex items-center gap-2">
+                      <h5 className="font-bold text-indigo-400 text-xs">How to Connect Your Domain</h5>
+                      <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">Step-by-step</span>
+                    </div>
 
-                    {/* Option 1: A Record for root/apex domain */}
+                    {/* Step 1 */}
                     <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-500/20 text-amber-400">OPTION 1</span>
-                        <span className="text-zinc-300 font-semibold">Root / Apex domain</span>
-                        <span className="text-zinc-500">e.g. iqamaprint.com</span>
+                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
+                        <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center flex-shrink-0 text-[8px]">1</span>
+                        Open your DNS provider and go to DNS Records
                       </div>
-                      <div className="grid grid-cols-3 gap-2 font-mono bg-black/30 p-2.5 rounded-lg text-[9px] border border-white/5">
-                        <div>
-                          <span className="text-zinc-500 block">Type</span>
-                          <span className="text-amber-400 font-bold">A</span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block">Name / Host</span>
-                          <span className="text-white">@</span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block">Value / Content</span>
-                          <span className="text-white font-bold select-all">204.168.147.13</span>
-                        </div>
+                      <div className="ml-6 text-zinc-500 leading-relaxed">
+                        Go to <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline font-bold">Cloudflare Dashboard</a> → select your domain → click <strong className="text-zinc-300">DNS</strong> → <strong className="text-zinc-300">Records</strong>
                       </div>
                     </div>
 
-                    {/* Option 2: CNAME for subdomain */}
+                    {/* Step 2 */}
                     <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-indigo-500/20 text-indigo-400">OPTION 2</span>
-                        <span className="text-zinc-300 font-semibold">Subdomain</span>
-                        <span className="text-zinc-500">e.g. www.iqamaprint.com</span>
+                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
+                        <span className="w-4 h-4 rounded-full bg-amber-500/30 text-amber-300 flex items-center justify-center flex-shrink-0 text-[8px]">2</span>
+                        Delete any existing A records pointing to your old server
                       </div>
-                      <div className="grid grid-cols-3 gap-2 font-mono bg-black/30 p-2.5 rounded-lg text-[9px] border border-white/5">
-                        <div>
-                          <span className="text-zinc-500 block">Type</span>
-                          <span className="text-indigo-400 font-bold">CNAME</span>
+                      <div className="ml-6 text-zinc-500 leading-relaxed">
+                        Look for any <code className="bg-white/5 px-1 rounded text-amber-400">A</code> records with Name <code className="bg-white/5 px-1 rounded text-white">@</code> or your domain name. Click <strong className="text-red-400">Edit → Delete</strong> on those first to avoid conflicts.
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
+                        <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center flex-shrink-0 text-[8px]">3</span>
+                        Add these two records (click "Add record" for each)
+                      </div>
+
+                      {/* Record table */}
+                      <div className="ml-6 space-y-2">
+                        {/* A Record */}
+                        <div className="bg-black/40 rounded-lg border border-amber-500/10 overflow-hidden">
+                          <div className="px-2.5 py-1 bg-amber-500/5 border-b border-amber-500/10 flex items-center gap-1.5">
+                            <span className="font-bold text-amber-400 text-[9px]">A Record</span>
+                            <span className="text-zinc-500">— For your root domain (e.g. yourdomain.com)</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-0 divide-x divide-white/5 font-mono text-[9px]">
+                            <div className="px-2.5 py-2">
+                              <span className="text-zinc-500 block text-[8px] mb-0.5">Type</span>
+                              <span className="text-amber-400 font-bold">A</span>
+                            </div>
+                            <div className="px-2.5 py-2">
+                              <span className="text-zinc-500 block text-[8px] mb-0.5">Name / Host</span>
+                              <span className="text-white font-bold">@</span>
+                            </div>
+                            <div className="px-2.5 py-2">
+                              <span className="text-zinc-500 block text-[8px] mb-0.5">IPv4 Address</span>
+                              <span className="text-emerald-400 font-bold select-all cursor-text">204.168.147.13</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-zinc-500 block">Name / Host</span>
-                          <span className="text-white">www</span>
+
+                        {/* CNAME Record */}
+                        <div className="bg-black/40 rounded-lg border border-indigo-500/10 overflow-hidden">
+                          <div className="px-2.5 py-1 bg-indigo-500/5 border-b border-indigo-500/10 flex items-center gap-1.5">
+                            <span className="font-bold text-indigo-400 text-[9px]">CNAME Record</span>
+                            <span className="text-zinc-500">— For www subdomain (e.g. www.yourdomain.com)</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-0 divide-x divide-white/5 font-mono text-[9px]">
+                            <div className="px-2.5 py-2">
+                              <span className="text-zinc-500 block text-[8px] mb-0.5">Type</span>
+                              <span className="text-indigo-400 font-bold">CNAME</span>
+                            </div>
+                            <div className="px-2.5 py-2">
+                              <span className="text-zinc-500 block text-[8px] mb-0.5">Name / Host</span>
+                              <span className="text-white font-bold">www</span>
+                            </div>
+                            <div className="px-2.5 py-2">
+                              <span className="text-zinc-500 block text-[8px] mb-0.5">Target / Value</span>
+                              <span className="text-emerald-400 font-bold select-all cursor-text">cloud.khawarahemad.com</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-zinc-500 block">Value / Target</span>
-                          <span className="text-white font-bold select-all">cloud.khawarahemad.com</span>
+
+                        <div className="text-zinc-600 text-[8px] leading-relaxed">
+                          ⚠️ In Cloudflare, set <strong className="text-zinc-400">Proxy status to "DNS only"</strong> (grey cloud, not orange) for both records.
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-1 border-t border-white/5 text-[9px] text-zinc-500 leading-relaxed">
-                      💡 <strong className="text-zinc-400">Tip:</strong> For full coverage, add <strong>both</strong> — an A record for <code>@</code> and a CNAME for <code>www</code>. Then add both <code>iqamaprint.com</code> and <code>www.iqamaprint.com</code> in the domain box below.
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[9px]">
-                      <span className="text-zinc-500">Managing domain on Cloudflare?</span>
-                      <a
-                        href="https://dash.cloudflare.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-400 hover:underline font-bold flex items-center gap-1"
-                      >
-                        Open Cloudflare DNS &rarr;
-                      </a>
+                    {/* Step 4 */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
+                        <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center flex-shrink-0 text-[8px]">4</span>
+                        Add your domain(s) below and click Connect
+                      </div>
+                      <div className="ml-6 text-zinc-500 leading-relaxed">
+                        Enter <code className="bg-white/5 px-1 rounded text-white">yourdomain.com</code> and <code className="bg-white/5 px-1 rounded text-white">www.yourdomain.com</code> separately in the field below. DNS changes may take up to <strong className="text-zinc-400">5 minutes</strong> to take effect.
+                      </div>
                     </div>
                   </div>
 
