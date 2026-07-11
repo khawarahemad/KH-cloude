@@ -664,7 +664,36 @@ export default function ProjectsTab() {
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-xs font-bold text-zinc-400 mb-2">Configure Routing Domains</h4>
-                    <p className="text-[10px] text-zinc-500">Point your DNS records (CNAME) to `cdn.khawarahemad.com` to verify.</p>
+                    <p className="text-[10px] text-zinc-500">Add custom domains to route web traffic directly to your application.</p>
+                  </div>
+
+                  {/* DNS Guide Box */}
+                  <div className="glass p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/5 max-w-lg text-[10px] space-y-2.5">
+                    <h5 className="font-bold text-indigo-400">DNS Setup Instructions</h5>
+                    <p className="text-zinc-400 leading-relaxed">
+                      To point your custom domain here, add a **CNAME record** in your DNS provider:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 font-mono bg-black/30 p-2.5 rounded-lg text-[9px] border border-white/5">
+                      <div>
+                        <span className="text-zinc-500 block">Name / Host</span>
+                        <span className="text-white">@ (or subdomain name)</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block">Target / Value</span>
+                        <span className="text-white font-bold">cloud.khawarahemad.com</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[9px]">
+                      <span className="text-zinc-500">Managing domain on Cloudflare?</span>
+                      <a
+                        href="https://dash.cloudflare.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-400 hover:underline font-bold flex items-center gap-1"
+                      >
+                        Open Cloudflare DNS &rarr;
+                      </a>
+                    </div>
                   </div>
 
                   {/* Add Domain Form */}
@@ -836,6 +865,27 @@ export default function ProjectsTab() {
                       </button>
                     </div>
                   </form>
+
+                  {/* GitOps Guide Card */}
+                  <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4 max-w-3xl">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <Github size={16} className="text-zinc-400" />
+                      GitOps Auto-Deployment
+                    </h4>
+                    <p className="text-[10px] text-zinc-400 leading-relaxed">
+                      Automatically trigger a clean rebuild and redeployment of your container whenever you push code changes to your repository.
+                    </p>
+                    <div className="space-y-2.5">
+                      <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Webhook Configuration:</div>
+                      <ol className="list-decimal list-inside text-[9px] text-zinc-400 space-y-1.5 leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5 font-medium">
+                        <li>Go to your repository settings on GitHub.</li>
+                        <li>Select <strong>Webhooks</strong> in the sidebar, and click <strong>Add webhook</strong>.</li>
+                        <li>Set <strong>Payload URL</strong> to: <code className="text-indigo-400 select-all font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded">https://api.khawarahemad.com/github/webhook</code></li>
+                        <li>Set <strong>Content type</strong> to: <code className="text-zinc-300 font-mono">application/json</code></li>
+                        <li>Select <strong>Just the push event</strong> and click <strong>Add webhook</strong>.</li>
+                      </ol>
+                    </div>
+                  </div>
 
                   <div className="border border-red-500/20 bg-red-500/5 p-6 rounded-2xl space-y-3 max-w-3xl">
                     <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">Danger Zone</h4>
