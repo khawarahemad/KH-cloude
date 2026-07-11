@@ -285,7 +285,7 @@ export class ProjectsService {
       try {
         const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
           return new Promise((resolve) => {
-            const proc = exec(cmd);
+            const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
             let stdout = '';
             let stderr = '';
             proc.stdout?.on('data', (d) => { stdout += d.toString(); });
@@ -386,7 +386,7 @@ export class ProjectsService {
       try {
         const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
           return new Promise((resolve) => {
-            const proc = exec(cmd);
+            const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
             let stdout = '';
             let stderr = '';
             proc.stdout?.on('data', (d) => { stdout += d.toString(); });
@@ -554,7 +554,7 @@ export class ProjectsService {
 
     const runCmd = (cmd: string, cwd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
       return new Promise((resolve) => {
-        const proc = exec(cmd, { cwd });
+        const proc = exec(cmd, { cwd, maxBuffer: 1024 * 1024 * 50 });
         let stdout = '';
         let stderr = '';
         proc.stdout?.on('data', (data) => {
