@@ -30,6 +30,8 @@ sudo mkdir -p /var/lib/kh-cloud/storage-mock
 
 # Ensure correct permissions
 sudo chmod -R 777 /var/lib/kh-cloud/
+sudo touch /var/lib/kh-cloud/traefik-acme/acme.json
+sudo chmod 600 /var/lib/kh-cloud/traefik-acme/acme.json
 
 echo "=== [3/5] Starting KH Cloud Service Containers ==="
 # Spin up production containers in detached mode
