@@ -263,6 +263,41 @@ export class ProjectsService {
     return domain;
   }
 
+  async deleteProject(projectId: string, teamId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, teamId },
+    });
+    if (!project) throw new NotFoundException('Project not found.');
+
+    // Stop and remove the project's Docker container on the host VPS
+    const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+
+    exec(`docker stop ${containerName} && docker rm ${containerName}`, (error, stdout, stderr) => {
+      if (error) {
+        this.logger.error(`Failed to stop/remove container ${containerName}: ${stderr}`);
+      } else {
+        this.logger.log(`Successfully removed container ${containerName}`);
+      }
+    });
+
+    // Delete project from database (cascades to deployments, envVars, domains)
+    await this.prisma.project.delete({
+      where: { id: projectId },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        teamId,
+        action: 'PROJECT.DELETE',
+        targetType: 'PROJECT',
+        targetId: projectId,
+      },
+    });
+
+    return { success: true };
+  }
+
   async getProjectMetrics(projectId: string) {
     // Generate high-fidelity metric timeseries for dashboard graphs
     const now = new Date();

@@ -189,6 +189,14 @@ export class AppController {
     return this.projects.getProjectMetrics(id);
   }
 
+  @Delete('projects/:id')
+  async deleteProject(
+    @Param('id') id: string,
+    @Query('teamId') teamId: string
+  ) {
+    return this.projects.deleteProject(id, teamId);
+  }
+
   // --- DATABASES ENDPOINTS ---
 
   @Post('databases')

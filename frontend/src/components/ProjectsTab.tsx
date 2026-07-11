@@ -237,6 +237,23 @@ export default function ProjectsTab() {
     }
   };
 
+  const handleDeleteProject = async () => {
+    if (!projectDetails || !activeTeam) return;
+    if (!confirm(`Are you absolutely sure you want to delete the project "${projectDetails.name}"?`)) return;
+
+    try {
+      await apiRequest(`/projects/${projectDetails.id}?teamId=${activeTeam.id}`, {
+        method: 'DELETE',
+      });
+      setActiveProjectId(null);
+      setProjectDetails(null);
+      fetchProjects();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete project.');
+    }
+  };
+
   const handleAddEnv = async () => {
     if (!newEnvKey.trim() || !newEnvVal.trim() || !activeProjectId) return;
     const updated = [...envVars, { key: newEnvKey, value: newEnvVal, isSecret: newEnvSecret }];
@@ -438,7 +455,7 @@ export default function ProjectsTab() {
 
             {/* Content selector tabs */}
             <div className="flex border-b border-white/5 text-xs font-semibold gap-6">
-              {(['deployments', 'env', 'domains', 'metrics'] as const).map(tab => (
+              {(['deployments', 'env', 'domains', 'metrics', 'settings'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setDetailsTab(tab)}
@@ -661,6 +678,55 @@ export default function ProjectsTab() {
                         </RechartsContainer>
                       )}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Settings tab */}
+              {detailsTab === 'settings' && (
+                <div className="space-y-6">
+                  <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4 max-w-3xl">
+                    <h4 className="text-sm font-bold text-white">Project Details</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
+                      <div>
+                        <span className="text-zinc-500 block mb-1">Project Name</span>
+                        <span className="font-semibold text-white">{projectDetails?.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block mb-1">Repository</span>
+                        <span className="font-semibold text-white">{projectDetails?.githubRepo}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block mb-1">Git Branch</span>
+                        <span className="font-semibold text-white font-mono">{projectDetails?.githubBranch || 'main'}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block mb-1">Target Port</span>
+                        <span className="font-semibold text-white font-mono">{projectDetails?.port || 3000}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block mb-1">Build Command</span>
+                        <span className="font-semibold text-white font-mono">{projectDetails?.buildCommand || 'npm run build'}</span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block mb-1">Start Command</span>
+                        <span className="font-semibold text-white font-mono">{projectDetails?.startCommand || 'npm run start'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-red-500/20 bg-red-500/5 p-6 rounded-2xl space-y-3 max-w-3xl">
+                    <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">Danger Zone</h4>
+                    <p className="text-[10px] text-zinc-400 leading-relaxed">
+                      Permanently delete this project, all associated deployments, database logs, and stop the running Docker container on the host VPS. This action cannot be undone.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleDeleteProject}
+                      className="h-9 px-4 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-xs transition-all active:scale-95 duration-100 shadow-md shadow-red-500/10"
+                    >
+                      Delete Project
+                    </button>
                   </div>
                 </div>
               )}
