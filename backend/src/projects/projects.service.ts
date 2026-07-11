@@ -300,7 +300,7 @@ export class ProjectsService {
 
   async updateProject(
     projectId: string,
-    data: { name?: string; buildCommand?: string; startCommand?: string; port?: number; teamId: string }
+    data: { name?: string; buildCommand?: string; startCommand?: string; port?: number; githubBranch?: string; teamId: string }
   ) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId: data.teamId },
@@ -314,6 +314,7 @@ export class ProjectsService {
         buildCommand: data.buildCommand ?? project.buildCommand,
         startCommand: data.startCommand ?? project.startCommand,
         port: data.port !== undefined ? data.port : project.port,
+        githubBranch: data.githubBranch ?? project.githubBranch,
       },
     });
 

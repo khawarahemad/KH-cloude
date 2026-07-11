@@ -53,6 +53,7 @@ export default function ProjectsTab() {
   const [editBuildCmd, setEditBuildCmd] = useState('');
   const [editStartCmd, setEditStartCmd] = useState('');
   const [editPort, setEditPort] = useState(3000);
+  const [editBranch, setEditBranch] = useState('main');
   const [settingsSaving, setSettingsSaving] = useState(false);
   
   // Custom domain state
@@ -92,6 +93,7 @@ export default function ProjectsTab() {
       setEditBuildCmd(projectDetails.buildCommand || '');
       setEditStartCmd(projectDetails.startCommand || '');
       setEditPort(projectDetails.port || 3000);
+      setEditBranch(projectDetails.githubBranch || 'main');
     }
   }, [projectDetails]);
 
@@ -282,6 +284,7 @@ export default function ProjectsTab() {
           buildCommand: editBuildCmd,
           startCommand: editStartCmd,
           port: editPort,
+          githubBranch: editBranch,
           teamId: activeTeam.id,
         }),
       });
@@ -745,8 +748,14 @@ export default function ProjectsTab() {
                         <span className="font-semibold text-white h-9 flex items-center">{projectDetails?.githubRepo}</span>
                       </div>
                       <div>
-                        <span className="text-zinc-500 block mb-1">Git Branch</span>
-                        <span className="font-semibold text-white font-mono h-9 flex items-center">{projectDetails?.githubBranch || 'main'}</span>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Git Branch</label>
+                        <input
+                          type="text"
+                          required
+                          value={editBranch}
+                          onChange={(e) => setEditBranch(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
+                        />
                       </div>
                       <div>
                         <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Port</label>
