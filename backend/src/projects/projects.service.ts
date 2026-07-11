@@ -298,6 +298,28 @@ export class ProjectsService {
     return { success: true };
   }
 
+  async updateProject(
+    projectId: string,
+    data: { name?: string; buildCommand?: string; startCommand?: string; port?: number; teamId: string }
+  ) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, teamId: data.teamId },
+    });
+    if (!project) throw new NotFoundException('Project not found.');
+
+    const updated = await this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        name: data.name ?? project.name,
+        buildCommand: data.buildCommand ?? project.buildCommand,
+        startCommand: data.startCommand ?? project.startCommand,
+        port: data.port !== undefined ? data.port : project.port,
+      },
+    });
+
+    return updated;
+  }
+
   async getProjectMetrics(projectId: string) {
     // Generate high-fidelity metric timeseries for dashboard graphs
     const now = new Date();
@@ -413,8 +435,8 @@ export class ProjectsService {
         if (!fs.existsSync(dockerfilePath)) {
           appendLog('No Dockerfile found in root directory. Scanning for package.json to auto-generate one...');
           if (fs.existsSync(path.join(buildDir, 'package.json'))) {
-            appendLog('Found package.json. Generating default Node.js Dockerfile...');
-            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nRUN npm run build --if-present\nEXPOSE 3000\nCMD ["npm", "start"]`;
+            const runCmdText = project.startCommand || 'npm start';
+            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nRUN npm run build --if-present\nEXPOSE ${project.port || 3000}\nCMD ${runCmdText}`;
             fs.writeFileSync(dockerfilePath, defaultDockerfile);
           } else {
             appendLog('No package.json found. Creating default HTML static server...');

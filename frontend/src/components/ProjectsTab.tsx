@@ -42,11 +42,18 @@ export default function ProjectsTab() {
   const [repoSearch, setRepoSearch] = useState('');
   
   // Active details tab
-  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics'>('deployments');
+  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'settings'>('deployments');
   const [envVars, setEnvVars] = useState<{ key: string; value: string; isSecret: boolean }[]>([]);
   const [newEnvKey, setNewEnvKey] = useState('');
   const [newEnvVal, setNewEnvVal] = useState('');
   const [newEnvSecret, setNewEnvSecret] = useState(true);
+
+  // Settings editing states
+  const [editName, setEditName] = useState('');
+  const [editBuildCmd, setEditBuildCmd] = useState('');
+  const [editStartCmd, setEditStartCmd] = useState('');
+  const [editPort, setEditPort] = useState(3000);
+  const [settingsSaving, setSettingsSaving] = useState(false);
   
   // Custom domain state
   const [customDomain, setCustomDomain] = useState('');
@@ -78,6 +85,15 @@ export default function ProjectsTab() {
       fetchGithubRepos();
     }
   }, [wizardOpen, user]);
+
+  useEffect(() => {
+    if (projectDetails) {
+      setEditName(projectDetails.name || '');
+      setEditBuildCmd(projectDetails.buildCommand || '');
+      setEditStartCmd(projectDetails.startCommand || '');
+      setEditPort(projectDetails.port || 3000);
+    }
+  }, [projectDetails]);
 
   const handleConnectGithub = () => {
     const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || 'Iv23libP2nC0sNq21c8u';
@@ -251,6 +267,32 @@ export default function ProjectsTab() {
     } catch (err) {
       console.error(err);
       alert('Failed to delete project.');
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeProjectId || !activeTeam) return;
+    setSettingsSaving(true);
+    try {
+      const updated = await apiRequest(`/projects/${activeProjectId}/update`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: editName,
+          buildCommand: editBuildCmd,
+          startCommand: editStartCmd,
+          port: editPort,
+          teamId: activeTeam.id,
+        }),
+      });
+      setProjectDetails(updated);
+      alert('Project settings saved successfully! Click Redeploy to rebuild with the new commands.');
+      fetchProjects();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update project settings.');
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -685,35 +727,77 @@ export default function ProjectsTab() {
               {/* Settings tab */}
               {detailsTab === 'settings' && (
                 <div className="space-y-6">
-                  <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4 max-w-3xl">
+                  <form onSubmit={handleSaveSettings} className="glass-card p-6 rounded-2xl border border-white/5 space-y-6 max-w-3xl">
                     <h4 className="text-sm font-bold text-white">Project Details</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
                       <div>
-                        <span className="text-zinc-500 block mb-1">Project Name</span>
-                        <span className="font-semibold text-white">{projectDetails?.name}</span>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Project Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white"
+                        />
                       </div>
                       <div>
                         <span className="text-zinc-500 block mb-1">Repository</span>
-                        <span className="font-semibold text-white">{projectDetails?.githubRepo}</span>
+                        <span className="font-semibold text-white h-9 flex items-center">{projectDetails?.githubRepo}</span>
                       </div>
                       <div>
                         <span className="text-zinc-500 block mb-1">Git Branch</span>
-                        <span className="font-semibold text-white font-mono">{projectDetails?.githubBranch || 'main'}</span>
+                        <span className="font-semibold text-white font-mono h-9 flex items-center">{projectDetails?.githubBranch || 'main'}</span>
                       </div>
                       <div>
-                        <span className="text-zinc-500 block mb-1">Target Port</span>
-                        <span className="font-semibold text-white font-mono">{projectDetails?.port || 3000}</span>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Port</label>
+                        <input
+                          type="number"
+                          required
+                          value={editPort}
+                          onChange={(e) => setEditPort(parseInt(e.target.value))}
+                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
+                        />
+                        <span className="text-[9px] text-zinc-500 block mt-1 leading-normal">
+                          Internal container port. Docker network isolation automatically prevents any overlaps.
+                        </span>
                       </div>
                       <div>
-                        <span className="text-zinc-500 block mb-1">Build Command</span>
-                        <span className="font-semibold text-white font-mono">{projectDetails?.buildCommand || 'npm run build'}</span>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Build Command</label>
+                        <input
+                          type="text"
+                          required
+                          value={editBuildCmd}
+                          onChange={(e) => setEditBuildCmd(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
+                        />
                       </div>
                       <div>
-                        <span className="text-zinc-500 block mb-1">Start Command</span>
-                        <span className="font-semibold text-white font-mono">{projectDetails?.startCommand || 'npm run start'}</span>
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Start Command</label>
+                        <input
+                          type="text"
+                          required
+                          value={editStartCmd}
+                          onChange={(e) => setEditStartCmd(e.target.value)}
+                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
+                        />
                       </div>
                     </div>
-                  </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        disabled={settingsSaving}
+                        className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-md shadow-indigo-500/10 disabled:bg-zinc-700 disabled:text-zinc-400"
+                      >
+                        {settingsSaving ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            Saving...
+                          </>
+                        ) : 'Save Settings'}
+                      </button>
+                    </div>
+                  </form>
 
                   <div className="border border-red-500/20 bg-red-500/5 p-6 rounded-2xl space-y-3 max-w-3xl">
                     <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">Danger Zone</h4>

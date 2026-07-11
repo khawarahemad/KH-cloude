@@ -133,6 +133,14 @@ export class AppController {
     return this.projects.createProject(body);
   }
 
+  @Post('projects/:id/update')
+  async updateProject(
+    @Param('id') id: string,
+    @Body() body: { name?: string; buildCommand?: string; startCommand?: string; port?: number; teamId: string }
+  ) {
+    return this.projects.updateProject(id, body);
+  }
+
   @Get('projects')
   async getProjects(@Query('teamId') teamId: string) {
     return this.projects.getProjects(teamId);
