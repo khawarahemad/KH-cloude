@@ -405,17 +405,42 @@ export class ProjectsService {
       });
     };
 
-    const patchViteConfig = (buildDir: string) => {
-      const configFiles = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs', 'vite.config.cjs'];
-      for (const file of configFiles) {
-        const filePath = path.join(buildDir, file);
-        if (fs.existsSync(filePath)) {
+    const patchViteConfig = (dir: string) => {
+      const findConfigFiles = (currentDir: string): string[] => {
+        let results: string[] = [];
+        if (!fs.existsSync(currentDir)) return results;
+        const list = fs.readdirSync(currentDir);
+        for (const file of list) {
+          const filePath = path.join(currentDir, file);
+          const stat = fs.statSync(filePath);
+          if (stat && stat.isDirectory()) {
+            if (file !== 'node_modules' && file !== '.git') {
+              results = results.concat(findConfigFiles(filePath));
+            }
+          } else {
+            if (file === 'vite.config.ts' || file === 'vite.config.js' || file === 'vite.config.mjs' || file === 'vite.config.cjs') {
+              results.push(filePath);
+            }
+          }
+        }
+        return results;
+      };
+
+      try {
+        const configFiles = findConfigFiles(dir);
+        if (configFiles.length === 0) {
+          appendLog(`[Vite Patcher] No vite.config.* files found in the project.`);
+          return;
+        }
+
+        for (const filePath of configFiles) {
+          const fileBasename = path.basename(filePath);
           try {
             let content = fs.readFileSync(filePath, 'utf8');
             const originalContent = content;
 
             if (content.includes('allowedHosts')) {
-              appendLog(`[Vite Patcher] ${file} already contains allowedHosts configuration. Skipping patch.`);
+              appendLog(`[Vite Patcher] ${fileBasename} already contains allowedHosts configuration. Skipping patch.`);
               continue;
             }
 
@@ -433,13 +458,14 @@ export class ProjectsService {
 
             if (content !== originalContent) {
               fs.writeFileSync(filePath, content, 'utf8');
-              appendLog(`[Vite Patcher] Successfully patched ${file} to set server.allowedHosts to true`);
-              break;
+              appendLog(`[Vite Patcher] Successfully patched ${fileBasename} at ${path.relative(dir, filePath)} to set server.allowedHosts to true`);
             }
           } catch (err) {
-            appendLog(`[Vite Patcher] Failed to patch ${file}: ${err.message}`);
+            appendLog(`[Vite Patcher] Failed to patch ${fileBasename}: ${err.message}`);
           }
         }
+      } catch (err) {
+        appendLog(`[Vite Patcher] Error scanning for Vite configs: ${err.message}`);
       }
     };
 
