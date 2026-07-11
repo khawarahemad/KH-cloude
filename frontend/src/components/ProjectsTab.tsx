@@ -82,6 +82,10 @@ export default function ProjectsTab() {
   const [editPort, setEditPort] = useState(3000);
   const [editBranch, setEditBranch] = useState('main');
   const [settingsSaving, setSettingsSaving] = useState(false);
+
+  // Deletion modal states
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
   
   // Custom domain state
   const [customDomain, setCustomDomain] = useState('');
@@ -284,14 +288,19 @@ export default function ProjectsTab() {
     }
   };
 
-  const handleDeleteProject = async () => {
-    if (!projectDetails || !activeTeam) return;
-    if (!confirm(`Are you absolutely sure you want to delete the project "${projectDetails.name}"?`)) return;
+  const handleDeleteProject = () => {
+    setDeleteConfirmInput('');
+    setDeleteConfirmOpen(true);
+  };
 
+  const confirmDeleteProject = async () => {
+    if (!projectDetails || !activeTeam) return;
     try {
       await apiRequest(`/projects/${projectDetails.id}?teamId=${activeTeam.id}`, {
         method: 'DELETE',
       });
+      setDeleteConfirmOpen(false);
+      setDeleteConfirmInput('');
       setActiveProjectId(null);
       setProjectDetails(null);
       fetchProjects();
@@ -1188,6 +1197,50 @@ export default function ProjectsTab() {
             </div>
             <div className="flex-1 bg-[#020203] p-6 font-mono text-[10px] text-zinc-300 overflow-y-auto leading-relaxed select-text whitespace-pre-wrap">
               {buildLogs || 'Awaiting log feed...'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Project Confirmation Modal */}
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="glass p-6 rounded-2xl max-w-md w-full border border-white/10 shadow-2xl space-y-4 text-left">
+            <h3 className="text-sm font-bold text-red-400">Delete Project</h3>
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              This action **cannot be undone**. This will permanently delete the project **{projectDetails?.name}**, all associated deployments, database logs, and stop the running Docker container on the host VPS.
+            </p>
+            <div className="space-y-1.5 bg-red-500/5 border border-red-500/10 p-3.5 rounded-xl">
+              <span className="text-[10px] text-zinc-400 block leading-normal">
+                To confirm deletion, please type the project name <code className="text-white font-bold select-all bg-white/5 px-1.5 py-0.5 rounded font-mono">{projectDetails?.name}</code> in the box below:
+              </span>
+            </div>
+            <input
+              type="text"
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              placeholder={projectDetails?.name}
+              className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white focus:outline-none"
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  setDeleteConfirmInput('');
+                }}
+                className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteConfirmInput !== projectDetails?.name}
+                onClick={confirmDeleteProject}
+                className="h-9 px-4 rounded-lg bg-red-500 hover:bg-red-600 disabled:bg-zinc-700 disabled:text-zinc-400 text-white font-bold text-xs transition-all active:scale-95 duration-100 shadow-md shadow-red-500/10"
+              >
+                Permanently Delete
+              </button>
             </div>
           </div>
         </div>
