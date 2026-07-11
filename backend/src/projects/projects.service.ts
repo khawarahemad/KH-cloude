@@ -157,6 +157,26 @@ export class ProjectsService {
     return deployment;
   }
 
+  async triggerGitOpsDeployment(repoFullName: string, branch: string) {
+    this.logger.log(`GitOps: Received GitHub push webhook for repository "${repoFullName}" on branch "${branch}"`);
+    
+    const allProjects = await this.prisma.project.findMany();
+    const cleanRepo = (url: string) => url.toLowerCase().replace(/https?:\/\/github\.com\//, '').replace(/\.git$/, '').trim();
+    const webhookRepoCleaned = cleanRepo(repoFullName);
+
+    const matching = allProjects.filter(p => {
+      if (!p.githubRepo) return false;
+      return cleanRepo(p.githubRepo) === webhookRepoCleaned && p.githubBranch === branch;
+    });
+
+    for (const project of matching) {
+      this.logger.log(`GitOps: Match found! Automatically redeploying project "${project.name}" (${project.id})`);
+      this.triggerDeployment(project.id, project.teamId).catch((err) => {
+        this.logger.error(`GitOps: Failed to redeploy project ${project.id}: ${err.message}`);
+      });
+    }
+  }
+
   async getDeployments(projectId: string) {
     return this.prisma.deployment.findMany({
       where: { projectId },

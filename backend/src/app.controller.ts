@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, BadRequestException, Headers } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import { PrismaService } from './prisma/prisma.service';
@@ -203,6 +203,22 @@ export class AppController {
     @Query('teamId') teamId: string
   ) {
     return this.projects.deleteProject(id, teamId);
+  }
+
+  @Post('github/webhook')
+  async handleGithubWebhook(
+    @Body() payload: any,
+    @Headers('x-github-event') event: string
+  ) {
+    if (event === 'push') {
+      const repoFullName = payload.repository?.full_name;
+      const ref = payload.ref; // e.g. refs/heads/main
+      if (repoFullName && ref) {
+        const branch = ref.replace('refs/heads/', '');
+        await this.projects.triggerGitOpsDeployment(repoFullName, branch);
+      }
+    }
+    return { received: true };
   }
 
   // --- DATABASES ENDPOINTS ---
