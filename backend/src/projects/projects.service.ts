@@ -618,7 +618,7 @@ export class ProjectsService {
 
             const serverRegex = /(['"]?)server\1\s*:\s*\{/;
             if (serverRegex.test(content)) {
-              content = content.replace(serverRegex, (match) => `${match}\n    allowedHosts: true,`);
+              content = content.replace(serverRegex, (match) => `${match}\n    host: true,\n    allowedHosts: true,`);
             } else {
               const returnRegex = /return\s*\{/;
               const arrowReturnRegex = /=>\s*\(\s*\{/;
@@ -627,21 +627,21 @@ export class ProjectsService {
               const moduleExportsRegex = /module\.exports\s*=\s*\{/;
 
               if (returnRegex.test(content)) {
-                content = content.replace(returnRegex, 'return {\n      server: { allowedHosts: true },');
+                content = content.replace(returnRegex, 'return {\n      server: { host: true, allowedHosts: true },');
               } else if (arrowReturnRegex.test(content)) {
-                content = content.replace(arrowReturnRegex, '=> ({\n      server: { allowedHosts: true },');
+                content = content.replace(arrowReturnRegex, '=> ({\n      server: { host: true, allowedHosts: true },');
               } else if (defineConfigRegex.test(content)) {
-                content = content.replace(defineConfigRegex, 'defineConfig({\n  server: {\n    allowedHosts: true\n  },');
+                content = content.replace(defineConfigRegex, 'defineConfig({\n  server: {\n    host: true,\n    allowedHosts: true\n  },');
               } else if (exportDefaultRegex.test(content)) {
-                content = content.replace(exportDefaultRegex, 'export default {\n  server: {\n    allowedHosts: true\n  },');
+                content = content.replace(exportDefaultRegex, 'export default {\n  server: {\n    host: true,\n    allowedHosts: true\n  },');
               } else if (moduleExportsRegex.test(content)) {
-                content = content.replace(moduleExportsRegex, 'module.exports = {\n  server: {\n    allowedHosts: true\n  },');
+                content = content.replace(moduleExportsRegex, 'module.exports = {\n  server: {\n    host: true,\n    allowedHosts: true\n  },');
               }
             }
 
             if (content !== originalContent) {
               fs.writeFileSync(filePath, content, 'utf8');
-              appendLog(`[Vite Patcher] Successfully patched ${fileBasename} at ${path.relative(dir, filePath)} to set server.allowedHosts to true`);
+              appendLog(`[Vite Patcher] Successfully patched ${fileBasename} at ${path.relative(dir, filePath)} to set server.host and server.allowedHosts to true`);
             }
           } catch (err) {
             appendLog(`[Vite Patcher] Failed to patch ${fileBasename}: ${err.message}`);
