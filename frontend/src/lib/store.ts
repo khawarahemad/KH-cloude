@@ -5,6 +5,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  githubUsername?: string;
 }
 
 export interface Team {
