@@ -11,6 +11,7 @@ import DatabasesTab from '@/components/DatabasesTab';
 import StorageTab from '@/components/StorageTab';
 import TeamsTab from '@/components/TeamsTab';
 import BillingTab from '@/components/BillingTab';
+import AdminTab from '@/components/AdminTab';
 import { apiRequest } from '@/lib/api';
 
 type ViewMode = 'landing' | 'auth' | 'dashboard';
@@ -46,6 +47,8 @@ export default function Home() {
         return <TeamsTab />;
       case 'billing':
         return <BillingTab />;
+      case 'admin':
+        return <AdminTab />;
       default:
         return <ProjectsTab />;
     }

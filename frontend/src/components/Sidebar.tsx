@@ -2,10 +2,10 @@
 
 import React from 'react';
 import { useAppStore } from '@/lib/store';
-import { Layers, Database, HardDrive, Shield, CreditCard } from 'lucide-react';
+import { Layers, Database, HardDrive, Shield, CreditCard, Settings } from 'lucide-react';
 
 export default function Sidebar() {
-  const { activeTab, setActiveTab } = useAppStore();
+  const { activeTab, setActiveTab, user } = useAppStore();
 
   const navigation = [
     { id: 'projects', label: 'Projects', icon: Layers },
@@ -14,6 +14,10 @@ export default function Sidebar() {
     { id: 'teams', label: 'Team settings', icon: Shield },
     { id: 'billing', label: 'Billing & usage', icon: CreditCard },
   ];
+
+  if (user?.role === 'ADMIN') {
+    navigation.push({ id: 'admin', label: 'Admin Console', icon: Settings });
+  }
 
   return (
     <aside className="w-64 border-r border-white/5 bg-[#070708] hidden md:flex flex-col justify-between py-6 px-4 shrink-0">

@@ -497,6 +497,20 @@ export class ProjectsService {
     return { success: true };
   }
 
+  async stopProject(projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+    if (!project) return;
+    const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+    return new Promise((resolve) => {
+      exec(`docker stop ${containerName} && docker rm ${containerName}`, (error, stdout, stderr) => {
+        resolve({ success: !error });
+      });
+    });
+  }
+
   async updateProject(
     projectId: string,
     data: { name?: string; buildCommand?: string; startCommand?: string; port?: number; githubBranch?: string; rootDirectory?: string; teamId: string }
