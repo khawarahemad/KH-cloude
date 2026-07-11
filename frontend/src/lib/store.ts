@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface User {
   id: string;
@@ -32,20 +33,27 @@ interface AppState {
   logout: () => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  user: null,
-  teams: [],
-  activeTeam: null,
-  activeTab: 'projects',
-  selectedProjectId: null,
-  selectedBucketId: null,
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      user: null,
+      teams: [],
+      activeTeam: null,
+      activeTab: 'projects',
+      selectedProjectId: null,
+      selectedBucketId: null,
 
-  setUser: (user) => set({ user }),
-  setTeams: (teams) => set({ teams, activeTeam: teams.length > 0 ? teams[0] : null }),
-  setActiveTeam: (activeTeam) => set({ activeTeam }),
-  setActiveTab: (activeTab) => set({ activeTab, selectedProjectId: null, selectedBucketId: null }),
-  setSelectedProjectId: (selectedProjectId) => set({ selectedProjectId }),
-  setSelectedBucketId: (selectedBucketId) => set({ selectedBucketId }),
-  
-  logout: () => set({ user: null, teams: [], activeTeam: null, activeTab: 'projects', selectedProjectId: null, selectedBucketId: null }),
-}));
+      setUser: (user) => set({ user }),
+      setTeams: (teams) => set({ teams, activeTeam: teams.length > 0 ? teams[0] : null }),
+      setActiveTeam: (activeTeam) => set({ activeTeam }),
+      setActiveTab: (activeTab) => set({ activeTab, selectedProjectId: null, selectedBucketId: null }),
+      setSelectedProjectId: (selectedProjectId) => set({ selectedProjectId }),
+      setSelectedBucketId: (selectedBucketId) => set({ selectedBucketId }),
+      
+      logout: () => set({ user: null, teams: [], activeTeam: null, activeTab: 'projects', selectedProjectId: null, selectedBucketId: null }),
+    }),
+    {
+      name: 'kh-cloud-session',
+    }
+  )
+);

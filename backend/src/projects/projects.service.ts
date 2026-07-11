@@ -1,6 +1,9 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectStatus, DeploymentStatus } from '@prisma/client';
+import { exec } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ProjectsService {
@@ -140,8 +143,8 @@ export class ProjectsService {
       },
     });
 
-    // Start background simulation
-    this.runDeploymentSimulation(project.id, deployment.id);
+    // Start background live deployment engine
+    this.runLiveDeploymentEngine(project.id, deployment.id);
 
     return deployment;
   }
@@ -212,7 +215,7 @@ export class ProjectsService {
       },
     });
 
-    this.runDeploymentSimulation(projectId, rollback.id);
+    this.runLiveDeploymentEngine(projectId, rollback.id);
 
     return rollback;
   }
@@ -266,104 +269,189 @@ export class ProjectsService {
     return { cpu, ram, network };
   }
 
-  private runDeploymentSimulation(projectId: string, deploymentId: string) {
+  private runLiveDeploymentEngine(projectId: string, deploymentId: string) {
     const logs: string[] = [];
     this.deploymentLogs.set(deploymentId, logs);
 
     const appendLog = (line: string) => {
-      logs.push(`[${new Date().toISOString()}] ${line}`);
+      const formatted = `[${new Date().toISOString()}] ${line}`;
+      logs.push(formatted);
+      this.prisma.deployment.update({
+        where: { id: deploymentId },
+        data: { buildLogs: logs.join('\n') },
+      }).catch(() => null);
     };
 
-    const steps = [
-      {
-        status: 'BUILDING' as DeploymentStatus,
-        delay: 2000,
-        action: () => {
-          appendLog('GitHub repository connection initialized successfully.');
-          appendLog('Cloning source code repository...');
-          appendLog('Checking out to branch "main"...');
-          appendLog('Commit SHA: f39d48128 (latest push)');
-        },
-      },
-      {
-        status: 'BUILDING' as DeploymentStatus,
-        delay: 5000,
-        action: () => {
-          appendLog('Running install command: npm install...');
-          appendLog('added 241 packages, audited 242 packages in 4s');
-          appendLog('Running build command: npm run build...');
-          appendLog('> next build');
-          appendLog('   ▲ Next.js 15.1.0');
-          appendLog('   - Creating an optimized production build ...');
-          appendLog('   - Compiled successfully');
-          appendLog('   - Collecting page data ...');
-          appendLog('   - Generating static pages (5/5) ...');
-          appendLog('   - Finalizing page optimization ...');
-          appendLog('Route (app)                              Size     First Load JS');
-          appendLog('┌ λ /                                    142 B          84.2 kB');
-          appendLog('└ ○ /_not-found                          128 B          84.2 kB');
-        },
-      },
-      {
-        status: 'DEPLOYING' as DeploymentStatus,
-        delay: 4000,
-        action: () => {
-          appendLog('Build succeeded. Preparing Docker container context...');
-          appendLog('Successfully built image: kh-cloud/app-' + projectId.substring(0, 8));
-          appendLog('Orchestrating container routing on Traefik edge proxies...');
-          appendLog('Checking Let\'s Encrypt certificate status for custom domains...');
-          appendLog('Let\'s Encrypt SSL status verified: OK');
-        },
-      },
-      {
-        status: 'READY' as DeploymentStatus,
-        delay: 3000,
-        action: () => {
-          appendLog('Starting container checks...');
-          appendLog('Container health probe: PASS (200 OK)');
-          appendLog('Routing traffic to new container instances...');
-          appendLog('Rolling deployment completed successfully. App is online!');
-        },
-      },
-    ];
+    const runCmd = (cmd: string, cwd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+      return new Promise((resolve) => {
+        const proc = exec(cmd, { cwd });
+        let stdout = '';
+        let stderr = '';
+        proc.stdout?.on('data', (data) => {
+          const str = data.toString();
+          stdout += str;
+          str.split('\n').forEach(line => {
+            if (line.trim()) appendLog(line);
+          });
+        });
+        proc.stderr?.on('data', (data) => {
+          const str = data.toString();
+          stderr += str;
+          str.split('\n').forEach(line => {
+            if (line.trim()) appendLog(`[stderr] ${line}`);
+          });
+        });
+        proc.on('close', (code) => {
+          resolve({ code: code ?? 0, stdout, stderr });
+        });
+      });
+    };
 
-    let currentStep = 0;
+    const startDeployment = async () => {
+      try {
+        const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+        if (!project) {
+          appendLog('Project not found. Deployment aborted.');
+          return;
+        }
 
-    const executeNextStep = async () => {
-      if (currentStep >= steps.length) {
-        // Simulation finished
-        const finalLogs = logs.join('\n');
+        await this.prisma.deployment.update({
+          where: { id: deploymentId },
+          data: { status: 'BUILDING', startedAt: new Date() },
+        });
+
+        // 1. Prepare Workspace
+        const buildDir = path.join('/usr/src/app/storage-mock/builds', deploymentId);
+        fs.mkdirSync(buildDir, { recursive: true });
+
+        // 2. Clone Git Repo
+        let repoUrl = project.githubRepo;
+        if (!repoUrl) {
+          appendLog('No GitHub repository URL provided. Aborting.');
+          throw new Error('No GitHub repository provided');
+        }
+
+        if (!repoUrl.startsWith('http://') && !repoUrl.startsWith('https://')) {
+          repoUrl = `https://github.com/${repoUrl}.git`;
+        }
+
+        appendLog(`Cloning branch "${project.githubBranch || 'main'}" from repository: ${repoUrl}`);
+        const cloneRes = await runCmd(`git clone --depth 1 -b ${project.githubBranch || 'main'} ${repoUrl} .`, buildDir);
+        if (cloneRes.code !== 0) {
+          throw new Error('Failed to clone Git repository');
+        }
+
+        // 3. Auto-generate Dockerfile if none exists
+        const dockerfilePath = path.join(buildDir, 'Dockerfile');
+        if (!fs.existsSync(dockerfilePath)) {
+          appendLog('No Dockerfile found in root directory. Scanning for package.json to auto-generate one...');
+          if (fs.existsSync(path.join(buildDir, 'package.json'))) {
+            appendLog('Found package.json. Generating default Node.js Dockerfile...');
+            const defaultDockerfile = `FROM node:20-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nRUN npm run build --if-present\nEXPOSE 3000\nCMD ["npm", "start"]`;
+            fs.writeFileSync(dockerfilePath, defaultDockerfile);
+          } else {
+            appendLog('No package.json found. Creating default HTML static server...');
+            const defaultDockerfile = `FROM nginx:alpine\nCOPY . /usr/share/nginx/html\nEXPOSE 80`;
+            fs.writeFileSync(dockerfilePath, defaultDockerfile);
+          }
+        }
+
+        // 4. Build Docker Image
+        const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const imageTag = `kh-cloud-${cleanSlug}:${deploymentId}`;
+        const containerName = `kh-cloud-app-${cleanSlug}`;
+
+        appendLog(`Starting Docker image build: ${imageTag}`);
+        const buildRes = await runCmd(`docker build -t ${imageTag} .`, buildDir);
+        if (buildRes.code !== 0) {
+          throw new Error('Docker build process failed');
+        }
+
+        // 5. Update Status to Deploying
+        await this.prisma.deployment.update({
+          where: { id: deploymentId },
+          data: { status: 'DEPLOYING' },
+        });
+
+        // 6. Stop and Remove previous container version
+        appendLog(`Stopping and removing any existing container version: ${containerName}`);
+        await runCmd(`docker stop ${containerName}`, buildDir).catch(() => null);
+        await runCmd(`docker rm ${containerName}`, buildDir).catch(() => null);
+
+        // 7. Start container with Traefik routing labels
+        const targetDomain = `${project.slug}.khawarahemad.com`;
+        // Use auto-generated Node server port (3000) or static nginx port (80)
+        let containerPort = project.port || 3000;
+        if (!fs.existsSync(path.join(buildDir, 'package.json')) && !fs.existsSync(dockerfilePath)) {
+          // If we auto-generated nginx, the containerPort is 80
+          containerPort = 80;
+        }
+
+        const runCmdString = [
+          'docker run -d',
+          `--name ${containerName}`,
+          `--network kh-cloud-network`,
+          `--restart unless-stopped`,
+          `-l "traefik.enable=true"`,
+          `-l "traefik.http.routers.${containerName}.rule=Host(\`${targetDomain}\`)"`,
+          `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
+          `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
+          `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+          imageTag
+        ].join(' ');
+
+        appendLog(`Deploying container to Traefik routing mesh...`);
+        const runRes = await runCmd(runCmdString, buildDir);
+        if (runRes.code !== 0) {
+          throw new Error('Failed to run container');
+        }
+
+        // 8. Health check validation (wait 5s)
+        appendLog(`Waiting for container initialization and routing mesh propagation...`);
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        
+        const inspectRes = await runCmd(`docker inspect -f '{{.State.Running}}' ${containerName}`, buildDir);
+        const isRunning = inspectRes.stdout.trim() === 'true';
+
+        if (!isRunning) {
+          throw new Error('Container failed health probes (not running)');
+        }
+
+        appendLog(`Deployment successful! App is online at https://${targetDomain}`);
+
+        // Update DB records
         await this.prisma.deployment.update({
           where: { id: deploymentId },
           data: {
             status: 'READY',
-            buildLogs: finalLogs,
             endedAt: new Date(),
-            buildDuration: 14,
+            buildDuration: Math.floor((Date.now() - deployment.createdAt.getTime()) / 1000),
           },
         });
+
         await this.prisma.project.update({
           where: { id: projectId },
           data: { status: 'READY' },
         });
+
+        // Clean up build directory
+        fs.rmSync(buildDir, { recursive: true, force: true });
         this.deploymentLogs.delete(deploymentId);
-        return;
+
+      } catch (err: any) {
+        appendLog(`[ERROR] Deployment failed: ${err.message}`);
+        await this.prisma.deployment.update({
+          where: { id: deploymentId },
+          data: { status: 'FAILED', endedAt: new Date() },
+        });
+        await this.prisma.project.update({
+          where: { id: projectId },
+          data: { status: 'INACTIVE' },
+        });
+        this.deploymentLogs.delete(deploymentId);
       }
-
-      const step = steps[currentStep];
-      await this.prisma.deployment.update({
-        where: { id: deploymentId },
-        data: {
-          status: step.status,
-          startedAt: currentStep === 0 ? new Date() : undefined,
-        },
-      });
-
-      step.action();
-      currentStep++;
-      setTimeout(executeNextStep, step.delay);
     };
 
-    setTimeout(executeNextStep, 1000);
+    startDeployment();
   }
 }
