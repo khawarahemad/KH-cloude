@@ -7,10 +7,11 @@ import { ProjectsService } from './projects/projects.service';
 import { DatabasesService } from './databases/databases.service';
 import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
+import { WebhookController } from './webhook.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [AppController],
+  controllers: [AppController, WebhookController],
   providers: [
     AppService,
     StorageService,

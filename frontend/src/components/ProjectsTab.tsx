@@ -1257,7 +1257,7 @@ export default function ProjectsTab() {
                       <ol className="list-decimal list-inside text-[9px] text-zinc-400 space-y-1.5 leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5 font-medium">
                         <li>Go to your repository settings on GitHub.</li>
                         <li>Select <strong>Webhooks</strong> in the sidebar, and click <strong>Add webhook</strong>.</li>
-                        <li>Set <strong>Payload URL</strong> to: <code className="text-indigo-400 select-all font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded">https://api.khawarahemad.com/github/webhook</code></li>
+                        <li>Set <strong>Payload URL</strong> to: <code className="text-indigo-400 select-all font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded">https://api.khawarahemad.com/api/github/webhook</code></li>
                         <li>Set <strong>Content type</strong> to: <code className="text-zinc-300 font-mono">application/json</code></li>
                         <li>Select <strong>Just the push event</strong> and click <strong>Add webhook</strong>.</li>
                       </ol>
