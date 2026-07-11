@@ -64,6 +64,15 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
   };
 
   const handleOAuthSimulate = (provider: string) => {
+    if (provider === 'GitHub') {
+      const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || 'Iv23libP2nC0sNq21c8u';
+      const redirectUri = `${window.location.origin}/auth/callback/github`;
+      const state = Math.random().toString(36).substring(7);
+      localStorage.setItem('github_oauth_state', state);
+      window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
+      return;
+    }
+
     setLoading(true);
     setTimeout(() => {
       onAuthSuccess({

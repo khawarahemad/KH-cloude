@@ -20,7 +20,7 @@ const Github = ({ size = 24, ...props }: IconProps) => (
 import { ResponsiveContainer as RechartsContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
 export default function ProjectsTab() {
-  const { activeTeam } = useAppStore();
+  const { activeTeam, user } = useAppStore();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -35,6 +35,11 @@ export default function ProjectsTab() {
   const [buildCommand, setBuildCommand] = useState('npm run build');
   const [startCommand, setStartCommand] = useState('npm run start');
   const [port, setPort] = useState(3000);
+
+  // GitHub integration states
+  const [githubRepos, setGithubRepos] = useState<any[]>([]);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [repoSearch, setRepoSearch] = useState('');
   
   // Active details tab
   const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics'>('deployments');
@@ -55,13 +60,32 @@ export default function ProjectsTab() {
   // Metrics state
   const [metrics, setMetrics] = useState<any | null>(null);
 
-  // Mock repos for simulation wizard
-  const mockRepos = [
-    'nextjs-landing-page',
-    'nestjs-rest-api',
-    'react-dashboard-app',
-    'python-fastapi-service',
-  ];
+  const fetchGithubRepos = async () => {
+    if (!user) return;
+    setGithubLoading(true);
+    try {
+      const data = await apiRequest(`/github/repos?userId=${user.id}`);
+      setGithubRepos(data);
+    } catch (err) {
+      setGithubRepos([]);
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (wizardOpen && user) {
+      fetchGithubRepos();
+    }
+  }, [wizardOpen, user]);
+
+  const handleConnectGithub = () => {
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || 'Iv23libP2nC0sNq21c8u';
+    const redirectUri = `${window.location.origin}/auth/callback/github`;
+    const state = Math.random().toString(36).substring(7);
+    localStorage.setItem('github_oauth_state', state);
+    window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
+  };
 
   const fetchProjects = async () => {
     if (!activeTeam) return;
@@ -170,7 +194,7 @@ export default function ProjectsTab() {
         body: JSON.stringify({
           name: newProjectName,
           teamId: activeTeam.id,
-          githubRepo: `github.com/developer/${selectedRepo}`,
+          githubRepo: selectedRepo,
           githubBranch: selectedBranch,
           buildCommand,
           startCommand,
@@ -676,24 +700,85 @@ export default function ProjectsTab() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Import GitHub Repository</label>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {mockRepos.map(repo => (
+                    {!user?.githubUsername ? (
+                      <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01] my-2">
+                        <Github size={28} className="text-zinc-400 mb-3 animate-pulse" />
+                        <h4 className="text-xs font-bold text-white mb-1">GitHub Account Not Connected</h4>
+                        <p className="text-[10px] text-zinc-500 max-w-xs mb-4 leading-relaxed">
+                          Connect your GitHub account to import repositories and select projects to deploy.
+                        </p>
                         <button
-                          key={repo}
                           type="button"
-                          onClick={() => setSelectedRepo(repo)}
-                          className={`h-12 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between text-left transition-all ${
-                            selectedRepo === repo
-                              ? 'border-indigo-500 bg-indigo-500/5 text-indigo-400'
-                              : 'border-white/5 bg-white/[0.01] text-zinc-400 hover:text-white hover:border-white/10'
-                          }`}
+                          onClick={handleConnectGithub}
+                          className="h-9 px-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 duration-100 flex items-center gap-2"
                         >
-                          <span className="truncate">{repo}</span>
-                          <Github size={14} className="opacity-60 shrink-0 ml-1.5" />
+                          <Github size={14} />
+                          Connect GitHub
                         </button>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">
+                            Select Repository (Connected: @{user.githubUsername})
+                          </label>
+                          <button
+                            type="button"
+                            onClick={fetchGithubRepos}
+                            className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                          >
+                            <RefreshCw size={10} className={githubLoading ? 'animate-spin' : ''} />
+                            Refresh
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Search repositories..."
+                          value={repoSearch}
+                          onChange={(e) => setRepoSearch(e.target.value)}
+                          className="w-full h-10 px-3 rounded-xl glass-input text-xs text-white"
+                        />
+                        {githubLoading ? (
+                          <div className="h-32 flex flex-col items-center justify-center text-zinc-500 text-xs">
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mb-2" />
+                            Loading repositories...
+                          </div>
+                        ) : githubRepos.length === 0 ? (
+                          <div className="h-32 flex flex-col items-center justify-center text-zinc-500 text-xs text-center border border-white/5 rounded-xl bg-white/[0.01]">
+                            No repositories found.
+                          </div>
+                        ) : (
+                          <div className="max-h-40 overflow-y-auto grid grid-cols-1 gap-1.5 pr-1">
+                            {githubRepos
+                              .filter(repo =>
+                                repo.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
+                                repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
+                              )
+                              .map(repo => (
+                                <button
+                                  key={repo.fullName}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRepo(repo.fullName);
+                                    setSelectedBranch(repo.defaultBranch);
+                                    if (!newProjectName.trim()) {
+                                      setNewProjectName(repo.name);
+                                    }
+                                  }}
+                                  className={`h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between text-left transition-all ${
+                                    selectedRepo === repo.fullName
+                                      ? 'border-indigo-500 bg-indigo-500/5 text-indigo-400 font-bold'
+                                      : 'border-white/5 bg-white/[0.01] text-zinc-400 hover:text-white hover:border-white/10'
+                                  }`}
+                                >
+                                  <span className="truncate">{repo.fullName}</span>
+                                  <span className="text-[9px] text-zinc-500 font-mono shrink-0 ml-2">branch: {repo.defaultBranch}</span>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end gap-3 pt-4">

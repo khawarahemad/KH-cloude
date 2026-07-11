@@ -9,6 +9,12 @@ import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
 import { TeamRole, DatabaseType } from '@prisma/client';
 
+import * as crypto from 'crypto';
+
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
 @Controller('api')
 export class AppController {
   constructor(
@@ -20,7 +26,7 @@ export class AppController {
     private billing: BillingService,
   ) {}
 
-  // --- AUTH ENDPOINTS (Simulation) ---
+  // --- AUTH ENDPOINTS ---
 
   @Post('auth/register')
   async register(@Body() body: any) {
@@ -39,13 +45,13 @@ export class AppController {
       data: { name, email },
     });
 
-    // Create default account
+    // Create default account with hashed password
     await this.prisma.account.create({
       data: {
         accountId: user.id,
         providerId: 'credentials',
         userId: user.id,
-        password, // In production, hash this with bcrypt. Keeping it plain for simple SQLite setup.
+        password: hashPassword(password),
       },
     });
 
@@ -67,7 +73,7 @@ export class AppController {
       include: { accounts: true },
     });
 
-    if (!user || user.accounts[0]?.password !== password) {
+    if (!user || user.accounts[0]?.password !== hashPassword(password)) {
       throw new BadRequestException('Invalid email or password.');
     }
 
@@ -285,6 +291,136 @@ export class AppController {
   @Post('billing/plan')
   async updatePlan(@Query('teamId') teamId: string, @Body() body: { planId: string }) {
     return this.billing.updatePlan(teamId, body.planId);
+  }
+
+  // --- GITHUB INTEGRATION ENDPOINTS ---
+
+  @Post('auth/github/callback')
+  async githubCallback(@Body() body: { code: string; userId?: string }) {
+    const { code, userId } = body;
+    if (!code) throw new BadRequestException('Authorization code required.');
+
+    const clientId = process.env.GITHUB_CLIENT_ID || 'Iv23libP2nC0sNq21c8u'; // Default/fallback Client ID
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET || 'a1b2c3d4e5f6g7h8i9j0'; // Default/fallback Secret
+
+    // 1. Exchange code for access token
+    const tokenUrl = 'https://github.com/login/oauth/access_token';
+    const tokenRes = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+      }),
+    }).then((r) => r.json());
+
+    const accessToken = tokenRes.access_token;
+    if (!accessToken) {
+      throw new BadRequestException(`GitHub token exchange failed: ${tokenRes.error_description || 'unknown error'}`);
+    }
+
+    // 2. Fetch user profile details
+    const userUrl = 'https://api.github.com/user';
+    const githubUser = await fetch(userUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'User-Agent': 'KH-Cloud-Backend',
+      },
+    }).then((r) => r.json());
+
+    const githubUsername = githubUser.login;
+    if (!githubUsername) {
+      throw new BadRequestException('Failed to fetch GitHub profile.');
+    }
+
+    let user;
+    if (userId) {
+      // Attach to existing user
+      user = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          githubAccessToken: accessToken,
+          githubUsername,
+        },
+      });
+    } else {
+      // Register/Login flow
+      const email = githubUser.email || `${githubUsername}@github.com`;
+      user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { email },
+            { githubUsername }
+          ]
+        }
+      });
+
+      if (!user) {
+        user = await this.prisma.user.create({
+          data: {
+            name: githubUser.name || githubUsername,
+            email,
+            githubAccessToken: accessToken,
+            githubUsername,
+          },
+        });
+
+        // Create default team
+        await this.teams.createTeam(`${user.name}'s Team`, user.id);
+      } else {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            githubAccessToken: accessToken,
+            githubUsername,
+          },
+        });
+      }
+    }
+
+    const teams = await this.teams.getTeams(user.id);
+    return { user, teams };
+  }
+
+  @Get('github/repos')
+  async getGithubRepos(@Query('userId') userId: string) {
+    if (!userId) throw new BadRequestException('User ID is required.');
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || !user.githubAccessToken) {
+      return [];
+    }
+
+    try {
+      const repos = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+        headers: {
+          Authorization: `Bearer ${user.githubAccessToken}`,
+          Accept: 'application/json',
+          'User-Agent': 'KH-Cloud-Backend',
+        },
+      }).then((r) => r.json());
+
+      if (!Array.isArray(repos)) {
+        return [];
+      }
+
+      return repos.map((repo: any) => ({
+        name: repo.name,
+        fullName: repo.full_name,
+        defaultBranch: repo.default_branch || 'main',
+        cloneUrl: repo.clone_url,
+      }));
+    } catch (err) {
+      return [];
+    }
   }
 }
 
