@@ -657,6 +657,230 @@ export class AppController {
       };
     }
   }
+
+  // --- ADMIN PANEL ENDPOINTS ---
+
+  private async verifyAdmin(adminUserId: string) {
+    if (!adminUserId) {
+      throw new BadRequestException('Admin user ID is required.');
+    }
+    const adminUser = await this.prisma.user.findUnique({
+      where: { id: adminUserId },
+    });
+    if (!adminUser || adminUser.role !== 'ADMIN') {
+      throw new BadRequestException('Access denied. Admin privileges required.');
+    }
+  }
+
+  @Get('admin/users')
+  async adminGetUsers(@Query('adminUserId') adminUserId: string) {
+    await this.verifyAdmin(adminUserId);
+    const users = await this.prisma.user.findMany({
+      include: {
+        teamMembers: {
+          include: {
+            team: {
+              include: {
+                projects: true,
+                databases: true,
+                buckets: true,
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return users.map(u => {
+      let projectsCount = 0;
+      let databasesCount = 0;
+      let bucketsCount = 0;
+      
+      u.teamMembers.forEach(tm => {
+        projectsCount += tm.team.projects.length;
+        databasesCount += tm.team.databases.length;
+        bucketsCount += tm.team.buckets.length;
+      });
+
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        createdAt: u.createdAt,
+        projectsCount,
+        databasesCount,
+        bucketsCount,
+      };
+    });
+  }
+
+  @Post('admin/users/:id/role')
+  async adminToggleUserRole(
+    @Param('id') userId: string,
+    @Body('role') role: string,
+    @Query('adminUserId') adminUserId: string,
+  ) {
+    await this.verifyAdmin(adminUserId);
+    if (role !== 'USER' && role !== 'ADMIN') {
+      throw new BadRequestException('Invalid role.');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    });
+    return { success: true, role: updated.role };
+  }
+
+  @Delete('admin/users/:id')
+  async adminDeleteUser(
+    @Param('id') userId: string,
+    @Query('adminUserId') adminUserId: string,
+  ) {
+    await this.verifyAdmin(adminUserId);
+    if (userId === adminUserId) {
+      throw new BadRequestException('You cannot delete your own admin account.');
+    }
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { success: true };
+  }
+
+  @Get('admin/projects')
+  async adminGetProjects(@Query('adminUserId') adminUserId: string) {
+    await this.verifyAdmin(adminUserId);
+    const projects = await this.prisma.project.findMany({
+      include: {
+        team: true,
+      }
+    });
+    return projects;
+  }
+
+  @Post('admin/projects/:id/status')
+  async adminToggleProjectStatus(
+    @Param('id') projectId: string,
+    @Body('status') status: any,
+    @Query('adminUserId') adminUserId: string,
+  ) {
+    await this.verifyAdmin(adminUserId);
+    
+    const project = await this.prisma.project.update({
+      where: { id: projectId },
+      data: { status },
+    });
+
+    try {
+      if (status === 'SUSPENDED') {
+        await this.projects.stopProject(projectId);
+      }
+    } catch (e) {}
+
+    return project;
+  }
+
+  @Delete('admin/projects/:id')
+  async adminDeleteProject(
+    @Param('id') projectId: string,
+    @Query('adminUserId') adminUserId: string,
+  ) {
+    await this.verifyAdmin(adminUserId);
+    await this.projects.deleteProject(projectId, adminUserId);
+    return { success: true };
+  }
+
+  @Get('admin/buckets')
+  async adminGetBuckets(@Query('adminUserId') adminUserId: string) {
+    await this.verifyAdmin(adminUserId);
+    const buckets = await this.prisma.bucket.findMany({
+      include: {
+        team: true,
+      }
+    });
+
+    return buckets.map(b => ({
+      ...b,
+      sizeLimit: b.sizeLimit.toString(),
+      sizeUsed: b.sizeUsed.toString(),
+    }));
+  }
+
+  @Post('admin/buckets/:id/limit')
+  async adminUpdateBucketLimit(
+    @Param('id') bucketId: string,
+    @Body('sizeLimit') sizeLimit: string,
+    @Query('adminUserId') adminUserId: string,
+  ) {
+    await this.verifyAdmin(adminUserId);
+    const limitBytes = BigInt(sizeLimit);
+    
+    const bucket = await this.prisma.bucket.update({
+      where: { id: bucketId },
+      data: { sizeLimit: limitBytes },
+    });
+
+    return {
+      ...bucket,
+      sizeLimit: bucket.sizeLimit.toString(),
+      sizeUsed: bucket.sizeUsed.toString(),
+    };
+  }
+
+  @Delete('admin/buckets/:id')
+  async adminDeleteBucket(
+    @Param('id') bucketId: string,
+    @Query('adminUserId') adminUserId: string,
+  ) {
+    await this.verifyAdmin(adminUserId);
+    
+    const bucket = await this.prisma.bucket.findUnique({ where: { id: bucketId } });
+    if (!bucket) {
+      throw new BadRequestException('Bucket not found.');
+    }
+    
+    await this.prisma.objectMetadata.deleteMany({ where: { bucketId } });
+    await this.storage.deleteBucket(bucketId, bucket.teamId);
+    
+    return { success: true };
+  }
+
+  @Get('admin/subscriptions')
+  async adminGetSubscriptions(@Query('adminUserId') adminUserId: string) {
+    await this.verifyAdmin(adminUserId);
+    const subs = await this.prisma.billingSubscription.findMany({
+      include: {
+        team: true,
+      }
+    });
+    return subs;
+  }
+
+  @Post('admin/subscriptions/override')
+  async adminOverrideSubscription(
+    @Body() body: { teamId: string; planId: string; status: string },
+    @Query('adminUserId') adminUserId: string,
+  ) {
+    await this.verifyAdmin(adminUserId);
+    const { teamId, planId, status } = body;
+    if (!teamId || !planId || !status) {
+      throw new BadRequestException('teamId, planId and status are required.');
+    }
+
+    const sub = await this.prisma.billingSubscription.upsert({
+      where: { teamId },
+      update: { planId, status, currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) },
+      create: {
+        teamId,
+        stripeCustomerId: 'manual_override_' + Math.random().toString(36).substring(2, 9),
+        stripeSubscriptionId: 'sub_override_' + Math.random().toString(36).substring(2, 9),
+        planId,
+        status,
+        currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      }
+    });
+
+    return sub;
+  }
 }
 
 function pathName(key: string): string {

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
-import { HardDrive, Plus, Folder, File, ArrowLeft, Loader2, Upload, Trash, Copy, Check, Eye, Download, Code, Sparkles, BookOpen } from 'lucide-react';
+import { HardDrive, Plus, Folder, File, ArrowLeft, Loader2, Upload, Trash, Copy, Check, Eye, Download, Code, Sparkles, BookOpen, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function StorageTab() {
