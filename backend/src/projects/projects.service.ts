@@ -418,7 +418,7 @@ export class ProjectsService {
         });
         const targetDomain = `${project.slug}.khawarahemad.com`;
         const hostnames = Array.from(new Set([targetDomain, ...projectDomains.map(d => d.hostname)]));
-        const hostRules = hostnames.map(hn => `Host('${hn}')`).join(' || ');
+        const hostRules = hostnames.map(hn => `Host(\\"${hn}\\")`).join(' || ');
 
         // Use auto-generated Node server port (3000) or static nginx port (80)
         let containerPort = project.port || 3000;
