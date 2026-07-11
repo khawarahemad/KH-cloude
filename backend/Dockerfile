@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
+# Install Alpine build tools for native C++ modules (like better-sqlite3)
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
 COPY prisma.config.ts ./
 COPY tsconfig*.json ./
@@ -17,6 +20,9 @@ COPY src ./src/
 RUN npx prisma generate
 RUN npm run build
 
+# Remove development dependencies to leave only production packages
+RUN npm prune --omit=dev
+
 # --- Production Stage ---
 FROM node:20-alpine AS runner
 
@@ -26,11 +32,8 @@ COPY package*.json ./
 COPY prisma.config.ts ./
 COPY prisma ./prisma/
 
-# Install only production dependencies
-RUN npm ci --only=production
-
-# Copy generated Prisma Client from builder stage
-COPY --from=builder /usr/src/app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Copy compiled production node_modules and code from builder stage
+COPY --from=builder /usr/src/app/node_modules ./node_modules
 COPY --from=builder /usr/src/app/dist ./dist
 
 EXPOSE 5000
