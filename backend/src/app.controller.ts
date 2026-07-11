@@ -534,6 +534,9 @@ export class AppController {
       if (hasFile('package.json')) {
         const pkgFile = files.find((f: any) => f.name === 'package.json');
         let scripts: any = {};
+        let dependencies: any = {};
+        let devDependencies: any = {};
+
         if (pkgFile && pkgFile.download_url) {
           try {
             const pkgRes = await fetch(pkgFile.download_url, {
@@ -542,27 +545,68 @@ export class AppController {
             if (pkgRes.ok) {
               const pkgJson = await pkgRes.json();
               scripts = pkgJson.scripts || {};
+              dependencies = pkgJson.dependencies || {};
+              devDependencies = pkgJson.devDependencies || {};
             }
           } catch (e) {}
         }
 
-        let buildCommand = 'npm run build';
-        if (!scripts.build) {
-          buildCommand = '';
-        }
+        const isDep = (name: string) => !!dependencies[name] || !!devDependencies[name];
 
-        let startCommand = 'npm run dev';
-        if (scripts.start) {
+        let buildCommand = 'npm run build';
+        let startCommand = 'npm run start';
+        let port = 3000;
+
+        if (isDep('next')) {
+          buildCommand = 'npm run build';
+          startCommand = scripts.start ? 'npm run start' : 'npx next start';
+          port = 3000;
+        } else if (isDep('nuxt')) {
+          buildCommand = 'npm run build';
+          startCommand = scripts.start ? 'npm run start' : 'npx nuxt start';
+          port = 3000;
+        } else if (isDep('astro')) {
+          buildCommand = 'npm run build';
+          startCommand = scripts.start ? 'npm run start' : 'npx astro preview --host 0.0.0.0';
+          port = 4321;
+        } else if (isDep('@remix-run/dev') || isDep('@remix-run/node')) {
+          buildCommand = 'npm run build';
+          startCommand = scripts.start ? 'npm run start' : 'npx remix-serve build/index.js';
+          port = 3000;
+        } else if (isDep('vite')) {
+          buildCommand = scripts.build ? 'npm run build' : '';
+          startCommand = scripts.dev ? 'npm run dev' : (scripts.start ? 'npm run start' : 'npx vite --host 0.0.0.0');
+          port = 5173;
+        } else if (isDep('react-scripts')) {
+          buildCommand = 'npm run build';
           startCommand = 'npm run start';
-        } else if (scripts.dev) {
-          startCommand = 'npm run dev';
-        } else if (scripts.serve) {
-          startCommand = 'npm run serve';
+          port = 3000;
+        } else if (isDep('@angular/core')) {
+          buildCommand = 'npm run build';
+          startCommand = scripts.start ? 'npm run start' : 'npx ng serve --host 0.0.0.0';
+          port = 4200;
+        } else if (isDep('@nestjs/core')) {
+          buildCommand = 'npm run build';
+          startCommand = scripts['start:prod'] ? 'npm run start:prod' : (scripts.start ? 'npm run start' : 'node dist/main.js');
+          port = 3000;
+        } else {
+          if (!scripts.build) {
+            buildCommand = '';
+          }
+          if (scripts.start) {
+            startCommand = 'npm run start';
+          } else if (scripts.dev) {
+            startCommand = 'npm run dev';
+          } else if (scripts.serve) {
+            startCommand = 'npm run serve';
+          } else {
+            startCommand = 'node index.js';
+          }
         }
 
         return {
           type: 'NODE',
-          port: 3000,
+          port,
           buildCommand,
           startCommand,
           installCommand: 'npm install',
