@@ -337,11 +337,25 @@ export class ProjectsService {
           throw new Error('No GitHub repository provided');
         }
 
+        // Fetch team member user to retrieve GitHub Access Token
+        const teamMember = await this.prisma.teamMember.findFirst({
+          where: { teamId: project.teamId },
+          include: { user: true },
+        });
+        const githubToken = teamMember?.user?.githubAccessToken;
+
         if (!repoUrl.startsWith('http://') && !repoUrl.startsWith('https://')) {
-          repoUrl = `https://github.com/${repoUrl}.git`;
+          if (githubToken) {
+            repoUrl = `https://x-access-token:${githubToken}@github.com/${repoUrl}.git`;
+          } else {
+            repoUrl = `https://github.com/${repoUrl}.git`;
+          }
+        } else if (githubToken && repoUrl.includes('github.com')) {
+          repoUrl = repoUrl.replace('https://github.com', `https://x-access-token:${githubToken}@github.com`);
         }
 
-        appendLog(`Cloning branch "${project.githubBranch || 'main'}" from repository: ${repoUrl}`);
+        const maskedRepoUrl = repoUrl.replace(/:[^@]+@github\.com/, ':****@github.com');
+        appendLog(`Cloning branch "${project.githubBranch || 'main'}" from repository: ${maskedRepoUrl}`);
         const cloneRes = await runCmd(`git clone --depth 1 -b ${project.githubBranch || 'main'} ${repoUrl} .`, buildDir);
         if (cloneRes.code !== 0) {
           throw new Error('Failed to clone Git repository');
