@@ -405,6 +405,44 @@ export class ProjectsService {
       });
     };
 
+    const patchViteConfig = (buildDir: string) => {
+      const configFiles = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs', 'vite.config.cjs'];
+      for (const file of configFiles) {
+        const filePath = path.join(buildDir, file);
+        if (fs.existsSync(filePath)) {
+          try {
+            let content = fs.readFileSync(filePath, 'utf8');
+            const originalContent = content;
+
+            if (content.includes('allowedHosts')) {
+              appendLog(`[Vite Patcher] ${file} already contains allowedHosts configuration. Skipping patch.`);
+              continue;
+            }
+
+            if (content.includes('server:')) {
+              content = content.replace(/server\s*:\s*\{/, 'server: {\n    allowedHosts: true,');
+            } else {
+              if (content.includes('defineConfig(')) {
+                content = content.replace(/defineConfig\s*\(\s*\{/, 'defineConfig({\n  server: {\n    allowedHosts: true\n  },');
+              } else if (content.includes('export default {')) {
+                content = content.replace(/export\s+default\s*\{/, 'export default {\n  server: {\n    allowedHosts: true\n  },');
+              } else if (content.includes('module.exports = {')) {
+                content = content.replace(/module\.exports\s*=\s*\{/, 'module.exports = {\n  server: {\n    allowedHosts: true\n  },');
+              }
+            }
+
+            if (content !== originalContent) {
+              fs.writeFileSync(filePath, content, 'utf8');
+              appendLog(`[Vite Patcher] Successfully patched ${file} to set server.allowedHosts to true`);
+              break;
+            }
+          } catch (err) {
+            appendLog(`[Vite Patcher] Failed to patch ${file}: ${err.message}`);
+          }
+        }
+      }
+    };
+
     const startDeployment = async () => {
       try {
         const project = await this.prisma.project.findUnique({ where: { id: projectId } });
@@ -458,6 +496,9 @@ export class ProjectsService {
         if (cloneRes.code !== 0) {
           throw new Error('Failed to clone Git repository');
         }
+
+        // Patch Vite configuration for host check bypass
+        patchViteConfig(buildDir);
 
         // 3. Auto-generate Dockerfile if none exists
         const dockerfilePath = path.join(buildDir, 'Dockerfile');
