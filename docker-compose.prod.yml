@@ -66,11 +66,12 @@ services:
     environment:
       - PORT=5000
       - NODE_ENV=production
+      - DATABASE_URL=file:/usr/src/app/data/dev.db
       - MINIO_ENDPOINT=https://storage.khawarahemad.com
       - MINIO_ACCESS_KEY=khcloudroot
       - MINIO_SECRET_KEY=khcloudrootpassword
     volumes:
-      - /var/lib/kh-cloud/db:/usr/src/app/prisma
+      - /var/lib/kh-cloud/db:/usr/src/app/data
       - /var/lib/kh-cloud/storage-mock:/usr/src/app/storage-mock
     depends_on:
       - redis
