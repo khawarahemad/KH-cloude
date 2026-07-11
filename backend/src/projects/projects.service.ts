@@ -290,14 +290,14 @@ export class ProjectsService {
         proc.stdout?.on('data', (data) => {
           const str = data.toString();
           stdout += str;
-          str.split('\n').forEach(line => {
+          str.split('\n').forEach((line: string) => {
             if (line.trim()) appendLog(line);
           });
         });
         proc.stderr?.on('data', (data) => {
           const str = data.toString();
           stderr += str;
-          str.split('\n').forEach(line => {
+          str.split('\n').forEach((line: string) => {
             if (line.trim()) appendLog(`[stderr] ${line}`);
           });
         });
@@ -312,6 +312,12 @@ export class ProjectsService {
         const project = await this.prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
           appendLog('Project not found. Deployment aborted.');
+          return;
+        }
+
+        const deployment = await this.prisma.deployment.findUnique({ where: { id: deploymentId } });
+        if (!deployment) {
+          appendLog('Deployment not found. Deployment aborted.');
           return;
         }
 
