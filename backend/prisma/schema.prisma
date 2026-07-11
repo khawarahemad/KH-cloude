@@ -1,0 +1,325 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --- Better Auth Schema ---
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+  teamMembers   TeamMember[]
+  auditLogs     AuditLog[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session")
+}
+
+model Account {
+  id           String    @id @default(uuid())
+  accountId    String
+  providerId   String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String?
+  refreshToken String?
+  idToken      String?
+  expiresAt    DateTime?
+  password     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// --- KH Cloud Business Schema ---
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members            TeamMember[]
+  invites            Invite[]
+  projects           Project[]
+  buckets            Bucket[]
+  databases          DatabaseInstance[]
+  auditLogs          AuditLog[]
+  billingSubscription BillingSubscription?
+  usageMetrics       UsageMetric[]
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  DEVELOPER
+  VIEWER
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      TeamRole @default(DEVELOPER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, userId])
+}
+
+model Invite {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  email     String
+  role      TeamRole @default(DEVELOPER)
+  token     String   @unique
+  expiresAt DateTime
+  status    String   @default("PENDING") // PENDING, ACCEPTED, REVOKED
+  createdAt DateTime @default(now())
+}
+
+enum ProjectStatus {
+  INACTIVE
+  BUILDING
+  DEPLOYING
+  READY
+  FAILED
+  SUSPENDED
+}
+
+model Project {
+  id             String        @id @default(uuid())
+  name           String
+  slug           String
+  description    String?
+  teamId         String
+  team           Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  githubRepo     String?       // Format: owner/repo
+  githubBranch   String?       @default("main")
+  buildCommand   String?
+  installCommand String?
+  startCommand   String?
+  port           Int           @default(3000)
+  status         ProjectStatus @default(INACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  deployments    Deployment[]
+  envVars        EnvVar[]
+  domains        Domain[]
+  databases      DatabaseInstance[]
+
+  @@unique([teamId, slug])
+}
+
+enum DeploymentStatus {
+  QUEUED
+  BUILDING
+  DEPLOYING
+  READY
+  FAILED
+  CANCELLED
+}
+
+model Deployment {
+  id            String           @id @default(uuid())
+  projectId     String
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  commitHash    String?
+  commitMessage String?
+  branch        String
+  status        DeploymentStatus @default(QUEUED)
+  buildLogs     String           @default("")
+  buildDuration Int?             // in seconds
+  startedAt     DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime         @default(now())
+}
+
+model EnvVar {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  isSecret  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, key])
+}
+
+model Domain {
+  id         String   @id @default(uuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  hostname   String   @unique // e.g. customdomain.com or test.khcloud.app
+  isCustom   Boolean  @default(false)
+  status     String   @default("PENDING") // PENDING, ACTIVE, FAILED
+  sslStatus  String   @default("PENDING") // PENDING, ACTIVE, FAILED
+  verifiedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum DatabaseType {
+  POSTGRESQL
+  REDIS
+  MYSQL
+}
+
+model DatabaseInstance {
+  id         String       @id @default(uuid())
+  name       String
+  type       DatabaseType
+  host       String
+  port       Int
+  dbName     String?
+  username   String?
+  password   String?
+  status     String       @default("CREATING") // CREATING, RUNNING, STOPPED, FAILED
+  teamId     String
+  team       Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  projectId  String?
+  project    Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+// --- Object Storage Schema ---
+
+model Bucket {
+  id         String   @id @default(uuid())
+  name       String   @unique // minio bucket names must be unique globally
+  isPublic   Boolean  @default(false)
+  sizeLimit  BigInt   @default(5368709120) // 5GB in bytes by default
+  sizeUsed   BigInt   @default(0)
+  status     String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETING
+  teamId     String
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  keys       BucketKey[]
+  objects    ObjectMetadata[]
+}
+
+enum KeyPermission {
+  READ
+  READWRITE
+}
+
+model BucketKey {
+  id        String        @id @default(uuid())
+  name      String
+  bucketId  String
+  bucket    Bucket        @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  accessKey String        @unique
+  secretKey String
+  permission KeyPermission @default(READ)
+  createdAt DateTime      @default(now())
+  expiresAt DateTime?
+}
+
+model ObjectMetadata {
+  id             String   @id @default(uuid())
+  bucketId       String
+  bucket         Bucket   @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  key            String   // Full path key, e.g. images/avatar.png
+  size           BigInt
+  contentType    String
+  etag           String
+  isFolder       Boolean  @default(false)
+  parentKey      String?  // For virtual folders tree
+  customMetadata String?  // JSON string
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([bucketId, key])
+}
+
+// --- Audit and Billing ---
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  teamId     String?
+  team       Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // e.g. PROJECT.CREATE, BUCKET.FILE_UPLOAD
+  targetType String   // e.g. PROJECT, BUCKET
+  targetId   String?
+  details    String?  // JSON context
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+}
+
+model BillingSubscription {
+  id                   String   @id @default(uuid())
+  teamId               String   @unique
+  team                 Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String   @unique
+  stripeSubscriptionId String?  @unique
+  planId               String   @default("hobby") // hobby, pro, enterprise
+  status               String   @default("active") // active, trialing, past_due, canceled
+  currentPeriodStart   DateTime @default(now())
+  currentPeriodEnd     DateTime
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+enum MetricType {
+  STORAGE_BYTES
+  BANDWIDTH_BYTES
+  COMPUTE_SECONDS
+  API_REQUESTS
+}
+
+model UsageMetric {
+  id        String     @id @default(uuid())
+  teamId    String
+  team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  type      MetricType
+  quantity  BigInt
+  timestamp DateTime   @default(now())
+}

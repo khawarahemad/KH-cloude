@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: kh-cloud-traefik
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=khawariqbal123@gmail.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/kh-cloud/traefik-acme:/letsencrypt
+    restart: unless-stopped
+    networks:
+      - kh-cloud-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: kh-cloud-redis
+    volumes:
+      - /var/lib/kh-cloud/redis:/data
+    restart: unless-stopped
+    networks:
+      - kh-cloud-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: kh-cloud-minio
+    environment:
+      MINIO_ROOT_USER: khcloudroot
+      MINIO_ROOT_PASSWORD: khcloudrootpassword
+    volumes:
+      - /var/lib/kh-cloud/minio:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # S3 API routing (storage.khawarahemad.com)
+      - "traefik.http.routers.minio.rule=Host(`storage.khawarahemad.com`)"
+      - "traefik.http.routers.minio.entrypoints=websecure"
+      - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio.loadbalancer.server.port=9000"
+      # Admin Console routing (admin.khawarahemad.com)
+      - "traefik.http.routers.minio-console.rule=Host(`admin.khawarahemad.com`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+    networks:
+      - kh-cloud-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kh-cloud-backend
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - MINIO_ENDPOINT=https://storage.khawarahemad.com
+      - MINIO_ACCESS_KEY=khcloudroot
+      - MINIO_SECRET_KEY=khcloudrootpassword
+    volumes:
+      - /var/lib/kh-cloud/db:/usr/src/app/prisma
+      - /var/lib/kh-cloud/storage-mock:/usr/src/app/storage-mock
+    depends_on:
+      - redis
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # API routing (api.khawarahemad.com & auth.khawarahemad.com)
+      - "traefik.http.routers.backend.rule=Host(`api.khawarahemad.com`) || Host(`auth.khawarahemad.com`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=5000"
+    networks:
+      - kh-cloud-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kh-cloud-frontend
+    depends_on:
+      - backend
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Dashboard routing (cloud.khawarahemad.com & cdn.khawarahemad.com)
+      - "traefik.http.routers.frontend.rule=Host(`cloud.khawarahemad.com`) || Host(`cdn.khawarahemad.com`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    networks:
+      - kh-cloud-network
+
+networks:
+  kh-cloud-network:
+    name: kh-cloud-network
