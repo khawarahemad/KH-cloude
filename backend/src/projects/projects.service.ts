@@ -737,6 +737,7 @@ export class ProjectsService {
           ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
         ].filter(Boolean).join(' ');
 
+        const middlewareName = `${containerName}-hosthdr`;
         let runCmdString = [
           'docker run -d',
           `--name ${containerName}`,
@@ -746,9 +747,11 @@ export class ProjectsService {
           `--restart unless-stopped`,
           `-l "traefik.enable=true"`,
           `-l "traefik.docker.network=kh-cloud-network"`,
+          `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
           `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
           `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
           `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
+          `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
           `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
           imageTag
         ].filter(Boolean).join(' ');
@@ -812,9 +815,11 @@ export class ProjectsService {
             `--restart unless-stopped`,
             `-l "traefik.enable=true"`,
             `-l "traefik.docker.network=kh-cloud-network"`,
+            `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
             `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
             `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
             `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
+            `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
             `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
             imageTag
           ].filter(Boolean).join(' ');
