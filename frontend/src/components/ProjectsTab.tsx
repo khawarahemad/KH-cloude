@@ -70,7 +70,16 @@ export default function ProjectsTab() {
   const [repoSearch, setRepoSearch] = useState('');
   
   // Active details tab
-  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'settings'>('deployments');
+  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'console' | 'terminal' | 'settings'>('deployments');
+  const [runtimeLogs, setRuntimeLogs] = useState('Fetching runtime logs...');
+  const [terminalInput, setTerminalInput] = useState('');
+  const [terminalHistory, setTerminalHistory] = useState<string[]>([
+    'Welcome to KH Cloud Interactive Terminal.',
+    'Commands are executed directly inside your running container context.',
+    'Try typing: ls -la, python --version, or env',
+    ''
+  ]);
+  const [terminalRunning, setTerminalRunning] = useState(false);
   const [envVars, setEnvVars] = useState<{ key: string; value: string; isSecret: boolean }[]>([]);
   const [newEnvKey, setNewEnvKey] = useState('');
   const [newEnvVal, setNewEnvVal] = useState('');
@@ -288,6 +297,43 @@ export default function ProjectsTab() {
       fetchMetrics(activeProjectId);
     }
   }, [activeProjectId]);
+
+  const fetchRuntimeLogs = async () => {
+    if (!activeProjectId || !activeTeam) return;
+    try {
+      const res = await apiRequest(`/projects/${activeProjectId}/runtime-logs?teamId=${activeTeam.id}`);
+      setRuntimeLogs(res.logs || 'No logs returned from container.');
+    } catch (err) {
+      setRuntimeLogs('Error fetching runtime logs. Make sure the project is active and running.');
+    }
+  };
+
+  useEffect(() => {
+    if (detailsTab !== 'console' || !activeProjectId || !activeTeam) return;
+    fetchRuntimeLogs();
+    const interval = setInterval(fetchRuntimeLogs, 3000);
+    return () => clearInterval(interval);
+  }, [detailsTab, activeProjectId, activeTeam]);
+
+  const handleTerminalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!terminalInput.trim() || !activeProjectId || !activeTeam || terminalRunning) return;
+    const cmd = terminalInput.trim();
+    setTerminalInput('');
+    setTerminalHistory(prev => [...prev, `$ ${cmd}`]);
+    setTerminalRunning(true);
+    try {
+      const res = await apiRequest(`/projects/${activeProjectId}/terminal`, {
+        method: 'POST',
+        body: JSON.stringify({ command: cmd, teamId: activeTeam.id })
+      });
+      setTerminalHistory(prev => [...prev, res.output]);
+    } catch (err: any) {
+      setTerminalHistory(prev => [...prev, `Error: ${err.message || 'Failed to execute command'}`]);
+    } finally {
+      setTerminalRunning(false);
+    }
+  };
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -637,7 +683,7 @@ export default function ProjectsTab() {
 
             {/* Content selector tabs */}
             <div className="flex border-b border-white/5 text-xs font-semibold gap-6">
-              {(['deployments', 'env', 'domains', 'metrics', 'settings'] as const).map(tab => (
+              {(['deployments', 'env', 'domains', 'metrics', 'console', 'terminal', 'settings'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setDetailsTab(tab)}
@@ -647,7 +693,7 @@ export default function ProjectsTab() {
                       : 'border-transparent text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
-                  {tab === 'env' ? 'Environment Variables' : tab}
+                  {tab === 'env' ? 'Environment Variables' : tab === 'console' ? 'Runtime Logs' : tab === 'terminal' ? 'Interactive Terminal' : tab}
                 </button>
               ))}
             </div>
@@ -1295,6 +1341,69 @@ export default function ProjectsTab() {
                     >
                       Delete Project
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Console / Runtime Logs tab */}
+              {detailsTab === 'console' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-zinc-400">Runtime Container Console</h4>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">Live stdout/stderr stream from the running container.</p>
+                    </div>
+                    <button
+                      onClick={fetchRuntimeLogs}
+                      className="h-8 px-2.5 rounded-lg border border-white/5 hover:bg-white/5 text-[10px] font-semibold flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <RefreshCw size={10} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="font-mono text-[10px] text-zinc-300 bg-black/40 border border-white/5 p-4 rounded-xl max-h-[400px] overflow-y-auto whitespace-pre-wrap select-text leading-relaxed">
+                    {runtimeLogs}
+                  </div>
+                </div>
+              )}
+
+              {/* Terminal tab */}
+              {detailsTab === 'terminal' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-zinc-400">Interactive Shell Container Terminal</h4>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">Execute shell commands inside the container environment.</p>
+                    </div>
+                  </div>
+
+                  <div className="font-mono text-[10px] bg-black/50 border border-white/5 rounded-xl overflow-hidden flex flex-col h-[350px]">
+                    <div className="flex-1 p-4 overflow-y-auto space-y-1.5 select-text">
+                      {terminalHistory.map((line, idx) => (
+                        <div key={idx} className={line.startsWith('$') ? 'text-indigo-400 font-bold' : line.startsWith('Error') ? 'text-red-400' : 'text-zinc-300 whitespace-pre-wrap'}>
+                          {line}
+                        </div>
+                      ))}
+                      {terminalRunning && (
+                        <div className="text-zinc-500 flex items-center gap-1.5 animate-pulse">
+                          <Loader2 size={10} className="animate-spin" />
+                          Executing command...
+                        </div>
+                      )}
+                    </div>
+                    
+                    <form onSubmit={handleTerminalSubmit} className="flex border-t border-white/5 bg-black/20 p-2.5">
+                      <span className="text-indigo-400 font-bold self-center mr-2 shrink-0 select-none">$</span>
+                      <input
+                        type="text"
+                        value={terminalInput}
+                        onChange={(e) => setTerminalInput(e.target.value)}
+                        placeholder="Type a shell command (e.g. ls -la) and press Enter..."
+                        className="flex-1 bg-transparent border-none outline-none text-white font-mono text-[10px]"
+                        disabled={terminalRunning}
+                      />
+                    </form>
                   </div>
                 </div>
               )}

@@ -206,6 +206,22 @@ export class AppController {
     return this.projects.getProjectMetrics(id);
   }
 
+  @Get('projects/:id/runtime-logs')
+  async getRuntimeLogs(
+    @Param('id') id: string,
+    @Query('teamId') teamId: string
+  ) {
+    return this.projects.getRuntimeLogs(id, teamId);
+  }
+
+  @Post('projects/:id/terminal')
+  async executeTerminalCommand(
+    @Param('id') id: string,
+    @Body() body: { command: string; teamId: string }
+  ) {
+    return this.projects.executeTerminalCommand(id, body.command, body.teamId);
+  }
+
   @Delete('projects/:id')
   async deleteProject(
     @Param('id') id: string,

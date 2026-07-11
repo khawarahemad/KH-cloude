@@ -908,16 +908,20 @@ export class ProjectsService {
           where: { projectId },
         });
         
-        // Auto-inject HOST=0.0.0.0 for Node/web framework routing safety
+        // Auto-inject HOST=0.0.0.0 for Node/Python/web framework routing safety
         const isNodeProject = fs.existsSync(path.join(effectiveBuildDir, 'package.json'));
-        const autoEnvFlags = isNodeProject ? '-e HOST=0.0.0.0' : '';
+        const isPythonProject = fs.existsSync(path.join(effectiveBuildDir, 'requirements.txt'));
+        const autoEnvFlags = (isNodeProject || isPythonProject) ? '-e HOST=0.0.0.0' : '';
         
         // Auto-inject Vite allowedHosts parameter to bypass host checks in Vite 6+
         const allowedHostsVal = hostnames.join(',');
         const viteAllowedHostsFlag = isNodeProject ? `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${allowedHostsVal}"` : '';
 
+        const pythonEnvFlags = isPythonProject ? '-e PYTHONUNBUFFERED=1' : '';
+
         const envFlags = [
           autoEnvFlags,
+          pythonEnvFlags,
           viteAllowedHostsFlag,
           ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
         ].filter(Boolean).join(' ');
@@ -1059,5 +1063,67 @@ export class ProjectsService {
     };
 
     startDeployment();
+  }
+
+  async getRuntimeLogs(projectId: string, teamId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, teamId },
+    });
+    if (!project) throw new NotFoundException('Project not found.');
+
+    const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+
+    const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+      return new Promise((resolve) => {
+        const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
+        let stdout = '';
+        let stderr = '';
+        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+        proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+      });
+    };
+
+    const logsRes = await runCmd(`docker logs --tail 150 ${containerName}`).catch(() => ({ stdout: '', stderr: 'Container not running or not found.' }));
+    return { logs: (logsRes.stdout || '') + '\n' + (logsRes.stderr || '') };
+  }
+
+  async executeTerminalCommand(projectId: string, command: string, teamId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, teamId },
+    });
+    if (!project) throw new NotFoundException('Project not found.');
+
+    const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+
+    const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+      return new Promise((resolve) => {
+        const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
+        let stdout = '';
+        let stderr = '';
+        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+        proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+      });
+    };
+
+    const inspectRes = await runCmd(`docker inspect -f "{{.State.Running}}" ${containerName}`).catch(() => ({ stdout: 'false' }));
+    const isRunning = inspectRes.stdout.trim() === 'true';
+
+    if (!isRunning) {
+      return { output: 'Error: Container is not running.' };
+    }
+
+    const escapedCmd = command.replace(/"/g, '\\"');
+    const execRes = await runCmd(`docker exec ${containerName} sh -c "${escapedCmd}"`).catch((err) => ({
+      code: 1,
+      stdout: '',
+      stderr: `Execution failed: ${err.message}`
+    }));
+
+    const output = (execRes.stdout || '') + (execRes.stderr || '');
+    return { output: output || '(No output)' };
   }
 }
