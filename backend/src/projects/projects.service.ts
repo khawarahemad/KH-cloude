@@ -46,9 +46,9 @@ export class ProjectsService {
         githubRepo: data.githubRepo,
         githubBranch: data.githubBranch || 'main',
         rootDirectory: data.rootDirectory || '',
-        buildCommand: data.buildCommand || 'npm run build',
-        installCommand: data.installCommand || 'npm install',
-        startCommand: data.startCommand || 'npm run start',
+        buildCommand: data.buildCommand || null,
+        installCommand: data.installCommand || null,
+        startCommand: data.startCommand || null,
         port: data.port || 3000,
         status: 'INACTIVE',
         envVars: data.envVars && data.envVars.length > 0 ? {
