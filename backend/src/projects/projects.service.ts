@@ -24,6 +24,7 @@ export class ProjectsService {
     installCommand?: string;
     startCommand?: string;
     port?: number;
+    envVars?: { key: string; value: string; isSecret: boolean }[];
   }) {
     const slug = data.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
     
@@ -48,6 +49,13 @@ export class ProjectsService {
         startCommand: data.startCommand || 'npm run start',
         port: data.port || 3000,
         status: 'INACTIVE',
+        envVars: data.envVars && data.envVars.length > 0 ? {
+          create: data.envVars.map(ev => ({
+            key: ev.key,
+            value: ev.value,
+            isSecret: ev.isSecret !== undefined ? ev.isSecret : true
+          }))
+        } : undefined
       },
     });
 

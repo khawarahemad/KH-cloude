@@ -19,6 +19,27 @@ const Github = ({ size = 24, ...props }: IconProps) => (
 
 import { ResponsiveContainer as RechartsContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
+const parseEnvText = (text: string) => {
+  const lines = text.split('\n');
+  const parsed: { key: string; value: string; isSecret: boolean }[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx > 0) {
+      const key = trimmed.substring(0, eqIdx).trim();
+      let value = trimmed.substring(eqIdx + 1).trim();
+      if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.substring(1, value.length - 1);
+      } else if (value.startsWith("'") && value.endsWith("'")) {
+        value = value.substring(1, value.length - 1);
+      }
+      parsed.push({ key, value, isSecret: true });
+    }
+  }
+  return parsed;
+};
+
 export default function ProjectsTab() {
   const { activeTeam, user } = useAppStore();
   const [projects, setProjects] = useState<any[]>([]);
@@ -35,6 +56,12 @@ export default function ProjectsTab() {
   const [buildCommand, setBuildCommand] = useState('npm run build');
   const [startCommand, setStartCommand] = useState('npm run start');
   const [port, setPort] = useState(3000);
+  const [rawEnvText, setRawEnvText] = useState('');
+  const [parsedEnvVars, setParsedEnvVars] = useState<{ key: string; value: string; isSecret: boolean }[]>([]);
+
+  useEffect(() => {
+    setParsedEnvVars(parseEnvText(rawEnvText));
+  }, [rawEnvText]);
 
   // GitHub integration states
   const [githubRepos, setGithubRepos] = useState<any[]>([]);
@@ -217,6 +244,7 @@ export default function ProjectsTab() {
           buildCommand,
           startCommand,
           port,
+          envVars: parsedEnvVars,
         }),
       });
 
@@ -230,6 +258,7 @@ export default function ProjectsTab() {
       setWizardStep(1);
       setNewProjectName('');
       setSelectedRepo('');
+      setRawEnvText('');
       
       // Select the new project immediately
       setActiveProjectId(project.id);
@@ -1023,6 +1052,51 @@ export default function ProjectsTab() {
                     <button
                       type="button"
                       onClick={() => setWizardStep(1)}
+                      className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(3)}
+                      className="h-9 px-5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs active:scale-95 transition-colors"
+                    >
+                      Configure Env Variables
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 3 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Paste .env file contents (Optional)</label>
+                    <textarea
+                      value={rawEnvText}
+                      onChange={(e) => setRawEnvText(e.target.value)}
+                      placeholder="DATABASE_URL=postgresql://user:pass@host/db&#10;PORT=3000&#10;API_KEY=mysecretkey"
+                      className="w-full h-32 p-3 rounded-xl glass-input text-xs font-mono text-white placeholder-zinc-600 resize-none focus:outline-none focus:border-white/20"
+                    />
+                  </div>
+
+                  {parsedEnvVars.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Parsed Variables ({parsedEnvVars.length})</label>
+                      <div className="max-h-28 overflow-y-auto border border-white/5 rounded-xl p-3 bg-white/[0.01] space-y-1.5 pr-1">
+                        {parsedEnvVars.map((ev, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-[10px] bg-white/5 px-2.5 py-1 rounded-lg">
+                            <span className="font-mono text-indigo-400 font-bold">{ev.key}</span>
+                            <span className="font-mono text-zinc-400 truncate max-w-[200px]">{ev.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(2)}
                       className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold"
                     >
                       Back
