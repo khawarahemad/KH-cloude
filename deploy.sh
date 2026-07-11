@@ -6,6 +6,7 @@
 set -e
 
 echo "=== [1/5] Updating VPS System Packages ==="
+git pull
 sudo apt-get update -y
 
 # Check if Docker is installed
