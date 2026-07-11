@@ -476,6 +476,7 @@ export class ProjectsService {
           envFlags,
           `--restart unless-stopped`,
           `-l "traefik.enable=true"`,
+          `-l "traefik.docker.network=kh-cloud-network"`,
           `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
           `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
           `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
