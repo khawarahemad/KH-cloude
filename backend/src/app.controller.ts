@@ -192,6 +192,15 @@ export class AppController {
     return this.projects.addCustomDomain(id, body.hostname, body.teamId);
   }
 
+  @Delete('projects/:id/domain/:domainId')
+  async removeCustomDomain(
+    @Param('id') id: string,
+    @Param('domainId') domainId: string,
+    @Body() body: { teamId: string }
+  ) {
+    return this.projects.removeCustomDomain(id, domainId, body.teamId);
+  }
+
   @Get('projects/:id/metrics')
   async getProjectMetrics(@Param('id') id: string) {
     return this.projects.getProjectMetrics(id);

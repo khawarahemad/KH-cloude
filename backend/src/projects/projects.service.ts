@@ -362,6 +362,104 @@ export class ProjectsService {
     return domain;
   }
 
+  async removeCustomDomain(projectId: string, domainId: string, teamId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, teamId },
+      include: { domains: true },
+    });
+    if (!project) throw new NotFoundException('Project not found.');
+
+    const domain = await this.prisma.domain.findFirst({
+      where: { id: domainId, projectId },
+    });
+    if (!domain) throw new NotFoundException('Domain not found.');
+    if (!domain.isCustom) throw new BadRequestException('Cannot delete default system domain.');
+
+    await this.prisma.domain.delete({
+      where: { id: domainId },
+    });
+
+    // Re-route the live Docker container with updated Traefik labels (removing the deleted hostname)
+    setImmediate(async () => {
+      try {
+        const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+          return new Promise((resolve) => {
+            const proc = exec(cmd);
+            let stdout = '';
+            let stderr = '';
+            proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+            proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+            proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+          });
+        };
+
+        const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+
+        // Inspect running container to get its image tag
+        const inspectRes = await runCmd(
+          `docker inspect --format '{{.Config.Image}}' ${containerName}`
+        );
+        if (inspectRes.code !== 0 || !inspectRes.stdout.trim()) {
+          this.logger.warn(`[Domain Remove] Container ${containerName} not found, skipping re-route.`);
+          return;
+        }
+
+        const imageTag = inspectRes.stdout.trim();
+        const containerPort = project.port || 3000;
+
+        // Get remaining domains
+        const allDomains = await this.prisma.domain.findMany({ where: { projectId } });
+        const targetDomain = `${project.slug}.khawarahemad.com`;
+        const hostnames = Array.from(new Set([targetDomain, ...allDomains.map(d => d.hostname)]));
+        const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
+        const middlewareName = `${containerName}-hosthdr`;
+
+        // Get env vars
+        const envVars = await this.prisma.envVar.findMany({ where: { projectId } });
+        const envFlags = [
+          '-e HOST=0.0.0.0',
+          `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
+          ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
+        ].join(' ');
+
+        // Stop old container
+        await runCmd(`docker stop ${containerName}`).catch(() => null);
+        await runCmd(`docker rm ${containerName}`).catch(() => null);
+
+        // Start new container with updated Traefik labels
+        const runCmdStr = [
+          'docker run -d',
+          `--name ${containerName}`,
+          `--network kh-cloud-network`,
+          `-e PORT=${containerPort}`,
+          envFlags,
+          `--restart unless-stopped`,
+          `-l "traefik.enable=true"`,
+          `-l "traefik.docker.network=kh-cloud-network"`,
+          `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
+          `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
+          `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
+          `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
+          `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
+          `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+          imageTag
+        ].filter(Boolean).join(' ');
+
+        const rerunRes = await runCmd(runCmdStr);
+        if (rerunRes.code === 0) {
+          this.logger.log(`[Domain Remove] Container ${containerName} re-launched without ${domain.hostname} in Traefik routing.`);
+        } else {
+          this.logger.error(`[Domain Remove] Failed to re-launch container: ${rerunRes.stderr}`);
+        }
+      } catch (err) {
+        this.logger.error(`[Domain Remove] Error during container re-route: ${err.message}`);
+      }
+    });
+
+    return { success: true };
+  }
+
   async deleteProject(projectId: string, teamId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId },

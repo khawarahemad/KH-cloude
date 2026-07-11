@@ -83,12 +83,65 @@ export default function ProjectsTab() {
   const [editBranch, setEditBranch] = useState('main');
   const [settingsSaving, setSettingsSaving] = useState(false);
 
+  // Env vars UI state
+  const [envSaving, setEnvSaving] = useState(false);
+  const [envSaved, setEnvSaved] = useState(false);
+  const [envRevealedKeys, setEnvRevealedKeys] = useState<Set<string>>(new Set());
+  const [envEditingKey, setEnvEditingKey] = useState<string | null>(null);
+  const [envEditVal, setEnvEditVal] = useState('');
+  const [envBulkMode, setEnvBulkMode] = useState(false);
+  const [envBulkText, setEnvBulkText] = useState('');
+
+  const toggleReveal = (key: string) => {
+    setEnvRevealedKeys(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const saveEnvVars = async (vars: typeof envVars) => {
+    if (!activeProjectId) return;
+    setEnvSaving(true);
+    setEnvSaved(false);
+    try {
+      await apiRequest(`/projects/${activeProjectId}/env`, {
+        method: 'POST',
+        body: JSON.stringify({ vars }),
+      });
+      setEnvSaved(true);
+      setTimeout(() => setEnvSaved(false), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEnvSaving(false);
+    }
+  };
+
   // Deletion modal states
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
   
   // Custom domain state
   const [customDomain, setCustomDomain] = useState('');
+  const [domainAdding, setDomainAdding] = useState(false);
+  const [domainError, setDomainError] = useState('');
+  const [removingDomainId, setRemovingDomainId] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(key);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const getDomainType = (d: string) => {
+    if (!d) return null;
+    const parts = d.replace(/^https?:\/\//, '').split('.');
+    if (parts.length === 2) return 'apex';
+    if (parts[0] === 'www') return 'www';
+    return 'subdomain';
+  };
   
   // Build logs state
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
@@ -339,47 +392,87 @@ export default function ProjectsTab() {
 
   const handleAddEnv = async () => {
     if (!newEnvKey.trim() || !newEnvVal.trim() || !activeProjectId) return;
-    const updated = [...envVars, { key: newEnvKey, value: newEnvVal, isSecret: newEnvSecret }];
+    const key = newEnvKey.trim().toUpperCase();
+    if (envVars.find(v => v.key === key)) return; // no duplicates
+    const updated = [...envVars, { key, value: newEnvVal.trim(), isSecret: newEnvSecret }];
     setEnvVars(updated);
     setNewEnvKey('');
     setNewEnvVal('');
-    
-    try {
-      await apiRequest(`/projects/${activeProjectId}/env`, {
-        method: 'POST',
-        body: JSON.stringify({ vars: updated }),
-      });
-    } catch (err) {
-      console.error(err);
-    }
+    await saveEnvVars(updated);
   };
 
   const handleRemoveEnv = async (keyToRemove: string) => {
     const updated = envVars.filter(v => v.key !== keyToRemove);
     setEnvVars(updated);
-    try {
-      await apiRequest(`/projects/${activeProjectId}/env`, {
-        method: 'POST',
-        body: JSON.stringify({ vars: updated }),
-      });
-    } catch (err) {
-      console.error(err);
+    await saveEnvVars(updated);
+  };
+
+  const handleUpdateEnvValue = async (key: string, newVal: string) => {
+    const updated = envVars.map(v => v.key === key ? { ...v, value: newVal } : v);
+    setEnvVars(updated);
+    setEnvEditingKey(null);
+    await saveEnvVars(updated);
+  };
+
+  const handleBulkPaste = async () => {
+    const lines = envBulkText.split('\n');
+    const parsed: { key: string; value: string; isSecret: boolean }[] = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx < 1) continue;
+      const k = trimmed.slice(0, eqIdx).trim().toUpperCase();
+      const v = trimmed.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+      if (k) parsed.push({ key: k, value: v, isSecret: true });
     }
+    if (!parsed.length) return;
+    // Merge: overwrite existing keys, add new ones
+    const merged = [...envVars];
+    for (const p of parsed) {
+      const idx = merged.findIndex(v => v.key === p.key);
+      if (idx >= 0) merged[idx] = p;
+      else merged.push(p);
+    }
+    setEnvVars(merged);
+    setEnvBulkText('');
+    setEnvBulkMode(false);
+    await saveEnvVars(merged);
   };
 
   const handleAddDomain = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customDomain.trim() || !activeProjectId || !activeTeam) return;
-
+    const h = customDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!h || !activeProjectId || !activeTeam) return;
+    setDomainError('');
+    setDomainAdding(true);
     try {
       await apiRequest(`/projects/${activeProjectId}/domain`, {
         method: 'POST',
-        body: JSON.stringify({ hostname: customDomain, teamId: activeTeam.id }),
+        body: JSON.stringify({ hostname: h, teamId: activeTeam.id }),
       });
       setCustomDomain('');
-      setTimeout(() => fetchProjectDetails(activeProjectId), 1000);
+      await fetchProjectDetails(activeProjectId);
+    } catch (err: any) {
+      setDomainError(err?.message || 'Failed to add domain. Please try again.');
+    } finally {
+      setDomainAdding(false);
+    }
+  };
+
+  const handleRemoveDomain = async (domainId: string) => {
+    if (!activeProjectId || !activeTeam) return;
+    setRemovingDomainId(domainId);
+    try {
+      await apiRequest(`/projects/${activeProjectId}/domain/${domainId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      await fetchProjectDetails(activeProjectId);
     } catch (err) {
       console.error(err);
+    } finally {
+      setRemovingDomainId(null);
     }
   };
 
@@ -616,55 +709,208 @@ export default function ProjectsTab() {
 
               {/* Env vars tab */}
               {detailsTab === 'env' && (
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="text-xs font-bold text-zinc-400 mb-2">Configure environment variables</h4>
-                    <p className="text-[10px] text-zinc-500">Variables are injected into the build container context at compile time.</p>
-                  </div>
-
-                  {/* Add Env var inline form */}
-                  <div className="flex flex-col sm:flex-row gap-3 glass p-4 rounded-xl border border-white/5 max-w-3xl">
-                    <input
-                      type="text"
-                      placeholder="KEY"
-                      value={newEnvKey}
-                      onChange={(e) => setNewEnvKey(e.target.value.toUpperCase())}
-                      className="h-9 px-3 rounded-lg glass-input text-xs font-semibold placeholder:font-normal text-white uppercase flex-1"
-                    />
-                    <input
-                      type="text"
-                      placeholder="VALUE"
-                      value={newEnvVal}
-                      onChange={(e) => setNewEnvVal(e.target.value)}
-                      className="h-9 px-3 rounded-lg glass-input text-xs placeholder:font-normal text-white flex-1"
-                    />
-                    <button
-                      onClick={handleAddEnv}
-                      className="h-9 px-4 rounded-lg bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-colors shrink-0 active:scale-95"
-                    >
-                      Add Variable
-                    </button>
-                  </div>
-
-                  {/* Existing env vars */}
-                  <div className="space-y-3 max-w-3xl">
-                    {envVars.map((env) => (
-                      <div key={env.key} className="h-10 px-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-6">
-                          <span className="font-bold text-zinc-300">{env.key}</span>
-                          <span className="font-mono text-zinc-500">
-                            {env.isSecret ? '••••••••••••' : env.value}
-                          </span>
-                        </div>
+                <div className="space-y-5">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-zinc-400 mb-1">Environment Variables</h4>
+                      <p className="text-[10px] text-zinc-500">Injected into your container at runtime. Redeploy after changes.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setEnvBulkMode(!envBulkMode); setEnvBulkText(''); }}
+                        className={`h-7 px-3 rounded-lg text-[10px] font-semibold border transition-all ${
+                          envBulkMode
+                            ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-300'
+                            : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
+                        }`}
+                      >
+                        {envBulkMode ? '✕ Cancel Paste' : '⊞ Bulk Paste .env'}
+                      </button>
+                      {envVars.length > 0 && (
                         <button
-                          onClick={() => handleRemoveEnv(env.key)}
-                          className="text-[10px] font-semibold text-red-400 hover:text-red-300 hover:underline"
+                          onClick={() => saveEnvVars(envVars)}
+                          disabled={envSaving}
+                          className="h-7 px-3 rounded-lg text-[10px] font-bold bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-50 transition-all flex items-center gap-1.5"
                         >
-                          Remove
+                          {envSaving ? (
+                            <><span className="w-2.5 h-2.5 border border-emerald-400/40 border-t-emerald-400 rounded-full animate-spin" />Saving...</>
+                          ) : envSaved ? (
+                            <>✓ Saved</>
+                          ) : (
+                            <>↑ Save All</>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bulk paste mode */}
+                  {envBulkMode && (
+                    <div className="space-y-2 max-w-2xl">
+                      <div className="text-[9px] text-zinc-500">Paste your <code className="bg-white/5 px-1 rounded text-zinc-300">.env</code> file contents below. Existing keys will be overwritten.</div>
+                      <textarea
+                        value={envBulkText}
+                        onChange={e => setEnvBulkText(e.target.value)}
+                        rows={8}
+                        placeholder={`DATABASE_URL=postgres://...\nSECRET_KEY=abc123\nNODE_ENV=production`}
+                        className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/8 text-xs font-mono text-zinc-300 placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleBulkPaste}
+                          disabled={!envBulkText.trim()}
+                          className="h-8 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold transition-all"
+                        >
+                          Import Variables
+                        </button>
+                        <button
+                          onClick={() => { setEnvBulkMode(false); setEnvBulkText(''); }}
+                          className="h-8 px-4 rounded-lg border border-white/10 text-zinc-400 hover:text-white text-xs font-semibold transition-all"
+                        >
+                          Cancel
                         </button>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Add new variable row */}
+                  {!envBulkMode && (
+                    <div className="flex gap-2 max-w-2xl items-start">
+                      <div className="flex-1">
+                        <div className="text-[8px] text-zinc-600 mb-1 ml-1">KEY</div>
+                        <input
+                          type="text"
+                          placeholder="VARIABLE_NAME"
+                          value={newEnvKey}
+                          onChange={(e) => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                          className="w-full h-9 px-3 rounded-xl bg-black/30 border border-white/8 text-xs font-mono font-bold text-white placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 transition-colors uppercase"
+                        />
+                      </div>
+                      <div className="flex-[2]">
+                        <div className="text-[8px] text-zinc-600 mb-1 ml-1">VALUE</div>
+                        <input
+                          type={newEnvSecret ? 'password' : 'text'}
+                          placeholder="value"
+                          value={newEnvVal}
+                          onChange={(e) => setNewEnvVal(e.target.value)}
+                          className="w-full h-9 px-3 rounded-xl bg-black/30 border border-white/8 text-xs font-mono text-white placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 transition-colors"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 items-center pt-[18px]">
+                        <button
+                          type="button"
+                          onClick={() => setNewEnvSecret(!newEnvSecret)}
+                          title={newEnvSecret ? 'Value is hidden' : 'Value is visible'}
+                          className={`w-9 h-9 rounded-xl border text-sm transition-all ${
+                            newEnvSecret
+                              ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-300'
+                              : 'border-white/10 text-zinc-500 hover:text-white'
+                          }`}
+                        >
+                          {newEnvSecret ? '🔒' : '👁'}
+                        </button>
+                      </div>
+                      <div className="pt-[18px]">
+                        <button
+                          onClick={handleAddEnv}
+                          disabled={!newEnvKey.trim() || !newEnvVal.trim()}
+                          className="h-9 px-4 rounded-xl bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xs transition-all active:scale-95 whitespace-nowrap"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Variable list */}
+                  {!envBulkMode && (
+                    <div className="space-y-1.5 max-w-2xl">
+                      {envVars.length === 0 && (
+                        <div className="text-center py-8 text-[10px] text-zinc-600">
+                          No environment variables configured yet.
+                        </div>
+                      )}
+                      {envVars.map((env) => (
+                        <div key={env.key} className="group rounded-xl border border-white/5 bg-white/[0.015] hover:border-white/10 transition-colors overflow-hidden">
+                          <div className="flex items-center h-11 px-3 gap-3">
+                            {/* Secret badge */}
+                            <span className={`text-[8px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${
+                              env.isSecret ? 'bg-amber-500/10 text-amber-500' : 'bg-zinc-700/50 text-zinc-500'
+                            }`}>
+                              {env.isSecret ? 'SECRET' : 'PLAIN'}
+                            </span>
+
+                            {/* Key */}
+                            <span className="font-mono font-bold text-xs text-zinc-200 flex-shrink-0 w-44 truncate">{env.key}</span>
+
+                            {/* Value / edit */}
+                            {envEditingKey === env.key ? (
+                              <div className="flex-1 flex gap-2">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={envEditVal}
+                                  onChange={e => setEnvEditVal(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') handleUpdateEnvValue(env.key, envEditVal);
+                                    if (e.key === 'Escape') setEnvEditingKey(null);
+                                  }}
+                                  className="flex-1 h-7 px-2 rounded-lg bg-black/50 border border-indigo-500/40 text-xs font-mono text-white focus:outline-none"
+                                />
+                                <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} className="h-7 px-2.5 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold hover:bg-emerald-600/30">
+                                  Save
+                                </button>
+                                <button onClick={() => setEnvEditingKey(null)} className="h-7 px-2 rounded-lg border border-white/10 text-zinc-500 text-[10px] hover:text-white">
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex-1 flex items-center gap-2 min-w-0">
+                                <span className="font-mono text-xs text-zinc-500 truncate flex-1">
+                                  {envRevealedKeys.has(env.key) ? env.value : (env.isSecret ? '••••••••••••' : env.value)}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Action buttons — visible on hover */}
+                            {envEditingKey !== env.key && (
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                {env.isSecret && (
+                                  <button
+                                    onClick={() => toggleReveal(env.key)}
+                                    title={envRevealedKeys.has(env.key) ? 'Hide value' : 'Reveal value'}
+                                    className="h-7 w-7 rounded-lg border border-white/10 text-zinc-500 hover:text-white text-sm flex items-center justify-center transition-colors"
+                                  >
+                                    {envRevealedKeys.has(env.key) ? '🙈' : '👁'}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => { setEnvEditingKey(env.key); setEnvEditVal(env.value); }}
+                                  className="h-7 px-2 rounded-lg border border-white/10 text-zinc-500 hover:text-white text-[9px] font-bold transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveEnv(env.key)}
+                                  className="h-7 px-2 rounded-lg border border-white/10 text-zinc-500 hover:text-red-400 hover:border-red-500/20 text-[9px] font-bold transition-colors"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Footer hint */}
+                  {envVars.length > 0 && !envBulkMode && (
+                    <p className="text-[9px] text-zinc-600 max-w-2xl">
+                      ⚡ Changes are saved automatically per variable. Click <strong className="text-zinc-500">Redeploy</strong> to apply them to your running container.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -672,144 +918,195 @@ export default function ProjectsTab() {
               {detailsTab === 'domains' && (
                 <div className="space-y-6">
                   <div>
-                    <h4 className="text-xs font-bold text-zinc-400 mb-2">Configure Routing Domains</h4>
-                    <p className="text-[10px] text-zinc-500">Add custom domains to route web traffic directly to your application.</p>
+                    <h4 className="text-xs font-bold text-zinc-400 mb-2">Domains</h4>
+                    <p className="text-[10px] text-zinc-500">Manage domains for your deployment. SSL is automatically provisioned.</p>
                   </div>
 
-                  {/* DNS Guide Box */}
-                  <div className="glass p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/5 max-w-lg text-[10px] space-y-4">
-                    <div className="flex items-center gap-2">
-                      <h5 className="font-bold text-indigo-400 text-xs">How to Connect Your Domain</h5>
-                      <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold">Step-by-step</span>
+                  {/* ── Add domain form ── */}
+                  <form onSubmit={handleAddDomain} className="space-y-2 max-w-lg">
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          required
+                          placeholder="yourdomain.com or www.yourdomain.com"
+                          value={customDomain}
+                          onChange={(e) => { setCustomDomain(e.target.value); setDomainError(''); }}
+                          className="w-full h-10 px-3 pr-10 rounded-xl glass-input text-xs text-white placeholder-zinc-600 border border-white/8 focus:border-indigo-500/50 focus:outline-none transition-colors"
+                        />
+                        {customDomain && getDomainType(customDomain) && (
+                          <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                            getDomainType(customDomain) === 'apex' ? 'bg-amber-500/20 text-amber-400' :
+                            getDomainType(customDomain) === 'www' ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-indigo-500/20 text-indigo-400'
+                          }`}>
+                            {getDomainType(customDomain) === 'apex' ? 'ROOT' : getDomainType(customDomain) === 'www' ? 'WWW' : 'SUB'}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={domainAdding || !customDomain.trim()}
+                        className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                      >
+                        {domainAdding ? (
+                          <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Adding...</>
+                        ) : 'Add Domain'}
+                      </button>
                     </div>
-
-                    {/* Step 1 */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
-                        <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center flex-shrink-0 text-[8px]">1</span>
-                        Open your DNS provider and go to DNS Records
-                      </div>
-                      <div className="ml-6 text-zinc-500 leading-relaxed">
-                        Go to <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline font-bold">Cloudflare Dashboard</a> → select your domain → click <strong className="text-zinc-300">DNS</strong> → <strong className="text-zinc-300">Records</strong>
-                      </div>
-                    </div>
-
-                    {/* Step 2 */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
-                        <span className="w-4 h-4 rounded-full bg-amber-500/30 text-amber-300 flex items-center justify-center flex-shrink-0 text-[8px]">2</span>
-                        Delete any existing A records pointing to your old server
-                      </div>
-                      <div className="ml-6 text-zinc-500 leading-relaxed">
-                        Look for any <code className="bg-white/5 px-1 rounded text-amber-400">A</code> records with Name <code className="bg-white/5 px-1 rounded text-white">@</code> or your domain name. Click <strong className="text-red-400">Edit → Delete</strong> on those first to avoid conflicts.
-                      </div>
-                    </div>
-
-                    {/* Step 3 */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
-                        <span className="w-4 h-4 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center flex-shrink-0 text-[8px]">3</span>
-                        Add these two records (click "Add record" for each)
-                      </div>
-
-                      {/* Record table */}
-                      <div className="ml-6 space-y-2">
-                        {/* A Record */}
-                        <div className="bg-black/40 rounded-lg border border-amber-500/10 overflow-hidden">
-                          <div className="px-2.5 py-1 bg-amber-500/5 border-b border-amber-500/10 flex items-center gap-1.5">
-                            <span className="font-bold text-amber-400 text-[9px]">A Record</span>
-                            <span className="text-zinc-500">— For your root domain (e.g. yourdomain.com)</span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-0 divide-x divide-white/5 font-mono text-[9px]">
-                            <div className="px-2.5 py-2">
-                              <span className="text-zinc-500 block text-[8px] mb-0.5">Type</span>
-                              <span className="text-amber-400 font-bold">A</span>
-                            </div>
-                            <div className="px-2.5 py-2">
-                              <span className="text-zinc-500 block text-[8px] mb-0.5">Name / Host</span>
-                              <span className="text-white font-bold">@</span>
-                            </div>
-                            <div className="px-2.5 py-2">
-                              <span className="text-zinc-500 block text-[8px] mb-0.5">IPv4 Address</span>
-                              <span className="text-emerald-400 font-bold select-all cursor-text">204.168.147.13</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* CNAME Record */}
-                        <div className="bg-black/40 rounded-lg border border-indigo-500/10 overflow-hidden">
-                          <div className="px-2.5 py-1 bg-indigo-500/5 border-b border-indigo-500/10 flex items-center gap-1.5">
-                            <span className="font-bold text-indigo-400 text-[9px]">CNAME Record</span>
-                            <span className="text-zinc-500">— For www subdomain (e.g. www.yourdomain.com)</span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-0 divide-x divide-white/5 font-mono text-[9px]">
-                            <div className="px-2.5 py-2">
-                              <span className="text-zinc-500 block text-[8px] mb-0.5">Type</span>
-                              <span className="text-indigo-400 font-bold">CNAME</span>
-                            </div>
-                            <div className="px-2.5 py-2">
-                              <span className="text-zinc-500 block text-[8px] mb-0.5">Name / Host</span>
-                              <span className="text-white font-bold">www</span>
-                            </div>
-                            <div className="px-2.5 py-2">
-                              <span className="text-zinc-500 block text-[8px] mb-0.5">Target / Value</span>
-                              <span className="text-emerald-400 font-bold select-all cursor-text">cloud.khawarahemad.com</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-zinc-600 text-[8px] leading-relaxed">
-                          ⚠️ In Cloudflare, set <strong className="text-zinc-400">Proxy status to "DNS only"</strong> (grey cloud, not orange) for both records.
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Step 4 */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-[9px] font-bold text-zinc-300">
-                        <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center flex-shrink-0 text-[8px]">4</span>
-                        Add your domain(s) below and click Connect
-                      </div>
-                      <div className="ml-6 text-zinc-500 leading-relaxed">
-                        Enter <code className="bg-white/5 px-1 rounded text-white">yourdomain.com</code> and <code className="bg-white/5 px-1 rounded text-white">www.yourdomain.com</code> separately in the field below. DNS changes may take up to <strong className="text-zinc-400">5 minutes</strong> to take effect.
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Add Domain Form */}
-                  <form onSubmit={handleAddDomain} className="flex gap-3 max-w-lg">
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. app.mydomain.com"
-                      value={customDomain}
-                      onChange={(e) => setCustomDomain(e.target.value)}
-                      className="h-9 px-3 rounded-lg glass-input text-xs text-white flex-1"
-                    />
-                    <button
-                      type="submit"
-                      className="h-9 px-4 rounded-lg bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-colors active:scale-95"
-                    >
-                      Connect Domain
-                    </button>
+                    {domainError && (
+                      <p className="text-[10px] text-red-400 flex items-center gap-1">⚠ {domainError}</p>
+                    )}
                   </form>
 
-                  {/* Domain Listing */}
-                  <div className="space-y-3 max-w-lg">
-                    {projectDetails?.domains?.map((dom: any) => (
-                      <div key={dom.id} className="p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between text-xs">
-                        <div>
-                          <div className="font-bold">{dom.hostname}</div>
-                          <div className="text-[9px] text-zinc-500 mt-1 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                            {dom.isCustom ? 'Custom CNAME verified' : 'Free subdomain'}
-                          </div>
+                  {/* ── Dynamic DNS Instructions ── */}
+                  {(() => {
+                    const dtype = getDomainType(customDomain);
+                    const cleanHost = customDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+                    const showApex = !customDomain || dtype === 'apex';
+                    const showCname = !customDomain || dtype === 'www' || dtype === 'subdomain';
+                    const nameLabel = dtype === 'www' ? 'www' : dtype === 'subdomain' ? cleanHost.split('.')[0] : '@';
+
+                    return (
+                      <div className="max-w-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-zinc-400">DNS Configuration</span>
+                          {customDomain && dtype && (
+                            <span className="text-[8px] text-zinc-500">
+                              — {dtype === 'apex' ? 'Add an A record for the root domain' : dtype === 'www' ? 'Add a CNAME for the www subdomain' : 'Add a CNAME for this subdomain'}
+                            </span>
+                          )}
+                          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[9px] text-indigo-400 hover:underline font-bold flex items-center gap-1">
+                            Cloudflare →
+                          </a>
                         </div>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
-                          HTTPS OK
-                        </span>
+
+                        {/* A Record - shown for apex or when no input */}
+                        {showApex && (
+                          <div className="rounded-xl border border-amber-500/10 overflow-hidden bg-black/20">
+                            <div className="px-3 py-1.5 bg-amber-500/5 border-b border-amber-500/10 flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-amber-400">A Record</span>
+                              <span className="text-[9px] text-zinc-500">Root / Apex domain ({cleanHost || 'yourdomain.com'})</span>
+                              <span className="ml-auto text-[8px] text-zinc-600">⚠ Delete old A records first</span>
+                            </div>
+                            <div className="grid grid-cols-3 divide-x divide-white/5 font-mono text-[9px]">
+                              {[
+                                { label: 'Type', val: 'A', color: 'text-amber-400', key: 'type-a' },
+                                { label: 'Name', val: '@', color: 'text-white', key: 'name-a' },
+                                { label: 'IPv4 Address', val: '204.168.147.13', color: 'text-emerald-400', key: 'ip' },
+                              ].map(f => (
+                                <div key={f.key} className="px-3 py-2.5 flex items-start justify-between group">
+                                  <div>
+                                    <span className="text-zinc-600 block text-[8px] mb-0.5">{f.label}</span>
+                                    <span className={`${f.color} font-bold`}>{f.val}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(f.val, f.key)}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] text-zinc-500 hover:text-white mt-0.5"
+                                  >
+                                    {copiedField === f.key ? '✓' : '⧉'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* CNAME Record - shown for www/subdomain or when no input */}
+                        {showCname && (
+                          <div className="rounded-xl border border-indigo-500/10 overflow-hidden bg-black/20">
+                            <div className="px-3 py-1.5 bg-indigo-500/5 border-b border-indigo-500/10 flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-indigo-400">CNAME Record</span>
+                              <span className="text-[9px] text-zinc-500">Subdomain ({dtype === 'www' ? cleanHost : dtype === 'subdomain' ? cleanHost : 'www.yourdomain.com'})</span>
+                            </div>
+                            <div className="grid grid-cols-3 divide-x divide-white/5 font-mono text-[9px]">
+                              {[
+                                { label: 'Type', val: 'CNAME', color: 'text-indigo-400', key: 'type-c' },
+                                { label: 'Name', val: nameLabel, color: 'text-white', key: 'name-c' },
+                                { label: 'Target', val: 'cloud.khawarahemad.com', color: 'text-emerald-400', key: 'target' },
+                              ].map(f => (
+                                <div key={f.key} className="px-3 py-2.5 flex items-start justify-between group">
+                                  <div>
+                                    <span className="text-zinc-600 block text-[8px] mb-0.5">{f.label}</span>
+                                    <span className={`${f.color} font-bold`}>{f.val}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(f.val, f.key)}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] text-zinc-500 hover:text-white mt-0.5"
+                                  >
+                                    {copiedField === f.key ? '✓' : '⧉'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-[8px] text-zinc-600">
+                          ☁ In Cloudflare, set Proxy to <strong className="text-zinc-500">DNS only</strong> (grey cloud). SSL is handled automatically by KH Cloud.
+                        </p>
                       </div>
-                    ))}
+                    );
+                  })()}
+
+                  {/* ── Domain List ── */}
+                  <div className="space-y-2 max-w-lg">
+                    {projectDetails?.domains?.length === 0 && (
+                      <p className="text-[10px] text-zinc-600 py-4 text-center">No domains connected yet.</p>
+                    )}
+                    {projectDetails?.domains?.map((dom: any) => {
+                      const isSystem = dom.hostname.endsWith('.khawarahemad.com');
+                      const isActive = dom.status === 'ACTIVE' || !dom.status;
+                      const isPending = dom.status === 'PENDING';
+                      return (
+                        <div key={dom.id} className="p-3 rounded-xl border border-white/5 bg-white/[0.015] flex items-center gap-3 group hover:border-white/10 transition-colors">
+                          {/* Status dot */}
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            isPending ? 'bg-amber-400 animate-pulse' : isActive ? 'bg-emerald-400' : 'bg-zinc-600'
+                          }`} />
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <a
+                                href={`https://${dom.hostname}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-white hover:text-indigo-400 transition-colors truncate"
+                              >
+                                {dom.hostname}
+                              </a>
+                              {isSystem && (
+                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold flex-shrink-0">FREE</span>
+                              )}
+                              {dom.isCustom && (
+                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-700/50 text-zinc-400 font-bold flex-shrink-0">CUSTOM</span>
+                              )}
+                            </div>
+                            <div className="text-[9px] text-zinc-500 mt-0.5 flex items-center gap-1.5">
+                              {isPending ? (
+                                <><span className="text-amber-400">⟳ Provisioning SSL & routing...</span></>
+                              ) : isActive ? (
+                                <><span className="text-emerald-400">✓ HTTPS Active</span> · <span>{dom.isCustom ? 'Custom domain' : 'Auto-provisioned'}</span></>
+                              ) : (
+                                <span className="text-red-400">⚠ Verification failed</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {!isSystem && (
+                            <button
+                              onClick={() => handleRemoveDomain(dom.id)}
+                              disabled={removingDomainId === dom.id}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-zinc-500 hover:text-red-400 font-semibold disabled:opacity-50 flex-shrink-0 px-2 py-1 rounded hover:bg-red-500/5"
+                            >
+                              {removingDomainId === dom.id ? '...' : 'Remove'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
