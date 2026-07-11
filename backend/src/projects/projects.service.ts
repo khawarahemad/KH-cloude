@@ -648,8 +648,14 @@ export class ProjectsService {
         // Auto-inject HOST=0.0.0.0 for Node/web framework routing safety
         const isNodeProject = fs.existsSync(path.join(buildDir, 'package.json'));
         const autoEnvFlags = isNodeProject ? '-e HOST=0.0.0.0' : '';
+        
+        // Auto-inject Vite allowedHosts parameter to bypass host checks in Vite 6+
+        const allowedHostsVal = hostnames.join(',');
+        const viteAllowedHostsFlag = isNodeProject ? `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${allowedHostsVal}"` : '';
+
         const envFlags = [
           autoEnvFlags,
+          viteAllowedHostsFlag,
           ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
         ].filter(Boolean).join(' ');
 
