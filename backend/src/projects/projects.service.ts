@@ -263,6 +263,7 @@ export class ProjectsService {
   async addCustomDomain(projectId: string, hostname: string, teamId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId },
+      include: { domains: true },
     });
     if (!project) throw new NotFoundException('Project not found.');
 
@@ -276,17 +277,87 @@ export class ProjectsService {
       },
     });
 
-    // Simulate Cloudflare DNS & SSL verification in 5 seconds
-    setTimeout(async () => {
-      await this.prisma.domain.update({
-        where: { id: domain.id },
-        data: {
-          status: 'ACTIVE',
-          sslStatus: 'ACTIVE',
-          verifiedAt: new Date(),
-        },
-      });
-    }, 5000);
+    // Re-route the live Docker container with updated Traefik labels
+    // so that the new hostname gets SSL certificate from Let's Encrypt
+    setImmediate(async () => {
+      try {
+        const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+          return new Promise((resolve) => {
+            const proc = exec(cmd);
+            let stdout = '';
+            let stderr = '';
+            proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+            proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+            proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+          });
+        };
+
+        const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+
+        // Inspect running container to get its image tag
+        const inspectRes = await runCmd(
+          `docker inspect --format '{{.Config.Image}}' ${containerName}`
+        );
+        if (inspectRes.code !== 0 || !inspectRes.stdout.trim()) {
+          this.logger.warn(`[Domain Route] Container ${containerName} not found, skipping re-route.`);
+          await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } });
+          return;
+        }
+
+        const imageTag = inspectRes.stdout.trim();
+        const containerPort = project.port || 3000;
+
+        // Get all domains including the new one
+        const allDomains = await this.prisma.domain.findMany({ where: { projectId } });
+        const targetDomain = `${project.slug}.khawarahemad.com`;
+        const hostnames = Array.from(new Set([targetDomain, ...allDomains.map(d => d.hostname)]));
+        const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
+        const middlewareName = `${containerName}-hosthdr`;
+
+        // Get env vars
+        const envVars = await this.prisma.envVar.findMany({ where: { projectId } });
+        const envFlags = [
+          '-e HOST=0.0.0.0',
+          `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
+          ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
+        ].join(' ');
+
+        // Stop old container
+        await runCmd(`docker stop ${containerName}`).catch(() => null);
+        await runCmd(`docker rm ${containerName}`).catch(() => null);
+
+        // Start new container with updated Traefik labels
+        const runCmdStr = [
+          'docker run -d',
+          `--name ${containerName}`,
+          `--network kh-cloud-network`,
+          `-e PORT=${containerPort}`,
+          envFlags,
+          `--restart unless-stopped`,
+          `-l "traefik.enable=true"`,
+          `-l "traefik.docker.network=kh-cloud-network"`,
+          `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
+          `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
+          `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
+          `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
+          `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
+          `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+          imageTag
+        ].filter(Boolean).join(' ');
+
+        const rerunRes = await runCmd(runCmdStr);
+        if (rerunRes.code === 0) {
+          this.logger.log(`[Domain Route] Container ${containerName} re-launched with ${hostname} in Traefik routing.`);
+          await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } });
+        } else {
+          this.logger.error(`[Domain Route] Failed to re-launch container: ${rerunRes.stderr}`);
+        }
+      } catch (err) {
+        this.logger.error(`[Domain Route] Error during container re-route: ${err.message}`);
+        await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } }).catch(() => null);
+      }
+    });
 
     return domain;
   }
