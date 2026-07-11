@@ -677,21 +677,62 @@ export default function ProjectsTab() {
                   </div>
 
                   {/* DNS Guide Box */}
-                  <div className="glass p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/5 max-w-lg text-[10px] space-y-2.5">
+                  <div className="glass p-4 rounded-xl border border-indigo-500/10 bg-indigo-500/5 max-w-lg text-[10px] space-y-3">
                     <h5 className="font-bold text-indigo-400">DNS Setup Instructions</h5>
                     <p className="text-zinc-400 leading-relaxed">
-                      To point your custom domain here, add a **CNAME record** in your DNS provider:
+                      Add the following DNS records in your DNS provider depending on your domain type:
                     </p>
-                    <div className="grid grid-cols-2 gap-2 font-mono bg-black/30 p-2.5 rounded-lg text-[9px] border border-white/5">
-                      <div>
-                        <span className="text-zinc-500 block">Name / Host</span>
-                        <span className="text-white">@ (or subdomain name)</span>
+
+                    {/* Option 1: A Record for root/apex domain */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-500/20 text-amber-400">OPTION 1</span>
+                        <span className="text-zinc-300 font-semibold">Root / Apex domain</span>
+                        <span className="text-zinc-500">e.g. iqamaprint.com</span>
                       </div>
-                      <div>
-                        <span className="text-zinc-500 block">Target / Value</span>
-                        <span className="text-white font-bold">cloud.khawarahemad.com</span>
+                      <div className="grid grid-cols-3 gap-2 font-mono bg-black/30 p-2.5 rounded-lg text-[9px] border border-white/5">
+                        <div>
+                          <span className="text-zinc-500 block">Type</span>
+                          <span className="text-amber-400 font-bold">A</span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block">Name / Host</span>
+                          <span className="text-white">@</span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block">Value / Content</span>
+                          <span className="text-white font-bold select-all">204.168.147.13</span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Option 2: CNAME for subdomain */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-indigo-500/20 text-indigo-400">OPTION 2</span>
+                        <span className="text-zinc-300 font-semibold">Subdomain</span>
+                        <span className="text-zinc-500">e.g. www.iqamaprint.com</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 font-mono bg-black/30 p-2.5 rounded-lg text-[9px] border border-white/5">
+                        <div>
+                          <span className="text-zinc-500 block">Type</span>
+                          <span className="text-indigo-400 font-bold">CNAME</span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block">Name / Host</span>
+                          <span className="text-white">www</span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block">Value / Target</span>
+                          <span className="text-white font-bold select-all">cloud.khawarahemad.com</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-1 border-t border-white/5 text-[9px] text-zinc-500 leading-relaxed">
+                      💡 <strong className="text-zinc-400">Tip:</strong> For full coverage, add <strong>both</strong> — an A record for <code>@</code> and a CNAME for <code>www</code>. Then add both <code>iqamaprint.com</code> and <code>www.iqamaprint.com</code> in the domain box below.
+                    </div>
+
                     <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[9px]">
                       <span className="text-zinc-500">Managing domain on Cloudflare?</span>
                       <a
