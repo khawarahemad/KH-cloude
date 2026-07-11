@@ -40,8 +40,8 @@ export class StorageService implements OnModuleInit {
         new ListObjectsV2Command({
           Bucket: 'connectivity-test-bucket',
           MaxKeys: 1,
-          $abortSignal: controller.signal as any,
-        })
+        }),
+        { abortSignal: controller.signal }
       ).then(() => {
         this.useMock = false;
         this.logger.log('Successfully connected to MinIO cluster. S3 compatible Object Storage active.');
