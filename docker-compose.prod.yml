@@ -80,6 +80,7 @@ services:
     volumes:
       - /var/lib/kh-cloud/db:/usr/src/app/data
       - /var/lib/kh-cloud/storage-mock:/usr/src/app/storage-mock
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - redis
     restart: unless-stopped
