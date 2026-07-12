@@ -157,7 +157,7 @@ export default async function handler({ req, env, storage }) {
 
       // Wrap user code so it can use ES-module-like default export
       const wrappedCode = `
-        ${fn.code.replace(/^export default /, 'const __handler = ')}
+        ${fn.code.replace(/export\s+default\s+/, 'const __handler = ')}
         __handler({ req: __req, env: __env, storage: __storage });
       `;
 
