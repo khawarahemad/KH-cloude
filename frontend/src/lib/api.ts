@@ -1,6 +1,7 @@
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
-    if (window.location.hostname === 'cloud.khawarahemad.com') {
+    const hostname = window.location.hostname;
+    if (hostname.endsWith('khawarahemad.com')) {
       return 'https://api.khawarahemad.com/api';
     }
   }
