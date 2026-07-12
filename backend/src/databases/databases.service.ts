@@ -82,11 +82,96 @@ export class DatabasesService {
     return { success: true };
   }
 
+  async syncStorageTables(dbId: string, teamId: string) {
+    const buckets = await this.prisma.bucket.findMany({
+      where: { teamId },
+      include: { objects: true },
+    });
+
+    const { client } = this.openDb(dbId);
+    try {
+      client.prepare(`
+        CREATE TABLE IF NOT EXISTS storage_buckets (
+          id TEXT PRIMARY KEY,
+          name TEXT UNIQUE NOT NULL,
+          is_public INTEGER DEFAULT 0,
+          size_limit INTEGER,
+          size_used INTEGER,
+          status TEXT,
+          created_at TEXT
+        );
+      `).run();
+
+      client.prepare(`
+        CREATE TABLE IF NOT EXISTS storage_objects (
+          id TEXT PRIMARY KEY,
+          bucket_id TEXT,
+          name TEXT,
+          size INTEGER,
+          content_type TEXT,
+          etag TEXT,
+          is_folder INTEGER DEFAULT 0,
+          created_at TEXT,
+          FOREIGN KEY(bucket_id) REFERENCES storage_buckets(id) ON DELETE CASCADE
+        );
+      `).run();
+
+      // Clear existing records first to avoid stale entries
+      client.prepare('DELETE FROM storage_objects').run();
+      client.prepare('DELETE FROM storage_buckets').run();
+
+      const insertBucket = client.prepare(`
+        INSERT OR REPLACE INTO storage_buckets (id, name, is_public, size_limit, size_used, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const insertObject = client.prepare(`
+        INSERT OR REPLACE INTO storage_objects (id, bucket_id, name, size, content_type, etag, is_folder, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const transaction = client.transaction(() => {
+        for (const bucket of buckets) {
+          insertBucket.run(
+            bucket.id,
+            bucket.name,
+            bucket.isPublic ? 1 : 0,
+            Number(bucket.sizeLimit),
+            Number(bucket.sizeUsed),
+            bucket.status,
+            bucket.createdAt.toISOString()
+          );
+
+          for (const obj of bucket.objects) {
+            insertObject.run(
+              obj.id,
+              obj.bucketId,
+              obj.key,
+              Number(obj.size),
+              obj.contentType,
+              obj.etag,
+              obj.isFolder ? 1 : 0,
+              obj.createdAt.toISOString()
+            );
+          }
+        }
+      });
+
+      transaction();
+    } catch (err) {
+      console.error('Failed to sync storage tables into virtual database:', err);
+    } finally {
+      client.close();
+    }
+  }
+
   async getTables(dbId: string, teamId: string) {
     const db = await this.prisma.databaseInstance.findFirst({
       where: { id: dbId, teamId },
     });
     if (!db) throw new NotFoundException('Database not found.');
+
+    await this.syncStorageTables(dbId, teamId);
 
     const dbPath = `./data/virtual_db_${dbId}.db`;
     const fs = require('fs');
@@ -112,6 +197,8 @@ export class DatabasesService {
       where: { id: dbId, teamId },
     });
     if (!db) throw new NotFoundException('Database not found.');
+
+    await this.syncStorageTables(dbId, teamId);
 
     const dbPath = `./data/virtual_db_${dbId}.db`;
     
@@ -172,6 +259,8 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    await this.syncStorageTables(dbId, teamId);
+
     const { client } = this.openDb(dbId);
     try {
       const cols = client.prepare(`PRAGMA table_info(${tableName});`).all();
@@ -198,6 +287,8 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    await this.syncStorageTables(dbId, teamId);
+
     const { client } = this.openDb(dbId);
     try {
       const offset = (page - 1) * pageSize;
@@ -220,6 +311,8 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    await this.syncStorageTables(dbId, teamId);
+
     const { client } = this.openDb(dbId);
     try {
       const keys = Object.keys(data).filter(k => data[k] !== undefined && data[k] !== '');
@@ -237,6 +330,8 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    await this.syncStorageTables(dbId, teamId);
+
     const { client } = this.openDb(dbId);
     try {
       const keys = Object.keys(data).filter(k => k !== primaryKey);
@@ -253,6 +348,8 @@ export class DatabasesService {
   async deleteRow(dbId: string, teamId: string, tableName: string, primaryKey: string, pkValue: any) {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
+
+    await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
     try {
