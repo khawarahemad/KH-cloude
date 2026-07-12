@@ -1078,29 +1078,56 @@ export class AppController {
   }
 
   @Post('admin/system/prune')
-  async adminPruneSystem(@Query('adminUserId') adminUserId: string) {
+  async adminPruneSystem(
+    @Query('adminUserId') adminUserId: string,
+    @Query('mode') mode: string = 'standard',
+  ) {
     await this.verifyAdmin(adminUserId);
 
     const { execSync } = require('child_process');
 
     let output = '';
+    const results: { label: string; reclaimed: string; success: boolean }[] = [];
+
+    // 1. Docker system prune (dangling images, stopped containers, unused networks, build cache)
     try {
-      const pruneSystem = execSync('docker system prune -f', { timeout: 30000, encoding: 'utf8' });
+      const pruneSystem = execSync('docker system prune -f 2>&1', { timeout: 60000, encoding: 'utf8' });
       output += `--- DOCKER SYSTEM PRUNE ---\n${pruneSystem}\n`;
+      const match = pruneSystem.match(/Total reclaimed space:\s*([\d.]+\w+)/i);
+      results.push({ label: 'System Prune (dangling images + stopped containers)', reclaimed: match ? match[1] : 'unknown', success: true });
     } catch (e: any) {
       output += `--- DOCKER SYSTEM PRUNE ERROR ---\n${e.message}\n`;
+      results.push({ label: 'System Prune', reclaimed: '0B', success: false });
     }
 
+    // 2. Docker builder prune (build cache)
     try {
-      const pruneBuilder = execSync('docker builder prune -af', { timeout: 30000, encoding: 'utf8' });
+      const pruneBuilder = execSync('docker builder prune -af 2>&1', { timeout: 60000, encoding: 'utf8' });
       output += `--- DOCKER BUILDER PRUNE ---\n${pruneBuilder}\n`;
+      const match = pruneBuilder.match(/Total reclaimed space:\s*([\d.]+\w+)/i);
+      results.push({ label: 'Builder Cache Prune', reclaimed: match ? match[1] : 'unknown', success: true });
     } catch (e: any) {
       output += `--- DOCKER BUILDER PRUNE ERROR ---\n${e.message}\n`;
+      results.push({ label: 'Builder Cache Prune', reclaimed: '0B', success: false });
+    }
+
+    // 3. Prune ALL unused images (not just dangling) — biggest space saver
+    if (mode === 'deep') {
+      try {
+        const pruneImages = execSync('docker image prune -a -f 2>&1', { timeout: 60000, encoding: 'utf8' });
+        output += `--- DOCKER IMAGE PRUNE (ALL UNUSED) ---\n${pruneImages}\n`;
+        const match = pruneImages.match(/Total reclaimed space:\s*([\d.]+\w+)/i);
+        results.push({ label: 'All Unused Images Pruned', reclaimed: match ? match[1] : 'unknown', success: true });
+      } catch (e: any) {
+        output += `--- DOCKER IMAGE PRUNE ERROR ---\n${e.message}\n`;
+        results.push({ label: 'All Unused Images Prune', reclaimed: '0B', success: false });
+      }
     }
 
     return {
       success: true,
       output,
+      results,
     };
   }
 

@@ -54,26 +54,34 @@ export default function AdminTab() {
 
   // Pruning states
   const [pruning, setPruning] = useState(false);
+  const [pruningMode, setPruningMode] = useState<'standard' | 'deep' | null>(null);
   const [pruningResult, setPruningResult] = useState<string | null>(null);
+  const [pruningResults, setPruningResults] = useState<{ label: string; reclaimed: string; success: boolean }[]>([]);
 
-  const handlePruneStorage = async () => {
+  const handlePruneStorage = async (mode: 'standard' | 'deep') => {
     if (!user) return;
-    if (!confirm('This will prune dangling Docker images, stopped build containers, and unused build cache. Running containers will not be affected. Reclaim VPS disk space?')) return;
+    const msg = mode === 'deep'
+      ? '⚠️ DEEP CLEAN will remove ALL unused Docker images (including those not used in 72h). Running containers are safe, but you may need to re-pull base images on next deploy. Continue?'
+      : 'Standard clean will remove dangling images, stopped containers, and build cache. Running containers are not affected. Continue?';
+    if (!confirm(msg)) return;
 
     setPruning(true);
+    setPruningMode(mode);
     setPruningResult(null);
+    setPruningResults([]);
     try {
-      const data = await apiRequest(`/admin/system/prune?adminUserId=${user.id}`, {
+      const data = await apiRequest(`/admin/system/prune?adminUserId=${user.id}&mode=${mode}`, {
         method: 'POST',
       });
       setPruningResult(data.output);
-      alert('Docker cleanup run completed successfully!');
+      setPruningResults(data.results || []);
       // Re-fetch storage data
       fetchAdminData();
     } catch (err: any) {
       alert(err.message || 'Pruning failed.');
     } finally {
       setPruning(false);
+      setPruningMode(null);
     }
   };
 
@@ -734,20 +742,29 @@ export default function AdminTab() {
                       <div className="flex gap-2">
                         <button
                           onClick={handleRunAnalyzer}
-                          disabled={analyzerLoading}
+                          disabled={analyzerLoading || pruning}
                           className="h-8 px-4 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 text-zinc-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95 border border-white/5"
                         >
                           {analyzerLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                          Scan VPS Directories
+                          Scan VPS
                         </button>
-                        
+
                         <button
-                          onClick={handlePruneStorage}
+                          onClick={() => handlePruneStorage('standard')}
+                          disabled={pruning}
+                          className="h-8 px-4 rounded-lg bg-amber-500/90 hover:bg-amber-500 disabled:opacity-50 text-black font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95"
+                        >
+                          {pruning && pruningMode === 'standard' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                          Standard Clean
+                        </button>
+
+                        <button
+                          onClick={() => handlePruneStorage('deep')}
                           disabled={pruning}
                           className="h-8 px-4 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95"
                         >
-                          {pruning ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                          Clean Unused Docker Data
+                          {pruning && pruningMode === 'deep' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                          Deep Clean
                         </button>
                       </div>
                     </div>
@@ -759,17 +776,58 @@ export default function AdminTab() {
                       </div>
                     )}
 
+                    {/* Legend */}
+                    <div className="flex gap-3 flex-wrap">
+                      <div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/15 rounded-xl px-3 py-2 text-[9px] text-amber-300 font-medium max-w-sm">
+                        <Trash2 size={11} className="shrink-0 mt-0.5 text-amber-400" />
+                        <span><strong>Standard Clean</strong> — removes dangling images, stopped containers &amp; build cache. Safe for running containers.</span>
+                      </div>
+                      <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/15 rounded-xl px-3 py-2 text-[9px] text-red-300 font-medium max-w-sm">
+                        <Trash2 size={11} className="shrink-0 mt-0.5 text-red-400" />
+                        <span><strong>Deep Clean</strong> — also removes ALL unused images (biggest space savings ~2GB+). Base images re-pulled on next deploy.</span>
+                      </div>
+                    </div>
+
                     {pruning && (
                       <div className="flex flex-col items-center justify-center py-12 text-zinc-500 gap-2 border border-white/5 rounded-2xl bg-black/20">
-                        <Loader2 className="animate-spin text-red-400" size={20} />
-                        <span className="text-[10px] font-medium">Pruning build cache, stopped build containers, and dangling layers...</span>
+                        <Loader2 className={`animate-spin ${pruningMode === 'deep' ? 'text-red-400' : 'text-amber-400'}`} size={20} />
+                        <span className="text-[10px] font-medium">
+                          {pruningMode === 'deep' ? 'Deep cleaning — pruning ALL unused images, build cache & stopped containers...' : 'Standard clean — pruning dangling images, build cache & stopped containers...'}
+                        </span>
+                      </div>
+                    )}
+
+                    {pruningResults.length > 0 && (
+                      <div className="space-y-3">
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Cleanup Results</span>
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {pruningResults.map((r, i) => (
+                            <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border text-xs ${
+                              r.success
+                                ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
+                                : 'bg-red-500/5 border-red-500/20 text-red-400'
+                            }`}>
+                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                                r.success ? 'bg-emerald-500/15' : 'bg-red-500/15'
+                              }`}>
+                                {r.success ? <Check size={11} /> : <Trash2 size={11} />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-[10px] text-white truncate">{r.label}</div>
+                                <div className={`font-mono text-[10px] font-black ${
+                                  r.success ? 'text-emerald-400' : 'text-red-400'
+                                }`}>Reclaimed: {r.reclaimed}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
                     {pruningResult && (
                       <div className="space-y-3">
-                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Docker Cleanup Log</span>
-                        <pre className="bg-[#120708] border border-red-500/10 rounded-2xl p-4 font-mono text-[9px] text-red-300 overflow-auto whitespace-pre-wrap leading-relaxed max-h-[250px]">
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Full Docker Cleanup Log</span>
+                        <pre className="bg-[#120708] border border-red-500/10 rounded-2xl p-4 font-mono text-[9px] text-red-300 overflow-auto whitespace-pre-wrap leading-relaxed max-h-[220px]">
                           {pruningResult}
                         </pre>
                       </div>
