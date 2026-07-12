@@ -1072,6 +1072,33 @@ export class AppController {
     };
   }
 
+  @Post('admin/system/prune')
+  async adminPruneSystem(@Query('adminUserId') adminUserId: string) {
+    await this.verifyAdmin(adminUserId);
+
+    const { execSync } = require('child_process');
+
+    let output = '';
+    try {
+      const pruneSystem = execSync('docker system prune -f', { timeout: 30000, encoding: 'utf8' });
+      output += `--- DOCKER SYSTEM PRUNE ---\n${pruneSystem}\n`;
+    } catch (e: any) {
+      output += `--- DOCKER SYSTEM PRUNE ERROR ---\n${e.message}\n`;
+    }
+
+    try {
+      const pruneBuilder = execSync('docker builder prune -f', { timeout: 30000, encoding: 'utf8' });
+      output += `--- DOCKER BUILDER PRUNE ---\n${pruneBuilder}\n`;
+    } catch (e: any) {
+      output += `--- DOCKER BUILDER PRUNE ERROR ---\n${e.message}\n`;
+    }
+
+    return {
+      success: true,
+      output,
+    };
+  }
+
   // --- TABLE EDITOR ENDPOINTS ---
 
   @Get('databases/:id/schema/:table')

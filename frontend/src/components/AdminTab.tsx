@@ -52,6 +52,31 @@ export default function AdminTab() {
     }
   };
 
+  // Pruning states
+  const [pruning, setPruning] = useState(false);
+  const [pruningResult, setPruningResult] = useState<string | null>(null);
+
+  const handlePruneStorage = async () => {
+    if (!user) return;
+    if (!confirm('This will prune dangling Docker images, stopped build containers, and unused build cache. Running containers will not be affected. Reclaim VPS disk space?')) return;
+
+    setPruning(true);
+    setPruningResult(null);
+    try {
+      const data = await apiRequest(`/admin/system/prune?adminUserId=${user.id}`, {
+        method: 'POST',
+      });
+      setPruningResult(data.output);
+      alert('Docker cleanup run completed successfully!');
+      // Re-fetch storage data
+      fetchAdminData();
+    } catch (err: any) {
+      alert(err.message || 'Pruning failed.');
+    } finally {
+      setPruning(false);
+    }
+  };
+
   const fetchAdminData = async () => {
     if (!user) return;
     setLoading(true);
@@ -703,22 +728,50 @@ export default function AdminTab() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">VPS System Analyzer</h4>
-                        <p className="text-[10px] text-zinc-500 font-medium">Investigate why disk space is occupied. Runs real-time docker system df and path size scanning on the VPS.</p>
+                        <p className="text-[10px] text-zinc-500 font-medium">Investigate why disk space is occupied and clean up build cache or dangling Docker images.</p>
                       </div>
-                      <button
-                        onClick={handleRunAnalyzer}
-                        disabled={analyzerLoading}
-                        className="h-8 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95"
-                      >
-                        {analyzerLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                        Scan VPS Directories
-                      </button>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleRunAnalyzer}
+                          disabled={analyzerLoading}
+                          className="h-8 px-4 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 text-zinc-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95 border border-white/5"
+                        >
+                          {analyzerLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                          Scan VPS Directories
+                        </button>
+                        
+                        <button
+                          onClick={handlePruneStorage}
+                          disabled={pruning}
+                          className="h-8 px-4 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95"
+                        >
+                          {pruning ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                          Clean Unused Docker Data
+                        </button>
+                      </div>
                     </div>
 
                     {analyzerLoading && (
                       <div className="flex flex-col items-center justify-center py-12 text-zinc-500 gap-2 border border-white/5 rounded-2xl bg-black/20">
                         <Loader2 className="animate-spin text-indigo-400" size={20} />
                         <span className="text-[10px] font-medium">Running disk scans and Docker disk usage audit on VPS...</span>
+                      </div>
+                    )}
+
+                    {pruning && (
+                      <div className="flex flex-col items-center justify-center py-12 text-zinc-500 gap-2 border border-white/5 rounded-2xl bg-black/20">
+                        <Loader2 className="animate-spin text-red-400" size={20} />
+                        <span className="text-[10px] font-medium">Pruning build cache, stopped build containers, and dangling layers...</span>
+                      </div>
+                    )}
+
+                    {pruningResult && (
+                      <div className="space-y-3">
+                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Docker Cleanup Log</span>
+                        <pre className="bg-[#120708] border border-red-500/10 rounded-2xl p-4 font-mono text-[9px] text-red-300 overflow-auto whitespace-pre-wrap leading-relaxed max-h-[250px]">
+                          {pruningResult}
+                        </pre>
                       </div>
                     )}
 
