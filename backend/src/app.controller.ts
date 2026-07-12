@@ -472,6 +472,92 @@ export class AppController {
     return { user, teams };
   }
 
+  @Post('auth/google/callback')
+  async googleCallback(@Body() body: { code: string; redirectUri: string; userId?: string }) {
+    const { code, redirectUri, userId } = body;
+    if (!code) throw new BadRequestException('Authorization code required.');
+
+    const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+    const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+
+    if (!googleClientId || !googleClientSecret) {
+      throw new BadRequestException('Google OAuth credentials not configured on the backend. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.');
+    }
+
+    // 1. Exchange code for access token
+    const tokenUrl = 'https://oauth2.googleapis.com/token';
+    const tokenRes = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    }).then((r) => r.json());
+
+    const accessToken = tokenRes.access_token;
+    if (!accessToken) {
+      throw new BadRequestException(`Google token exchange failed: ${tokenRes.error_description || 'unknown error'}`);
+    }
+
+    // 2. Fetch user profile details
+    const userUrl = 'https://www.googleapis.com/oauth2/v3/userinfo';
+    const googleUser = await fetch(userUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }).then((r) => r.json());
+
+    const email = googleUser.email;
+    if (!email) {
+      throw new BadRequestException('Failed to fetch email from Google profile.');
+    }
+
+    let user;
+    if (userId) {
+      // Attach to existing user
+      user = await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          image: googleUser.picture || undefined,
+        },
+      });
+    } else {
+      // Register/Login flow
+      user = await this.prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        user = await this.prisma.user.create({
+          data: {
+            name: googleUser.name || googleUser.given_name || email.split('@')[0],
+            email,
+            image: googleUser.picture || null,
+          },
+        });
+
+        // Create default team
+        await this.teams.createTeam(`${user.name}'s Team`, user.id);
+      } else if (googleUser.picture && !user.image) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            image: googleUser.picture,
+          },
+        });
+      }
+    }
+
+    const teams = await this.teams.getTeams(user.id);
+    return { user, teams };
+  }
+
   @Get('github/repos')
   async getGithubRepos(@Query('userId') userId: string) {
     if (!userId) throw new BadRequestException('User ID is required.');

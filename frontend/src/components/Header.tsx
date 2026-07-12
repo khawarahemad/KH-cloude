@@ -30,6 +30,7 @@ export default function Header() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('kh-cloud-session');
     logout();
     if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
       window.location.href = 'https://auth.khawarahemad.com?logout=true';

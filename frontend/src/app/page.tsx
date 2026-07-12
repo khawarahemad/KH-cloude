@@ -37,6 +37,7 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       const logoutParam = params.get('logout');
       if (logoutParam === 'true') {
+        localStorage.removeItem('kh-cloud-session');
         useAppStore.getState().logout();
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
