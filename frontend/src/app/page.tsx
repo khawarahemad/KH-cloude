@@ -13,21 +13,39 @@ import TeamsTab from '@/components/TeamsTab';
 import BillingTab from '@/components/BillingTab';
 import AdminTab from '@/components/AdminTab';
 import { apiRequest } from '@/lib/api';
+import { Shield } from 'lucide-react';
 
 type ViewMode = 'landing' | 'auth' | 'dashboard';
 
 export default function Home() {
-  const { user, setUser, setTeams, activeTab } = useAppStore();
+  const { user, setUser, setTeams, activeTab, setActiveTab } = useAppStore();
   const [view, setView] = useState<ViewMode>('landing');
+  const [isAdminSubdomain, setIsAdminSubdomain] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname.startsWith('admin.')) {
+        setIsAdminSubdomain(true);
+      }
+    }
+  }, []);
 
   // Attempt auto-login with query parameters or session simulation
   useEffect(() => {
     if (user) {
       setView('dashboard');
+      if (isAdminSubdomain && user.role === 'ADMIN') {
+        setActiveTab('admin');
+      }
     } else {
-      setView('landing');
+      if (isAdminSubdomain) {
+        setView('auth');
+      } else {
+        setView('landing');
+      }
     }
-  }, [user]);
+  }, [user, isAdminSubdomain]);
 
   const handleAuthSuccess = (data: { user: any; teams: any[] }) => {
     setUser(data.user);
@@ -54,13 +72,43 @@ export default function Home() {
     }
   };
 
+  if (view === 'dashboard' && isAdminSubdomain && user?.role !== 'ADMIN') {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#030303] text-center p-6 select-none">
+        <div className="relative mb-6">
+          <div className="absolute inset-0 rounded-3xl bg-red-500/20 blur-xl animate-pulse"></div>
+          <div className="relative w-16 h-16 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+            <Shield size={28} />
+          </div>
+        </div>
+        <h3 className="font-extrabold text-xl mb-2 text-white">Access Denied</h3>
+        <p className="text-xs text-zinc-400 max-w-sm mb-8 leading-relaxed">
+          The domain <strong className="text-zinc-300">admin.khawarahemad.com</strong> is reserved for system administrators. Your account does not have admin privileges.
+        </p>
+        <button
+          onClick={() => {
+            useAppStore.getState().logout();
+          }}
+          className="h-10 px-6 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all active:scale-95 duration-100"
+        >
+          Sign Out & Log In as Admin
+        </button>
+      </div>
+    );
+  }
+
   if (view === 'landing') {
     return <LandingPage onEnterApp={() => setView('auth')} />;
   }
 
   if (view === 'auth') {
-    return <AuthPage onBack={() => setView('landing')} onAuthSuccess={handleAuthSuccess} />;
-  }
+    return <AuthPage onBack={() => {
+      if (isAdminSubdomain) {
+        // Can't go back to landing on admin subdomain
+      } else {
+        setView('landing');
+      }
+    }} onAuthSuccess={handleAuthSuccess} />;}
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#030303]">

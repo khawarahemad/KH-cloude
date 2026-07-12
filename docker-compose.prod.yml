@@ -54,8 +54,8 @@ services:
       - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
       - "traefik.http.routers.minio.service=minio-api"
       - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
-      # Admin Console routing (admin.khawarahemad.com)
-      - "traefik.http.routers.minio-console.rule=Host(`admin.khawarahemad.com`)"
+      # Raw MinIO Console routing (minio-console.khawarahemad.com)
+      - "traefik.http.routers.minio-console.rule=Host(`minio-console.khawarahemad.com`)"
       - "traefik.http.routers.minio-console.entrypoints=websecure"
       - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
       - "traefik.http.routers.minio-console.service=minio-admin"
@@ -108,8 +108,8 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      # Dashboard routing (cloud.khawarahemad.com & cdn.khawarahemad.com)
-      - "traefik.http.routers.frontend.rule=Host(`cloud.khawarahemad.com`) || Host(`cdn.khawarahemad.com`)"
+      # Dashboard routing (cloud.khawarahemad.com, cdn.khawarahemad.com, and admin.khawarahemad.com)
+      - "traefik.http.routers.frontend.rule=Host(`cloud.khawarahemad.com`) || Host(`cdn.khawarahemad.com`) || Host(`admin.khawarahemad.com`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
