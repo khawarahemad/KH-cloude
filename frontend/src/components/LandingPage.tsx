@@ -1,41 +1,74 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Server, Database, Layers, Shield, Zap, Cpu, Network, FileText, Sparkles } from 'lucide-react';
+import {
+  ArrowRight, Server, Database, Layers, Zap, HardDrive, Network,
+  Check, Globe, Github, Terminal
+} from 'lucide-react';
 
 interface LandingProps {
   onEnterApp: () => void;
 }
 
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.12 },
-  },
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 };
 
-const rise = {
-  hidden: { y: 18, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { duration: 0.55, ease: 'easeOut' } },
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
 };
 
 const features = [
   {
     icon: Server,
-    title: 'Deploy with momentum',
-    copy: 'Push from GitHub, ship through a real pipeline, and keep a clean path from build to rollout.',
+    color: '#7c3aed',
+    bg: 'rgba(124,58,237,0.12)',
+    border: 'rgba(124,58,237,0.2)',
+    title: 'Deploy from Git',
+    desc: 'Connect any repository and deploy in seconds. Automatic CI/CD with instant rollbacks.',
   },
   {
     icon: Database,
-    title: 'Provision systems, not widgets',
-    copy: 'Stand up PostgreSQL, Redis, or MySQL instances with predictable connection details and backup-ready defaults.',
+    color: '#3b82f6',
+    bg: 'rgba(59,130,246,0.12)',
+    border: 'rgba(59,130,246,0.2)',
+    title: 'Managed Databases',
+    desc: 'PostgreSQL, Redis, and MySQL with automatic backups, connection pooling, and metrics.',
   },
   {
-    icon: Layers,
-    title: 'Object storage that feels built in',
-    copy: 'Handle assets, previews, and S3-compatible workflows without bouncing to a separate product.',
+    icon: HardDrive,
+    color: '#22c55e',
+    bg: 'rgba(34,197,94,0.12)',
+    border: 'rgba(34,197,94,0.2)',
+    title: 'Object Storage',
+    desc: 'S3-compatible storage built into your workflow. Upload, preview, and share assets.',
+  },
+  {
+    icon: Zap,
+    color: '#f59e0b',
+    bg: 'rgba(245,158,11,0.12)',
+    border: 'rgba(245,158,11,0.2)',
+    title: 'Edge Functions',
+    desc: 'Write and deploy serverless handlers at the edge. Zero cold starts, instant response.',
+  },
+  {
+    icon: Globe,
+    color: '#06b6d4',
+    bg: 'rgba(6,182,212,0.12)',
+    border: 'rgba(6,182,212,0.2)',
+    title: 'Custom Domains',
+    desc: 'Bring your own domain with automatic SSL, smart routing, and global CDN.',
+  },
+  {
+    icon: Network,
+    color: '#ec4899',
+    bg: 'rgba(236,72,153,0.12)',
+    border: 'rgba(236,72,153,0.2)',
+    title: 'Team Collaboration',
+    desc: 'Invite team members, set roles, and manage access across all your projects.',
   },
 ];
 
@@ -43,231 +76,493 @@ const plans = [
   {
     name: 'Hobby',
     price: '$0',
-    accent: 'from-cyan-300/25 to-cyan-400/5',
-    items: ['1 team member', '3 active projects', '5GB storage', 'Shared databases'],
+    period: '/mo',
+    desc: 'For personal projects and experiments.',
+    items: ['1 team member', '3 active projects', '5 GB storage', 'Community support'],
+    cta: 'Start for free',
+    featured: false,
   },
   {
     name: 'Pro',
     price: '$29',
-    accent: 'from-amber-300/25 to-amber-400/5',
+    period: '/mo',
+    desc: 'For teams shipping production apps.',
+    items: ['Unlimited teammates', '25 active projects', '50 GB storage', 'Custom domains', 'Priority support'],
+    cta: 'Start Pro trial',
     featured: true,
-    items: ['Unlimited teammates', '25 active projects', '50GB storage', 'Custom domains'],
   },
   {
     name: 'Enterprise',
     price: '$250',
-    accent: 'from-emerald-300/20 to-emerald-400/5',
-    items: ['Dedicated infrastructure', 'SLA coverage', 'Advanced support', 'Custom limits'],
+    period: '/mo',
+    desc: 'For organizations with custom needs.',
+    items: ['Dedicated infrastructure', 'Custom resource limits', 'SLA coverage', '24/7 support'],
+    cta: 'Contact us',
+    featured: false,
   },
 ];
 
 export default function LandingPage({ onEnterApp }: LandingProps) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <div className="min-h-screen overflow-hidden text-white app-shell">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 backdrop-blur-2xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white shadow-[0_16px_40px_rgba(2,6,23,0.3)]">
-              <span className="text-[11px] font-black tracking-[0.22em] text-cyan-200">KH</span>
+    <div style={{ minHeight: '100vh', backgroundColor: '#0b0d11', color: '#f1f3f6', overflowX: 'hidden' }}>
+
+      {/* ─── Navigation ─────────────────────────────────────────────────── */}
+      <header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
+          height: '60px',
+          borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+          backgroundColor: scrolled ? 'rgba(11,13,17,0.9)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(12px)' : 'none',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 24px',
+        }}
+      >
+        <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '9px',
+              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(124,58,237,0.4)',
+            }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#fff', letterSpacing: '0.04em' }}>KH</span>
             </div>
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">KH Cloud</div>
-              <div className="text-sm font-semibold tracking-tight text-white">Control plane for modern teams</div>
-            </div>
+            <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '-0.02em', color: '#f1f3f6' }}>KH Cloud</span>
           </div>
 
-          <nav className="hidden items-center gap-7 text-sm text-slate-400 md:flex">
-            <a href="#features" className="transition-colors hover:text-white">Features</a>
-            <a href="#pricing" className="transition-colors hover:text-white">Pricing</a>
-            <a href="#workflow" className="transition-colors hover:text-white">Workflow</a>
+          {/* Nav links */}
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {['Features', 'Pricing', 'Docs'].map((link) => (
+              <a
+                key={link}
+                href={`#${link.toLowerCase()}`}
+                style={{
+                  padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: 500,
+                  color: '#9ba3af', textDecoration: 'none', transition: 'color 0.12s, background-color 0.12s',
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.color = '#f1f3f6';
+                  el.style.backgroundColor = 'rgba(255,255,255,0.06)';
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.color = '#9ba3af';
+                  el.style.backgroundColor = 'transparent';
+                }}
+              >
+                {link}
+              </a>
+            ))}
+            <button
+              onClick={onEnterApp}
+              style={{
+                marginLeft: '8px',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                height: '34px', padding: '0 16px',
+                borderRadius: '8px',
+                backgroundColor: '#7c3aed',
+                border: '1px solid rgba(124,58,237,0.5)',
+                color: '#fff',
+                fontSize: '13px', fontWeight: 500,
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.backgroundColor = '#6d28d9';
+                el.style.boxShadow = '0 4px 16px rgba(124,58,237,0.4)';
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.backgroundColor = '#7c3aed';
+                el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.4)';
+              }}
+            >
+              Launch console <ArrowRight size={13} />
+            </button>
           </nav>
-
-          <button onClick={onEnterApp} className="app-button-primary h-11 px-5 text-sm">
-            Launch console
-            <ArrowRight size={16} />
-          </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 pb-20 pt-10 md:pt-16">
-        <motion.section variants={stagger} initial="hidden" animate="visible" className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
-          <div className="space-y-8">
-            <motion.div variants={rise} className="app-chip w-fit">
-              <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(110,231,183,0.8)]" />
-              Production infrastructure, arranged clearly
-            </motion.div>
+      {/* ─── Hero ───────────────────────────────────────────────────────── */}
+      <motion.section
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+        style={{ maxWidth: '1100px', margin: '0 auto', padding: '96px 24px 80px', textAlign: 'center' }}
+      >
+        {/* Badge */}
+        <motion.div variants={fadeUp} style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '7px',
+            padding: '5px 14px', borderRadius: '9999px',
+            backgroundColor: 'rgba(124,58,237,0.12)',
+            border: '1px solid rgba(124,58,237,0.3)',
+            fontSize: '12px', fontWeight: 500, color: '#c4b5fd',
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#7c3aed', boxShadow: '0 0 8px rgba(124,58,237,0.8)' }} />
+            Now in production — deploy in seconds
+          </div>
+        </motion.div>
 
-            <motion.div variants={rise} className="space-y-5">
-              <h1 className="max-w-3xl text-5xl font-semibold tracking-tight text-white md:text-7xl">
-                A sharper cloud console for teams that ship every day.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-300 md:text-lg">
-                KH Cloud gives you one place for deployments, databases, object storage, and edge logic. The interface is built to feel more like a serious control room and less like a template.
-              </p>
-            </motion.div>
+        {/* Headline */}
+        <motion.h1
+          variants={fadeUp}
+          style={{
+            fontSize: 'clamp(38px, 6vw, 68px)',
+            fontWeight: 700,
+            letterSpacing: '-0.04em',
+            lineHeight: 1.08,
+            color: '#f1f3f6',
+            marginBottom: '20px',
+            maxWidth: '800px',
+            margin: '0 auto 20px',
+          }}
+        >
+          The cloud platform built for{' '}
+          <span style={{
+            background: 'linear-gradient(135deg, #a78bfa, #7c3aed)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>
+            teams that ship.
+          </span>
+        </motion.h1>
 
-            <motion.div variants={rise} className="flex flex-col gap-3 sm:flex-row">
-              <button onClick={onEnterApp} className="app-button-primary h-12 px-6">
-                Get started
-                <ArrowRight size={16} />
-              </button>
-              <a href="#features" className="app-button-secondary h-12 px-6">
-                Explore platform
-              </a>
-            </motion.div>
+        {/* Subtitle */}
+        <motion.p
+          variants={fadeUp}
+          style={{
+            fontSize: '16px', color: '#9ba3af', lineHeight: 1.7,
+            maxWidth: '560px', margin: '0 auto 36px',
+          }}
+        >
+          Deploy apps, manage databases, store objects, and run edge functions — 
+          all from one beautifully designed control plane.
+        </motion.p>
 
-            <motion.div variants={rise} className="grid gap-4 sm:grid-cols-3">
-              {[
-                ['Deploys', 'Git-powered delivery'],
-                ['Storage', 'Built-in object workflows'],
-                ['Control', 'Teams and access boundaries'],
-              ].map(([label, value]) => (
-                <div key={label} className="app-panel rounded-[1.5rem] p-4">
-                  <div className="app-muted-label mb-2">{label}</div>
-                  <div className="text-sm font-semibold text-white">{value}</div>
-                </div>
-              ))}
-            </motion.div>
+        {/* CTA buttons */}
+        <motion.div variants={fadeUp} style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={onEnterApp}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              height: '44px', padding: '0 24px',
+              borderRadius: '10px',
+              backgroundColor: '#7c3aed',
+              border: '1px solid rgba(124,58,237,0.5)',
+              color: '#fff', fontSize: '14px', fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(124,58,237,0.35)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#6d28d9';
+              el.style.boxShadow = '0 6px 28px rgba(124,58,237,0.5)';
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#7c3aed';
+              el.style.boxShadow = '0 4px 20px rgba(124,58,237,0.35)';
+            }}
+          >
+            Get started free <ArrowRight size={15} />
+          </button>
+          <a
+            href="#features"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              height: '44px', padding: '0 24px',
+              borderRadius: '10px',
+              backgroundColor: '#181b22',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#d1d5db', fontSize: '14px', fontWeight: 500,
+              cursor: 'pointer', textDecoration: 'none',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#1e222c';
+              el.style.borderColor = 'rgba(255,255,255,0.18)';
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#181b22';
+              el.style.borderColor = 'rgba(255,255,255,0.1)';
+            }}
+          >
+            View platform
+          </a>
+        </motion.div>
+
+        {/* Stats */}
+        <motion.div
+          variants={fadeUp}
+          style={{
+            display: 'flex', justifyContent: 'center', gap: '40px',
+            marginTop: '60px', flexWrap: 'wrap',
+          }}
+        >
+          {[['10k+', 'Deployments'], ['99.9%', 'Uptime SLA'], ['<50ms', 'Response time'], ['24/7', 'Support']].map(([val, label]) => (
+            <div key={label} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#f1f3f6', letterSpacing: '-0.03em' }}>{val}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{label}</div>
+            </div>
+          ))}
+        </motion.div>
+      </motion.section>
+
+      {/* ─── Dashboard preview card ───────────────────────────────────── */}
+      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px 80px' }}>
+        <div style={{
+          backgroundColor: '#111318',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+        }}>
+          {/* Fake browser bar */}
+          <div style={{
+            height: '40px', backgroundColor: '#0e1015',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex', alignItems: 'center', padding: '0 16px', gap: '8px',
+          }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444', opacity: 0.7 }} />
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b', opacity: 0.7 }} />
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22c55e', opacity: 0.7 }} />
+            <div style={{
+              flex: 1, marginLeft: '8px', height: '22px',
+              backgroundColor: '#181b22', borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', padding: '0 12px',
+              fontSize: '11px', color: '#4b5563',
+            }}>
+              cloud.khawarahemad.com
+            </div>
           </div>
 
-          <motion.div variants={rise} className="relative">
-            <div className="absolute -inset-6 rounded-[2rem] bg-cyan-400/8 blur-3xl" />
-            <div className="app-panel-strong relative overflow-hidden rounded-[2rem] p-6 md:p-7">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="app-muted-label">Live surface</div>
-                  <div className="mt-2 text-xl font-semibold text-white">Deployment Overview</div>
-                </div>
-                <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300">
-                  healthy
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4">
-                {[
-                  ['Projects', '12 active services'],
-                  ['Databases', '4 managed instances'],
-                  ['Storage', '78 GB stored'],
-                  ['Edge functions', '22 deployed handlers'],
-                ].map(([label, value], index) => (
-                  <div key={label} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</div>
-                        <div className="mt-1 text-sm font-semibold text-white">{value}</div>
-                      </div>
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/5 text-cyan-200">
-                        {index === 0 && <Cpu size={18} />}
-                        {index === 1 && <Database size={18} />}
-                        {index === 2 && <Layers size={18} />}
-                        {index === 3 && <Network size={18} />}
-                      </div>
-                    </div>
+          {/* Fake dashboard content */}
+          <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+            {[
+              { label: 'Active Projects', value: '12', color: '#7c3aed', icon: Layers },
+              { label: 'Databases', value: '4', color: '#3b82f6', icon: Database },
+              { label: 'Storage Used', value: '78 GB', color: '#22c55e', icon: HardDrive },
+              { label: 'Edge Functions', value: '22', color: '#f59e0b', icon: Zap },
+            ].map(({ label, value, color, icon: Icon }) => (
+              <div
+                key={label}
+                style={{
+                  backgroundColor: '#181b22',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '10px',
+                  padding: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '7px', backgroundColor: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon size={13} style={{ color }} />
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  <Sparkles size={14} className="text-cyan-200" />
-                  Operator note
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  The new UI emphasizes hierarchy, contrast, and fewer visual dead-ends. It is intentionally denser, but more readable.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        </motion.section>
-
-        <section id="features" className="mt-20 grid gap-6 border-t border-white/10 pt-12 md:grid-cols-3">
-          {features.map((feature) => {
-            const Icon = feature.icon;
-            return (
-              <div key={feature.title} className="app-panel rounded-[1.75rem] p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
-                  <Icon size={22} />
-                </div>
-                <h3 className="mt-5 text-lg font-semibold text-white">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-300">{feature.copy}</p>
-              </div>
-            );
-          })}
-        </section>
-
-        <section id="workflow" className="mt-20 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="app-panel rounded-[1.75rem] p-6 md:p-7">
-            <div className="app-muted-label">Workflow</div>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">One console, one model, less context switching.</h2>
-            <p className="mt-4 text-sm leading-6 text-slate-300">
-              The app is organized around teams, then projects, databases, storage, and edge functions. That hierarchy keeps the mental model stable as the surface grows.
-            </p>
-            <div className="mt-6 space-y-3 text-sm text-slate-200">
-              {['Create a workspace and invite collaborators', 'Connect code, storage, and data services', 'Review deployment health and usage in one place'].map((item) => (
-                <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <Shield size={16} className="text-cyan-200" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="app-panel rounded-[1.75rem] p-6 md:p-7">
-            <div className="app-muted-label mb-3">What you get</div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                ['Deployments', 'Clear status, logs, domains, and environment controls.'],
-                ['Databases', 'Query tools, row editors, and connection handling.'],
-                ['Storage', 'Upload, browse, preview, and share object assets.'],
-                ['Edge functions', 'Write, invoke, and iterate on runtime handlers.'],
-              ].map(([title, copy]) => (
-                <div key={title} className="rounded-2xl border border-white/10 bg-slate-950/65 p-4">
-                  <div className="text-sm font-semibold text-white">{title}</div>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="pricing" className="mt-20 border-t border-white/10 pt-12">
-          <div className="max-w-2xl">
-            <div className="app-muted-label">Pricing</div>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white md:text-4xl">Simple tiers, still presented with care.</h2>
-          </div>
-
-          <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {plans.map((plan) => (
-              <div key={plan.name} className={`app-panel rounded-[1.75rem] p-6 ${plan.featured ? 'ring-1 ring-amber-300/25' : ''}`}>
-                <div className={`rounded-[1.5rem] bg-gradient-to-br ${plan.accent} p-4 border border-white/10`}>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">{plan.name}</div>
-                  <div className="mt-3 text-4xl font-semibold tracking-tight text-white">{plan.price}</div>
-                  <div className="mt-1 text-sm text-slate-300">per month</div>
-                </div>
-                <div className="mt-5 space-y-3">
-                  {plan.items.map((item) => (
-                    <div key={item} className="flex items-center gap-2 text-sm text-slate-300">
-                      <Zap size={14} className="text-cyan-200" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-                <button onClick={onEnterApp} className={`mt-6 w-full ${plan.featured ? 'app-button-primary' : 'app-button-secondary'} h-11`}>
-                  {plan.featured ? 'Choose Pro' : 'Select plan'}
-                </button>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: '#f1f3f6', letterSpacing: '-0.03em' }}>{value}</div>
               </div>
             ))}
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
 
-      <footer className="border-t border-white/10 bg-slate-950/70 px-6 py-8 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-          <div>© 2026 KH Cloud. Built for deployment, storage, and control.</div>
-          <div className="flex gap-5">
-            <a href="#" className="transition-colors hover:text-slate-300">Terms</a>
-            <a href="#" className="transition-colors hover:text-slate-300">Privacy</a>
-            <a href="#" className="transition-colors hover:text-slate-300">Status</a>
+      {/* ─── Features ───────────────────────────────────────────────────── */}
+      <section id="features" style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px 80px' }}>
+        <div style={{ marginBottom: '48px' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em',
+            color: '#7c3aed', marginBottom: '12px',
+          }}>
+            <Zap size={11} /> Platform features
+          </div>
+          <h2 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f3f6', marginBottom: '12px' }}>
+            Everything in one place
+          </h2>
+          <p style={{ fontSize: '15px', color: '#9ba3af', maxWidth: '520px' }}>
+            One control plane for all your infrastructure. No tab switching. No context loss.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+          {features.map((f) => {
+            const Icon = f.icon;
+            return (
+              <div
+                key={f.title}
+                style={{
+                  backgroundColor: '#111318',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  transition: 'border-color 0.15s',
+                }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)')}
+              >
+                <div style={{
+                  width: '36px', height: '36px', borderRadius: '9px',
+                  backgroundColor: f.bg, border: `1px solid ${f.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: '14px',
+                }}>
+                  <Icon size={16} style={{ color: f.color }} />
+                </div>
+                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#f1f3f6', marginBottom: '6px' }}>{f.title}</h3>
+                <p style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>{f.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ─── Pricing ────────────────────────────────────────────────────── */}
+      <section id="pricing" style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px 80px' }}>
+        <div style={{ marginBottom: '48px' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em',
+            color: '#7c3aed', marginBottom: '12px',
+          }}>
+            Pricing
+          </div>
+          <h2 style={{ fontSize: '32px', fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f3f6', marginBottom: '12px' }}>
+            Simple, transparent pricing
+          </h2>
+          <p style={{ fontSize: '15px', color: '#9ba3af' }}>
+            Start free. Scale as you grow. No hidden fees.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', alignItems: 'start' }}>
+          {plans.map((plan) => (
+            <div
+              key={plan.name}
+              style={{
+                backgroundColor: plan.featured ? '#13111a' : '#111318',
+                border: plan.featured ? '1px solid rgba(124,58,237,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '14px',
+                padding: '24px',
+                position: 'relative',
+                boxShadow: plan.featured ? '0 8px 32px rgba(124,58,237,0.15)' : 'none',
+              }}
+            >
+              {plan.featured && (
+                <div style={{
+                  position: 'absolute', top: '-1px', left: '20px', right: '20px',
+                  height: '2px', background: 'linear-gradient(90deg, transparent, #7c3aed, transparent)',
+                }} />
+              )}
+              {plan.featured && (
+                <div style={{
+                  position: 'absolute', top: '16px', right: '16px',
+                  padding: '3px 10px', borderRadius: '9999px', fontSize: '10px',
+                  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
+                  backgroundColor: 'rgba(124,58,237,0.2)', color: '#a78bfa',
+                  border: '1px solid rgba(124,58,237,0.3)',
+                }}>
+                  Popular
+                </div>
+              )}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: plan.featured ? '#c4b5fd' : '#9ba3af', marginBottom: '8px' }}>
+                  {plan.name}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '36px', fontWeight: 700, letterSpacing: '-0.04em', color: '#f1f3f6' }}>{plan.price}</span>
+                  <span style={{ fontSize: '13px', color: '#6b7280' }}>{plan.period}</span>
+                </div>
+                <p style={{ fontSize: '12px', color: '#6b7280' }}>{plan.desc}</p>
+              </div>
+              <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {plan.items.map((item) => (
+                  <div key={item} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13px', color: '#d1d5db' }}>
+                    <div style={{
+                      width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
+                      backgroundColor: plan.featured ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.06)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Check size={9} style={{ color: plan.featured ? '#a78bfa' : '#6b7280' }} />
+                    </div>
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={onEnterApp}
+                style={{
+                  width: '100%', height: '38px',
+                  borderRadius: '8px',
+                  backgroundColor: plan.featured ? '#7c3aed' : '#181b22',
+                  border: plan.featured ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                  color: plan.featured ? '#fff' : '#d1d5db',
+                  fontSize: '13px', fontWeight: 500,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  transition: 'all 0.15s',
+                  boxShadow: plan.featured ? '0 2px 8px rgba(124,58,237,0.3)' : 'none',
+                }}
+              >
+                {plan.cta} <ArrowRight size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Footer ────────────────────────────────────────────────────── */}
+      <footer style={{
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        backgroundColor: '#0e1015',
+        padding: '32px 24px',
+      }}>
+        <div style={{
+          maxWidth: '1100px', margin: '0 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '24px', height: '24px', borderRadius: '7px',
+              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ fontSize: '9px', fontWeight: 800, color: '#fff' }}>KH</span>
+            </div>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>© 2026 KH Cloud. All rights reserved.</span>
+          </div>
+          <div style={{ display: 'flex', gap: '20px' }}>
+            {['Terms', 'Privacy', 'Status', 'Docs'].map((link) => (
+              <a
+                key={link}
+                href="#"
+                style={{ fontSize: '13px', color: '#6b7280', textDecoration: 'none', transition: 'color 0.12s' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#9ba3af')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#6b7280')}
+              >
+                {link}
+              </a>
+            ))}
           </div>
         </div>
       </footer>

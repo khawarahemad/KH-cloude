@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { LogOut, ChevronDown, Plus, Globe, Settings, Shield } from 'lucide-react';
+import { LogOut, ChevronDown, Plus, Check, Loader2 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
 export default function Header() {
@@ -10,90 +10,196 @@ export default function Header() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [newTeamOpen, setNewTeamOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamName.trim() || !user) return;
-
+    setCreating(true);
     try {
       const team = await apiRequest('/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newTeamName, ownerUserId: user.id }),
       });
-      
-      // Update store: add new team and select it
       const updatedTeams = [...teams, team];
       useAppStore.setState({ teams: updatedTeams, activeTeam: team });
       setNewTeamName('');
       setNewTeamOpen(false);
     } catch (err) {
       console.error('Failed to create team:', err);
+    } finally {
+      setCreating(false);
     }
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 px-4 backdrop-blur-2xl md:px-6">
-      <div className="flex h-18 items-center justify-between gap-4 py-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="flex items-center gap-3 select-none">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 to-emerald-300 text-slate-950 shadow-lg shadow-cyan-400/20">
-              <span className="text-[11px] font-black tracking-[0.22em]">KH</span>
+    <>
+      <header
+        style={{
+          height: '52px',
+          backgroundColor: '#0e1015',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 16px',
+          flexShrink: 0,
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+        }}
+      >
+        {/* Left: Logo + workspace switcher */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Logo mark */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ fontSize: '10px', fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>KH</span>
             </div>
-            <div className="hidden sm:block">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Cloud control plane</div>
-              <div className="text-sm font-semibold text-white">KH Cloud</div>
-            </div>
+            <span
+              style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', letterSpacing: '-0.01em' }}
+              className="hidden sm:block"
+            >
+              KH Cloud
+            </span>
           </div>
 
-          <div className="hidden h-10 w-px bg-white/10 md:block" />
+          {/* Separator */}
+          <div style={{ width: '1px', height: '18px', backgroundColor: 'rgba(255,255,255,0.08)' }} className="hidden md:block" />
 
-          <div className="relative">
+          {/* Workspace switcher */}
+          <div style={{ position: 'relative' }} className="hidden md:block">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/40 hover:bg-white/10"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '30px',
+                padding: '0 10px',
+                borderRadius: '6px',
+                backgroundColor: '#181b22',
+                border: '1px solid rgba(255,255,255,0.09)',
+                color: '#d1d5db',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'border-color 0.12s, background-color 0.12s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.18)';
+                (e.currentTarget as HTMLElement).style.backgroundColor = '#1e222c';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.09)';
+                (e.currentTarget as HTMLElement).style.backgroundColor = '#181b22';
+              }}
             >
-              <span className="max-w-40 truncate">{activeTeam?.name || 'Loading team...'}</span>
-              <ChevronDown size={14} className="text-slate-400" />
+              {/* Status dot */}
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', boxShadow: '0 0 6px rgba(34,197,94,0.5)', flexShrink: 0 }} />
+              <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeTeam?.name || 'Select workspace'}
+              </span>
+              <ChevronDown size={12} style={{ color: '#6b7280', flexShrink: 0 }} />
             </button>
 
             {dropdownOpen && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
-                <div className="absolute left-0 top-12 z-20 w-64 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl shadow-black/40">
-                  <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    Select workspace
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setDropdownOpen(false)} />
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '36px',
+                    left: 0,
+                    zIndex: 20,
+                    width: '220px',
+                    backgroundColor: '#111318',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    padding: '4px',
+                    boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+                  }}
+                >
+                  <div style={{ padding: '6px 10px 4px', fontSize: '10px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4b5563' }}>
+                    Workspaces
                   </div>
-                  <div className="space-y-1">
-                    {teams.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          setActiveTeam(t);
-                          setDropdownOpen(false);
-                        }}
-                        className={`flex h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm transition-all ${
-                          activeTeam?.id === t.id
-                            ? 'bg-cyan-400/10 text-cyan-200 ring-1 ring-cyan-400/20'
-                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                        }`}
-                      >
-                        <span className="truncate">{t.name}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="my-2 h-px bg-white/8" />
-
+                  {teams.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => { setActiveTeam(t); setDropdownOpen(false); }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: activeTeam?.id === t.id ? '#c4b5fd' : '#d1d5db',
+                        backgroundColor: activeTeam?.id === t.id ? 'rgba(124,58,237,0.12)' : 'transparent',
+                        cursor: 'pointer',
+                        border: 'none',
+                        textAlign: 'left',
+                        transition: 'background-color 0.1s',
+                      }}
+                      onMouseEnter={e => {
+                        if (activeTeam?.id !== t.id)
+                          (e.currentTarget as HTMLElement).style.backgroundColor = '#181b22';
+                      }}
+                      onMouseLeave={e => {
+                        if (activeTeam?.id !== t.id)
+                          (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+                      {activeTeam?.id === t.id && <Check size={12} style={{ color: '#7c3aed', flexShrink: 0 }} />}
+                    </button>
+                  ))}
+                  <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
                   <button
-                    onClick={() => {
-                      setNewTeamOpen(true);
-                      setDropdownOpen(false);
+                    onClick={() => { setNewTeamOpen(true); setDropdownOpen(false); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: '#9ba3af',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      border: 'none',
+                      textAlign: 'left',
+                      transition: 'background-color 0.1s, color 0.1s',
                     }}
-                    className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold text-cyan-200 transition-all hover:bg-cyan-400/10"
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = '#181b22';
+                      (e.currentTarget as HTMLElement).style.color = '#f1f3f6';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                      (e.currentTarget as HTMLElement).style.color = '#9ba3af';
+                    }}
                   >
-                    <Plus size={14} />
-                    New team
+                    <Plus size={13} />
+                    New workspace
                   </button>
                 </div>
               </>
@@ -101,60 +207,90 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/8 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 sm:flex">
-            <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.7)]" />
-            Systems healthy
-          </div>
-
-          <div className="hidden text-right md:block">
-            <div className="text-sm font-semibold text-white">{user?.name}</div>
-            <div className="text-xs text-slate-400">{user?.email}</div>
-          </div>
+        {/* Right: User info + logout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {user && (
+            <div className="hidden sm:flex" style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{user.name}</span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>{user.email}</span>
+            </div>
+          )}
 
           <button
             onClick={logout}
-            title="Log out"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-all hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-300 active:scale-[0.98]"
+            title="Sign out"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              backgroundColor: '#181b22',
+              border: '1px solid rgba(255,255,255,0.09)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#6b7280',
+              cursor: 'pointer',
+              transition: 'all 0.12s',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = 'rgba(239,68,68,0.1)';
+              el.style.borderColor = 'rgba(239,68,68,0.25)';
+              el.style.color = '#ef4444';
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#181b22';
+              el.style.borderColor = 'rgba(255,255,255,0.09)';
+              el.style.color = '#6b7280';
+            }}
           >
-            <LogOut size={16} />
+            <LogOut size={14} />
           </button>
         </div>
-      </div>
+      </header>
 
       {/* New Team Modal */}
       {newTeamOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-xl">
-          <div className="glass-card w-full max-w-md rounded-[1.75rem] p-6 md:p-7">
-            <div className="mb-5 space-y-2">
-              <div className="app-muted-label">Workspace setup</div>
-              <h3 className="text-2xl font-semibold tracking-tight text-white">Create new workspace</h3>
-              <p className="text-sm leading-6 text-slate-300">Teams keep projects, databases, and storage grouped in one place.</p>
+        <div className="rw-modal-backdrop">
+          <div className="rw-modal animate-scale-in">
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+                Create workspace
+              </h3>
+              <p style={{ fontSize: '13px', color: '#6b7280' }}>
+                Workspaces group your projects, databases, and storage.
+              </p>
             </div>
-            <form onSubmit={handleCreateTeam} className="space-y-4">
-              <div>
-                <label className="app-muted-label block mb-2">Team name</label>
+
+            <form onSubmit={handleCreateTeam}>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="rw-label">Workspace name</label>
                 <input
                   type="text"
                   required
+                  autoFocus
                   value={newTeamName}
                   onChange={(e) => setNewTeamName(e.target.value)}
                   placeholder="e.g. Acme Corp"
-                  className="glass-input h-12"
+                  className="rw-input"
                 />
               </div>
-              <div className="flex justify-end gap-3 pt-2">
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <button
                   type="button"
                   onClick={() => setNewTeamOpen(false)}
-                  className="app-button-secondary h-11 px-5 text-xs"
+                  className="rw-btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="app-button-primary h-11 px-5 text-xs"
+                  disabled={creating}
+                  className="rw-btn-primary"
                 >
+                  {creating ? <Loader2 size={13} className="animate-spin" /> : null}
                   Create
                 </button>
               </div>
@@ -162,6 +298,6 @@ export default function Header() {
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 }

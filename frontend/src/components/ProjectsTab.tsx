@@ -590,101 +590,74 @@ export default function ProjectsTab() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
+    <div className="rw-page">
       {/* Dynamic Header */}
-      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 md:px-6 shrink-0">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
+      <div className="rw-page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {activeProjectId && (
             <button
               onClick={() => setActiveProjectId(null)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              style={{ width: '30px', height: '30px', borderRadius: '7px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ba3af', cursor: 'pointer' }}
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={13} />
             </button>
           )}
           <div>
-            <div className="app-muted-label mb-1">App Hosting</div>
-            <h2 className="text-xl font-semibold tracking-tight text-white md:text-2xl">
-              {activeProjectId ? projectDetails?.name || 'Loading project...' : 'Deployments overview'}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              {activeProjectId ? 'Manage runtime, domains, environment variables, and delivery controls.' : 'Create, ship, and observe production apps from one workspace.'}
+            <h1 className="rw-page-title" style={{ fontSize: activeProjectId ? '16px' : '20px' }}>
+              {activeProjectId ? projectDetails?.name || 'Loading...' : 'Deployments'}
+            </h1>
+            <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+              {activeProjectId ? 'Manage runtime, domains, environment, and deployments.' : 'Create, ship, and observe production apps from one workspace.'}
             </p>
           </div>
         </div>
-
-          {!activeProjectId && (
-            <button
-              onClick={() => setWizardOpen(true)}
-              className="app-button-primary h-11 px-5 text-xs md:text-sm"
-            >
-              <Plus size={14} />
-              Deploy app
-            </button>
-          )}
-        </div>
+        {!activeProjectId && (
+          <button onClick={() => setWizardOpen(true)} className="rw-btn rw-btn-primary">
+            <Plus size={13} /> Deploy app
+          </button>
+        )}
       </div>
 
       {/* Main View Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="rw-page-content">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-            <Loader2 className="animate-spin text-cyan-300" size={32} />
-            <span className="text-xs tracking-[0.18em] uppercase">Fetching projects from your cluster</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px', gap: '12px', color: '#6b7280' }}>
+            <Loader2 size={18} className="animate-spin" style={{ color: '#7c3aed' }} />
+            <span style={{ fontSize: '13px' }}>Loading projects...</span>
           </div>
         ) : !activeProjectId ? (
-          /* PROJECTS GRID LIST */
           projects.length === 0 ? (
-            <div className="app-panel mx-auto flex max-w-xl flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/10 py-20 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
-                <Layers size={20} />
-              </div>
-              <div className="app-muted-label mb-2">No projects yet</div>
-              <h3 className="text-2xl font-semibold tracking-tight text-white">Provision your first deployment.</h3>
-              <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">Import code from GitHub, configure the runtime, and launch a production-ready app in one flow.</p>
-              <button
-                onClick={() => setWizardOpen(true)}
-                className="app-button-primary mt-7 h-11 px-5 text-xs"
-              >
-                Provision first project
-              </button>
+            <div className="rw-empty">
+              <div className="rw-empty-icon"><Layers size={20} style={{ color: '#6b7280' }} /></div>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6' }}>No projects yet</h3>
+              <p style={{ fontSize: '13px', color: '#6b7280', maxWidth: '320px' }}>Import code from GitHub, configure the runtime, and launch a production-ready app in one flow.</p>
+              <button onClick={() => setWizardOpen(true)} className="rw-btn rw-btn-primary rw-btn-lg" style={{ marginTop: '4px' }}><Plus size={14} /> Deploy first app</button>
             </div>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 max-w-7xl mx-auto">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
               {projects.map((proj) => {
                 const latestDep = proj.deployments?.[0];
+                const statusColors = proj.status === 'READY'
+                  ? { bg: 'rgba(34,197,94,0.1)', color: '#22c55e', border: 'rgba(34,197,94,0.2)' }
+                  : (proj.status === 'BUILDING' || proj.status === 'DEPLOYING')
+                  ? { bg: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: 'rgba(124,58,237,0.2)' }
+                  : { bg: '#181b22', color: '#6b7280', border: 'rgba(255,255,255,0.07)' };
                 return (
-                  <div
-                    key={proj.id}
-                    onClick={() => setActiveProjectId(proj.id)}
-                    className="app-panel group flex h-52 cursor-pointer flex-col justify-between rounded-[1.75rem] border border-white/10 p-6 transition-all hover:-translate-y-0.5 hover:border-cyan-400/20 active:scale-[0.99]"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-white truncate max-w-[150px]">{proj.name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                          proj.status === 'READY'
-                            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                            : proj.status === 'BUILDING' || proj.status === 'DEPLOYING'
-                            ? 'bg-cyan-400/10 text-cyan-200 border border-cyan-400/20'
-                            : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                        }`}>
-                          {proj.status}
-                        </span>
-                      </div>
-                      
-                      {/* Repo info */}
-                      <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
-                        <Github size={12} className="text-slate-500" />
-                        {proj.githubRepo || 'Manual upload'}
-                      </div>
+                  <div key={proj.id} onClick={() => setActiveProjectId(proj.id)} className="rw-card-interactive" style={{ padding: '16px', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>{proj.name}</span>
+                      <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 500, backgroundColor: statusColors.bg, color: statusColors.color, border: `1px solid ${statusColors.border}`, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {proj.status}
+                      </span>
                     </div>
-
-                    <div className="flex items-center justify-between border-t border-white/10 pt-4 text-[10px] text-slate-400">
-                      <span className="truncate max-w-[150px] font-medium text-slate-300">{proj.domains?.[0]?.hostname || 'No domain'}</span>
-                      <span className="text-slate-500">
-                        {latestDep ? `Active ${new Date(latestDep.createdAt).toLocaleDateString()}` : 'Never deployed'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#4b5563', marginBottom: '14px' }}>
+                      <Github size={11} style={{ color: '#6b7280' }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.githubRepo || 'Manual upload'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: '11px' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '150px', color: '#9ba3af' }}>{proj.domains?.[0]?.hostname || 'No domain'}</span>
+                      <span style={{ color: '#4b5563', flexShrink: 0 }}>
+                        {latestDep ? new Date(latestDep.createdAt).toLocaleDateString() : 'Never deployed'}
                       </span>
                     </div>
                   </div>

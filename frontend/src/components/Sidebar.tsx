@@ -2,64 +2,101 @@
 
 import React from 'react';
 import { useAppStore } from '@/lib/store';
-import { Layers, Database, HardDrive, Shield, CreditCard, Settings, Zap } from 'lucide-react';
+import {
+  Layers,
+  Database,
+  HardDrive,
+  Users,
+  CreditCard,
+  Shield,
+  Zap,
+  ChevronRight,
+} from 'lucide-react';
+
+const NAV_ITEMS = [
+  { id: 'projects',       label: 'Projects',       icon: Layers },
+  { id: 'databases',      label: 'Databases',       icon: Database },
+  { id: 'edge-functions', label: 'Edge Functions',  icon: Zap },
+  { id: 'storage',        label: 'Storage',         icon: HardDrive },
+  { id: 'teams',          label: 'Team',            icon: Users },
+  { id: 'billing',        label: 'Billing',         icon: CreditCard },
+];
 
 export default function Sidebar() {
   const { activeTab, setActiveTab, user } = useAppStore();
 
-  const navigation = [
-    { id: 'projects', label: 'Projects', icon: Layers },
-    { id: 'databases', label: 'Databases', icon: Database },
-    { id: 'edge-functions', label: 'Edge Functions', icon: Zap },
-    { id: 'storage', label: 'Object Storage', icon: HardDrive },
-    { id: 'teams', label: 'Team settings', icon: Shield },
-    { id: 'billing', label: 'Billing & usage', icon: CreditCard },
-  ];
-
+  const items = [...NAV_ITEMS];
   if (user?.role === 'ADMIN') {
-    navigation.push({ id: 'admin', label: 'Admin Console', icon: Settings });
+    items.push({ id: 'admin', label: 'Admin', icon: Shield });
   }
 
   return (
-    <aside className="hidden w-72 shrink-0 flex-col justify-between border-r border-white/10 bg-slate-950/55 px-4 py-5 backdrop-blur-2xl md:flex">
-      <div className="space-y-5">
-        <div className="glass-card rounded-[1.5rem] p-4">
-          <div className="app-muted-label mb-2">Workspace navigation</div>
-          <div className="text-lg font-semibold tracking-tight text-white">Infrastructure</div>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Everything you manage from the control plane lives here.</p>
+    <aside
+      className="hidden md:flex flex-col w-[220px] shrink-0"
+      style={{
+        backgroundColor: '#0e1015',
+        borderRight: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      {/* Nav section */}
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        {/* Section label */}
+        <div
+          className="px-2 mb-2"
+          style={{ fontSize: '10px', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#4b5563' }}
+        >
+          Navigation
         </div>
 
-        <div className="space-y-2">
-          {navigation.map((item) => {
+        <nav className="space-y-0.5">
+          {items.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`group flex h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium transition-all ${
+                className="rw-nav-item w-full"
+                style={
                   isActive
-                    ? 'bg-cyan-400/10 text-white ring-1 ring-cyan-400/20'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                }`}
+                    ? {
+                        backgroundColor: 'rgba(124,58,237,0.12)',
+                        color: '#c4b5fd',
+                        border: '1px solid rgba(124,58,237,0.3)',
+                      }
+                    : {}
+                }
               >
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${isActive ? 'bg-cyan-400/15 text-cyan-200' : 'bg-white/5 text-slate-500 group-hover:text-slate-200'}`}>
-                  <Icon size={16} />
-                </span>
-                <span className="truncate">{item.label}</span>
+                <Icon
+                  size={15}
+                  style={{ color: isActive ? '#a78bfa' : '#6b7280', flexShrink: 0 }}
+                />
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {isActive && (
+                  <ChevronRight size={12} style={{ color: '#7c3aed', opacity: 0.7 }} />
+                )}
               </button>
             );
           })}
-        </div>
+        </nav>
       </div>
 
-      <div className="glass-card rounded-[1.5rem] p-4 text-sm text-slate-400">
-        <div className="app-muted-label mb-2">Release channel</div>
-        <div className="text-white">KH Cloud CLI</div>
-        <div className="mt-1 text-xs text-slate-500">v1.0.4 running locally</div>
-        <a href="#" className="mt-3 inline-flex text-xs font-semibold text-cyan-200 transition-colors hover:text-cyan-100">
-          Download CLI
-        </a>
+      {/* Footer */}
+      <div
+        className="px-3 py-4"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        <div
+          className="px-2 py-2 rounded-lg"
+          style={{ backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <div style={{ fontSize: '10px', fontWeight: 500, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>
+            CLI
+          </div>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: '#9ba3af' }}>KH Cloud CLI</div>
+          <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>v1.0.4</div>
+        </div>
       </div>
     </aside>
   );

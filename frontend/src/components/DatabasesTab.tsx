@@ -245,59 +245,39 @@ export default function DatabasesTab() {
 
   if (activeDb) {
     return (
-      <div className="flex-1 flex flex-col min-h-0 bg-transparent">
+      <div className="rw-page">
         {/* Header */}
-        <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
+        <div className="rw-page-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
             <button
               onClick={() => { setActiveDb(null); setActiveTable(null); }}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              style={{ width: '30px', height: '30px', borderRadius: '7px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ba3af', cursor: 'pointer', flexShrink: 0 }}
             >
-              <ArrowLeft size={15} />
+              <ArrowLeft size={13} />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
-                <Database size={12} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '8px', flexShrink: 0, backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Database size={13} style={{ color: '#a78bfa' }} />
               </div>
-              <div>
-                <div className="app-muted-label mb-1">Database workspace</div>
-                <h2 className="text-lg font-semibold text-white">{activeDb.name}</h2>
+              <div style={{ minWidth: 0 }}>
+                <h1 className="rw-page-title" style={{ fontSize: '16px' }}>{activeDb.name}</h1>
+                <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '1px' }}>Database workspace</div>
               </div>
-              <span className="text-[9px] font-black uppercase bg-cyan-400/10 text-cyan-200 px-2 py-1 rounded-full">{activeDb.type}</span>
+              <span className="rw-badge rw-badge-accent" style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.05em' }}>{activeDb.type}</span>
             </div>
           </div>
 
           {/* Sub-view toggle */}
-          <div className="flex rounded-full border border-white/10 bg-white/5 p-1">
-            <button
-              onClick={() => setDbView('table-editor')}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold transition-all ${
-                dbView === 'table-editor' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Table size={11} />
-              Table Editor
-            </button>
-            <button
-              onClick={() => setDbView('sql')}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold transition-all ${
-                dbView === 'sql' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Terminal size={11} />
-              SQL Console
-            </button>
-            <button
-              onClick={() => setDbView('guide')}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold transition-all ${
-                dbView === 'guide' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <FileText size={11} />
-              Connection Guide
-            </button>
-          </div>
+          <div style={{ display: 'flex', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '8px', padding: '3px', gap: '2px' }}>
+            {([['table-editor', 'Table Editor', LayoutGrid], ['sql', 'SQL Console', Terminal], ['guide', 'Connection Guide', FileText]] as const).map(([id, label, Icon]) => (
+              <button key={id} onClick={() => setDbView(id as DbView)}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0 10px', height: '26px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', border: 'none', transition: 'all 0.12s',
+                  backgroundColor: dbView === id ? 'rgba(124,58,237,0.15)' : 'transparent',
+                  color: dbView === id ? '#c4b5fd' : '#6b7280'
+                }}>
+                <Icon size={11} />{label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -376,7 +356,7 @@ export default function DatabasesTab() {
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-white">{activeTable}</span>
                         {tableSchema && (
-                          <span className="text-[8px] text-slate-500 font-mono">pk: {tableSchema.primaryKey}</span>
+                          <span className="text-[8px] text-slate-500 font-mono">pk: {tableSchema?.primaryKey}</span>
                         )}
                         {tableTotal > 0 && (
                           <span className="text-[9px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded-full">{tableTotal} rows</span>
@@ -830,129 +810,83 @@ print("Query Data:", data)`}
 
   // ---- Render: Database List ----
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
+    <div className="rw-page">
       {/* Header */}
-      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
-            <Database size={16} />
-          </div>
-          <div>
-            <div className="app-muted-label mb-1">Database workspace</div>
-            <h2 className="text-xl font-semibold tracking-tight text-white">Database instances</h2>
-            <p className="mt-1 text-sm text-slate-400">Table editor, SQL console, and service connections in one place.</p>
-          </div>
-          </div>
+      <div className="rw-page-header">
+        <div>
+          <h1 className="rw-page-title">Databases</h1>
+          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Table editor, SQL console, and service connections in one place.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchDatabases}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={fetchDatabases} style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', cursor: 'pointer' }}>
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button
-            onClick={() => setProvisionOpen(true)}
-            className="app-button-primary h-11 px-5 text-xs"
-          >
-            <Plus size={14} />
-            Create database
+          <button onClick={() => setProvisionOpen(true)} className="rw-btn rw-btn-primary">
+            <Plus size={13} /> Create database
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="rw-page-content">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-            <Loader2 className="animate-spin text-cyan-300" size={32} />
-            <span className="text-xs uppercase tracking-[0.18em]">Loading databases</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px', gap: '12px', color: '#6b7280' }}>
+            <Loader2 size={18} className="animate-spin" style={{ color: '#7c3aed' }} />
+            <span style={{ fontSize: '13px' }}>Loading databases...</span>
           </div>
         ) : databases.length === 0 ? (
-          <div className="glass-card mx-auto flex max-w-lg flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/10 py-24 text-center bg-white/[0.01]">
-            <div className="relative mb-6">
-              <div className="absolute inset-0 rounded-[1.75rem] bg-cyan-400/20 blur-2xl animate-pulse" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-cyan-400/10 text-cyan-200">
-                <Database size={28} />
-              </div>
-            </div>
-            <h3 className="mb-2 text-2xl font-semibold tracking-tight text-white">No databases provisioned</h3>
-            <p className="mb-8 max-w-xs text-sm leading-6 text-slate-300">
-              Launch PostgreSQL, MySQL, or Redis instances with a full Supabase-style Table Editor and SQL Console.
-            </p>
-            <button
-              onClick={() => setProvisionOpen(true)}
-              className="app-button-primary h-11 px-6 text-xs"
-            >
-              Provision first database
-            </button>
+          <div className="rw-empty">
+            <div className="rw-empty-icon"><Database size={20} style={{ color: '#6b7280' }} /></div>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6' }}>No databases provisioned</h3>
+            <p style={{ fontSize: '13px', color: '#6b7280', maxWidth: '320px' }}>Launch PostgreSQL, MySQL, or Redis instances with a full Table Editor and SQL Console.</p>
+            <button onClick={() => setProvisionOpen(true)} className="rw-btn rw-btn-primary rw-btn-lg" style={{ marginTop: '4px' }}><Plus size={14} /> Provision database</button>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 max-w-7xl mx-auto">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px', maxWidth: '900px' }}>
             {databases.map((db) => {
               const connStr = getConnectionString(db);
+              const statusColors = db.status === 'RUNNING'
+                ? { bg: 'rgba(34,197,94,0.1)', color: '#22c55e', border: 'rgba(34,197,94,0.2)' }
+                : db.status === 'CREATING'
+                ? { bg: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: 'rgba(124,58,237,0.2)' }
+                : { bg: '#181b22', color: '#6b7280', border: 'rgba(255,255,255,0.07)' };
               return (
-                <div key={db.id} className="glass-card p-6 rounded-[1.75rem] border border-white/10 flex flex-col justify-between bg-white/[0.01] relative group">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
-                          <Database size={16} />
-                        </div>
-                        <div>
-                          <span className="block text-xs font-semibold text-white">{db.name}</span>
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{db.type}</span>
-                        </div>
+                <div key={db.id} className="rw-card-interactive" style={{ padding: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Database size={14} style={{ color: '#a78bfa' }} />
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                        db.status === 'RUNNING'
-                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                          : db.status === 'CREATING'
-                          ? 'bg-cyan-400/10 text-cyan-200 border border-cyan-400/20 animate-pulse'
-                          : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                      }`}>
-                        {db.status}
-                      </span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{db.name}</div>
+                        <div style={{ fontSize: '10px', color: '#4b5563', marginTop: '1px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }}>{db.type}</div>
+                      </div>
                     </div>
-
-                    {db.status === 'RUNNING' && (
-                      <div className="space-y-2 mt-3">
-                        <div>
-                          <label className="text-[9px] text-slate-500 font-bold tracking-wider uppercase block mb-1">Connection URI</label>
-                          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-300">
-                            <span className="truncate flex-1 select-all">{connStr}</span>
-                            <button onClick={() => handleCopy(connStr, db.id + '-uri')} className="text-slate-500 hover:text-white shrink-0">
-                              {copiedId === db.id + '-uri' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 500, backgroundColor: statusColors.bg, color: statusColors.color, border: `1px solid ${statusColors.border}`, textTransform: 'uppercase', letterSpacing: '0.04em', ...(db.status === 'CREATING' ? { animation: 'rw-pulse-dot 1.8s ease-in-out infinite' } : {}) }}>
+                      {db.status}
+                    </span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-4">
+                  {db.status === 'RUNNING' && (
+                    <div style={{ marginBottom: '14px' }}>
+                      <div style={{ fontSize: '10px', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '5px', fontWeight: 500 }}>Connection URI</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '7px', padding: '7px 10px' }}>
+                        <code style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{connStr}</code>
+                        <button onClick={() => handleCopy(connStr, db.id + '-uri')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedId === db.id + '-uri' ? '#22c55e' : '#4b5563', display: 'flex' }}>
+                          {copiedId === db.id + '-uri' ? <Check size={11} /> : <Copy size={11} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                     {db.status === 'RUNNING' ? (
-                      <button
-                        onClick={() => {
-                          setActiveDb(db);
-                          setDbView('table-editor');
-                          setActiveTable(null);
-                          fetchTables(db.id);
-                        }}
-                        className="app-button-primary h-10 px-3 text-[10px]"
-                      >
-                        <Table size={11} />
-                        Open Database
+                      <button onClick={() => { setActiveDb(db); setDbView('table-editor'); setActiveTable(null); fetchTables(db.id); }} className="rw-btn rw-btn-primary rw-btn-sm">
+                        <Table size={11} /> Open database
                       </button>
                     ) : <div />}
-
-                    <button
-                      onClick={() => handleDeleteDatabase(db.id)}
-                      className="h-10 px-2.5 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-300 hover:text-red-200 text-[10px] font-bold flex items-center gap-1.5 transition-colors"
-                    >
-                      <Trash size={12} />
-                      Delete
+                    <button onClick={() => handleDeleteDatabase(db.id)} className="rw-btn rw-btn-danger rw-btn-sm">
+                      <Trash size={11} /> Delete
                     </button>
                   </div>
                 </div>

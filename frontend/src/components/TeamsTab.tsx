@@ -3,12 +3,33 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
-import { Shield, Plus, Loader2, Trash, Mail, Clock, ShieldCheck, User, Key, Copy, Check, Eye, EyeOff } from 'lucide-react';
+import { Plus, Loader2, Mail, Clock, Key, Copy, Check, Eye, EyeOff, User, UserPlus, Shield } from 'lucide-react';
+
+const ROLE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  OWNER:        { bg: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: 'rgba(124,58,237,0.25)' },
+  ADMIN:        { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: 'rgba(245,158,11,0.25)' },
+  DEVELOPER:    { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa', border: 'rgba(59,130,246,0.25)' },
+  VIEWER:       { bg: 'rgba(107,114,128,0.15)', color: '#9ba3af', border: 'rgba(107,114,128,0.25)' },
+  SERVICE_ROLE: { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: 'rgba(245,158,11,0.25)' },
+  ANON:         { bg: 'rgba(99,102,241,0.12)', color: '#818cf8', border: 'rgba(99,102,241,0.25)' },
+};
+
+function RoleBadge({ role }: { role: string }) {
+  const c = ROLE_COLORS[role] || ROLE_COLORS.VIEWER;
+  return (
+    <span style={{
+      padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 500,
+      backgroundColor: c.bg, color: c.color, border: `1px solid ${c.border}`,
+      textTransform: 'uppercase', letterSpacing: '0.04em',
+    }}>
+      {role}
+    </span>
+  );
+}
 
 export default function TeamsTab() {
   const { activeTeam, user } = useAppStore();
-  
-  // Members & Invites
+
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -17,7 +38,6 @@ export default function TeamsTab() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Invite Form
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'ADMIN' | 'DEVELOPER' | 'VIEWER'>('DEVELOPER');
   const [inviting, setInviting] = useState(false);
@@ -42,41 +62,29 @@ export default function TeamsTab() {
       setInvites(invitesData);
       setAuditLogs(auditData);
       setApiKeys(keysData);
-    } catch (err) {
-      // Mock Fallbacks
-      setMembers([
-        { id: 'm-1', user: { name: user?.name || 'Developer', email: user?.email || 'dev@khcloud.com' }, role: 'OWNER' }
-      ]);
+    } catch {
+      setMembers([{ id: 'm-1', user: { name: user?.name || 'Developer', email: user?.email || 'dev@khcloud.com' }, role: 'OWNER' }]);
       setInvites([]);
       setApiKeys([
         { id: 'k-1', name: 'anon', key: 'kh_anon_mock_1234567890abcdef', role: 'ANON' },
-        { id: 'k-2', name: 'service_role', key: 'kh_service_mock_1234567890abcdef', role: 'SERVICE_ROLE' }
+        { id: 'k-2', name: 'service_role', key: 'kh_service_mock_1234567890abcdef', role: 'SERVICE_ROLE' },
       ]);
-      setAuditLogs([
-        { id: 'a-1', action: 'TEAM.CREATE', targetType: 'TEAM', createdAt: new Date().toISOString() }
-      ]);
+      setAuditLogs([{ id: 'a-1', action: 'TEAM.CREATE', targetType: 'TEAM', createdAt: new Date().toISOString() }]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTeam]);
+  useEffect(() => { fetchData(); }, [activeTeam]);
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim() || !activeTeam || !user) return;
     setInviting(true);
-
     try {
       await apiRequest(`/teams/${activeTeam.id}/invites`, {
         method: 'POST',
-        body: JSON.stringify({
-          email: inviteEmail,
-          role: inviteRole,
-          inviterId: user.id,
-        }),
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole, inviterId: user.id }),
       });
       setInviteEmail('');
       fetchData();
@@ -90,86 +98,119 @@ export default function TeamsTab() {
   const handleCancelInvite = async (inviteId: string) => {
     if (!activeTeam || !user) return;
     try {
-      await apiRequest(`/teams/${activeTeam.id}/invites/${inviteId}?userId=${user.id}`, {
-        method: 'DELETE',
-      });
+      await apiRequest(`/teams/${activeTeam.id}/invites/${inviteId}?userId=${user.id}`, { method: 'DELETE' });
       fetchData();
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
+    <div className="rw-page">
       {/* Header */}
-      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="app-muted-label mb-1">Team workspace</div>
-            <h2 className="text-xl font-semibold tracking-tight text-white">Workspace settings</h2>
-            <p className="mt-1 text-sm text-slate-400">Manage members, access keys, and invitations from one surface.</p>
-          </div>
+      <div className="rw-page-header">
+        <div>
+          <h1 className="rw-page-title">Team Settings</h1>
+          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+            Manage members, roles, API keys, and audit logs for{' '}
+            <span style={{ color: '#9ba3af', fontWeight: 500 }}>{activeTeam?.name}</span>.
+          </p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="rw-page-content">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-            <Loader2 className="animate-spin text-cyan-300" size={32} />
-            <span className="text-xs uppercase tracking-[0.18em]">Fetching workspace details</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px', gap: '12px', color: '#6b7280' }}>
+            <Loader2 size={18} className="animate-spin" style={{ color: '#7c3aed' }} />
+            <span style={{ fontSize: '13px' }}>Loading team data...</span>
           </div>
         ) : (
-          <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
-            
-            {/* MEMBERS & ROLES PANEL (2 Cols) */}
-            <div className="md:col-span-2 space-y-8">
-              
-              {/* Active Members list */}
+          <div style={{ maxWidth: '900px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px', alignItems: 'start' }}>
+
+            {/* Left column */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+              {/* Members */}
               <div>
-                <h3 className="app-muted-label mb-4">Workspace members</h3>
-                <div className="glass-card overflow-hidden rounded-[1.75rem] divide-y divide-white/10">
-                  {members.map((member) => (
-                    <div key={member.id} className="p-4 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/5 text-slate-300 font-bold uppercase">
-                          {member.user?.name?.substring(0, 2)}
+                <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '10px' }}>
+                  Members ({members.length})
+                </div>
+                <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
+                  {members.map((member, i) => (
+                    <div key={member.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      borderBottom: i < members.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '32px', height: '32px', borderRadius: '8px',
+                          backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.08)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '12px', fontWeight: 600, color: '#9ba3af',
+                        }}>
+                          {member.user?.name?.substring(0, 2)?.toUpperCase()}
                         </div>
                         <div>
-                          <span className="block font-semibold text-white">{member.user?.name}</span>
-                          <span className="mt-0.5 block text-[10px] text-slate-500">{member.user?.email}</span>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{member.user?.name}</div>
+                          <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '1px' }}>{member.user?.email}</div>
                         </div>
                       </div>
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-200 uppercase tracking-wide">
-                        {member.role}
-                      </span>
+                      <RoleBadge role={member.role} />
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Pending Invites */}
+              {/* Pending invites */}
               {invites.length > 0 && (
                 <div>
-                  <h3 className="app-muted-label mb-4">Pending invitations</h3>
-                  <div className="glass-card overflow-hidden rounded-[1.75rem] divide-y divide-white/10">
-                    {invites.map((invite) => (
-                      <div key={invite.id} className="p-4 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 text-slate-300">
-                          <Mail size={14} className="text-slate-500" />
-                          <span>{invite.email}</span>
-                          <span className="text-[9px] text-slate-500 uppercase">({invite.role})</span>
+                  <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '10px' }}>
+                    Pending invitations ({invites.length})
+                  </div>
+                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
+                    {invites.map((invite, i) => (
+                      <div key={invite.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        borderBottom: i < invites.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: '32px', height: '32px', borderRadius: '8px',
+                            backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.08)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <Mail size={13} style={{ color: '#6b7280' }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: 500, color: '#d1d5db' }}>{invite.email}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#4b5563', marginTop: '1px' }}>
+                              <Clock size={10} /> Pending
+                            </div>
+                          </div>
                         </div>
-
-                        <div className="flex items-center gap-4">
-                          <span className="text-[9px] text-slate-500 flex items-center gap-1">
-                            <Clock size={10} />
-                            PENDING
-                          </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <RoleBadge role={invite.role} />
                           <button
                             onClick={() => handleCancelInvite(invite.id)}
-                            className="text-slate-500 hover:text-red-300"
-                            title="Cancel Invite"
+                            style={{
+                              width: '26px', height: '26px', borderRadius: '6px',
+                              backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: '#6b7280', cursor: 'pointer', transition: 'all 0.12s', fontSize: '13px',
+                            }}
+                            onMouseEnter={e => {
+                              const el = e.currentTarget as HTMLElement;
+                              el.style.backgroundColor = 'rgba(239,68,68,0.1)';
+                              el.style.borderColor = 'rgba(239,68,68,0.25)';
+                              el.style.color = '#ef4444';
+                            }}
+                            onMouseLeave={e => {
+                              const el = e.currentTarget as HTMLElement;
+                              el.style.backgroundColor = 'transparent';
+                              el.style.borderColor = 'rgba(255,255,255,0.07)';
+                              el.style.color = '#6b7280';
+                            }}
                           >
                             ✕
                           </button>
@@ -180,46 +221,44 @@ export default function TeamsTab() {
                 </div>
               )}
 
-              {/* Workspace API & Service Keys */}
+              {/* API Keys */}
               <div>
-                <h3 className="app-muted-label mb-4">Workspace API & service keys</h3>
-                <div className="space-y-4 mb-8">
+                <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '10px' }}>
+                  API & Service Keys
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {apiKeys.map((keyObj) => (
-                    <div key={keyObj.id} className="glass-card relative flex flex-col justify-between rounded-[1.75rem] p-5 bg-white/[0.01]">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Key size={14} className="text-cyan-200" />
-                          <span className="text-xs font-bold text-white uppercase tracking-wider">{keyObj.name} key</span>
+                    <div key={keyObj.id} style={{
+                      backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: '12px', padding: '16px',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Key size={13} style={{ color: '#a78bfa' }} />
+                          <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{keyObj.name}</span>
                         </div>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                          keyObj.role === 'SERVICE_ROLE' 
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
-                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                        }`}>
-                          {keyObj.role === 'SERVICE_ROLE' ? 'Bypasses Row Security / Full Admin Access' : 'Client Safe / Restricted Access'}
-                        </span>
+                        <RoleBadge role={keyObj.role} />
                       </div>
-
-                      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-300">
-                        <span className="truncate flex-1 select-all">
-                          {showKeys[keyObj.id] ? keyObj.key : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'}
-                        </span>
-                        
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button 
-                            type="button"
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)',
+                        borderRadius: '8px', padding: '8px 12px',
+                      }}>
+                        <code style={{ flex: 1, fontSize: '11px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {showKeys[keyObj.id] ? keyObj.key : '•'.repeat(40)}
+                        </code>
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                          <button
                             onClick={() => setShowKeys(prev => ({ ...prev, [keyObj.id]: !prev[keyObj.id] }))}
-                            className="text-slate-500 hover:text-white"
+                            style={{ width: '24px', height: '24px', borderRadius: '5px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
                           >
-                            {showKeys[keyObj.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                            {showKeys[keyObj.id] ? <EyeOff size={12} /> : <Eye size={12} />}
                           </button>
-                          
-                          <button 
-                            type="button"
-                            onClick={() => handleCopyText(keyObj.key, keyObj.id)} 
-                            className="text-slate-500 hover:text-white"
+                          <button
+                            onClick={() => handleCopyText(keyObj.key, keyObj.id)}
+                            style={{ width: '24px', height: '24px', borderRadius: '5px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: copiedId === keyObj.id ? '#22c55e' : '#6b7280' }}
                           >
-                            {copiedId === keyObj.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                            {copiedId === keyObj.id ? <Check size={12} /> : <Copy size={12} />}
                           </button>
                         </div>
                       </div>
@@ -228,30 +267,30 @@ export default function TeamsTab() {
                 </div>
               </div>
 
-              {/* Audit Logs */}
+              {/* Audit logs */}
               <div>
-                <h3 className="app-muted-label mb-4">Workspace audit logs</h3>
-                <div className="glass-card max-h-80 overflow-y-auto overflow-hidden rounded-[1.75rem] divide-y divide-white/10">
+                <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '10px' }}>
+                  Audit log
+                </div>
+                <div style={{
+                  backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '12px', overflow: 'hidden', maxHeight: '280px', overflowY: 'auto',
+                }}>
                   {auditLogs.length === 0 ? (
-                    <div className="p-8 text-center text-slate-500 text-xs font-medium">No actions logged yet.</div>
+                    <div style={{ padding: '32px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No actions logged yet.</div>
                   ) : (
-                    auditLogs.map((log) => (
-                      <div key={log.id} className="p-4 text-xs hover:bg-white/[0.005] transition-colors">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-200 font-mono text-[10px]">{log.action}</span>
-                            <span className="text-[9px] text-slate-500 font-medium">
-                            {new Date(log.createdAt).toLocaleString()}
-                          </span>
+                    auditLogs.map((log, i) => (
+                      <div key={log.id} style={{
+                        padding: '12px 16px',
+                        borderBottom: i < auditLogs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <code style={{ fontSize: '11px', fontFamily: 'monospace', color: '#c4b5fd', fontWeight: 500 }}>{log.action}</code>
+                          <span style={{ fontSize: '10px', color: '#4b5563' }}>{new Date(log.createdAt).toLocaleString()}</span>
                         </div>
-                        <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
-                          <User size={10} />
-                          <span>{log.user?.name || 'System Operator'}</span>
-                          {log.details && (
-                            <>
-                              <span>•</span>
-                              <span className="truncate max-w-sm">{log.details}</span>
-                            </>
-                          )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#6b7280' }}>
+                          <User size={10} /> {log.user?.name || 'System'}
+                          {log.details && <><span>·</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.details}</span></>}
                         </div>
                       </div>
                     ))
@@ -261,58 +300,78 @@ export default function TeamsTab() {
 
             </div>
 
-            {/* INVITE NEW MEMBER FORM (1 Col) */}
-            <div className="space-y-6">
-              <div className="glass-card rounded-[1.75rem] border border-white/10 space-y-4 p-6">
-                <div className="flex items-center gap-2 text-xs font-bold text-white">
-                  <ShieldCheck size={16} className="text-cyan-200" />
-                  Invite Workspace Member
+            {/* Right sidebar: Invite form */}
+            <div style={{
+              backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: '12px', padding: '18px',
+              position: 'sticky', top: '24px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <div style={{
+                  width: '28px', height: '28px', borderRadius: '7px',
+                  backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <UserPlus size={13} style={{ color: '#a78bfa' }} />
                 </div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>Invite member</span>
+              </div>
 
-                <form onSubmit={handleSendInvite} className="space-y-4">
-                  <div>
-                    <label className="app-muted-label block mb-2">Email address</label>
-                    <input
-                      type="email"
-                      required
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder="dev@company.com"
-                      className="glass-input h-11 w-full text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="app-muted-label block mb-2">Workspace role</label>
-                    <select
-                      value={inviteRole}
-                      onChange={(e: any) => setInviteRole(e.target.value)}
-                      className="glass-input h-11 w-full text-xs font-semibold text-white focus:ring-0 focus:outline-none"
-                    >
-                      <option value="DEVELOPER" className="bg-[#0c0c0e] text-white">Developer</option>
-                      <option value="ADMIN" className="bg-[#0c0c0e] text-white">Administrator</option>
-                      <option value="VIEWER" className="bg-[#0c0c0e] text-white">Viewer</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={inviting}
-                    className="app-button-primary h-11 w-full text-xs"
+              <form onSubmit={handleSendInvite} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label className="rw-label">Email address</label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="dev@company.com"
+                    className="rw-input"
+                  />
+                </div>
+                <div>
+                  <label className="rw-label">Role</label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e: any) => setInviteRole(e.target.value)}
+                    className="rw-input"
+                    style={{ cursor: 'pointer', backgroundColor: '#181b22' }}
                   >
-                    {inviting ? (
-                      <>
-                        <Loader2 size={12} className="animate-spin" />
-                        Inviting...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={12} />
-                        Send invitation
-                      </>
-                    )}
-                  </button>
-                </form>
+                    <option value="DEVELOPER">Developer</option>
+                    <option value="ADMIN">Administrator</option>
+                    <option value="VIEWER">Viewer</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={inviting}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                    height: '36px', borderRadius: '8px',
+                    backgroundColor: '#7c3aed', border: '1px solid rgba(124,58,237,0.5)',
+                    color: '#fff', fontSize: '13px', fontWeight: 500,
+                    cursor: inviting ? 'not-allowed' : 'pointer', opacity: inviting ? 0.7 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {inviting ? <><Loader2 size={12} className="animate-spin" /> Sending...</> : <><Plus size={12} /> Send invite</>}
+                </button>
+              </form>
+
+              <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#0e1015', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 500, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                  Role permissions
+                </div>
+                {[
+                  { role: 'Developer', desc: 'Deploy and manage projects' },
+                  { role: 'Admin', desc: 'Full workspace access' },
+                  { role: 'Viewer', desc: 'Read-only access' },
+                ].map(({ role, desc }) => (
+                  <div key={role} style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+                    <Shield size={10} style={{ color: '#6b7280' }} />
+                    <span style={{ fontSize: '11px', color: '#6b7280' }}><span style={{ color: '#9ba3af', fontWeight: 500 }}>{role}</span> — {desc}</span>
+                  </div>
+                ))}
               </div>
             </div>
 

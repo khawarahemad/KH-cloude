@@ -2,17 +2,25 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, Key, ShieldCheck, ArrowLeft, Loader2, ArrowRight, Check, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, Key, ShieldCheck, ArrowLeft, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
 }
 
-const Github = ({ size = 24, ...props }: IconProps) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-    <path d="M9 18c-4.51 2-5-2-7-2" />
+const GithubIcon = ({ size = 16, ...props }: IconProps) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" {...props}>
+    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+  </svg>
+);
+
+const GoogleIcon = ({ size = 16, ...props }: IconProps) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} {...props}>
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
   </svg>
 );
 
@@ -26,6 +34,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +73,6 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
       if (redirectDest) {
         localStorage.setItem('auth_redirect_dest', redirectDest);
       }
-
       const state = Math.random().toString(36).substring(7);
       localStorage.setItem('github_oauth_state', state);
       window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
@@ -82,171 +90,294 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden text-white app-shell">
+    <div style={{ minHeight: '100vh', backgroundColor: '#0b0d11', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative' }}>
+      
+      {/* Background gradient */}
+      <div style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(124,58,237,0.08), transparent)',
+      }} />
+
+      {/* Back button */}
       <button
         onClick={onBack}
-        className="absolute left-6 top-6 z-20 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+        style={{
+          position: 'absolute', top: '20px', left: '20px',
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          height: '32px', padding: '0 12px',
+          borderRadius: '8px',
+          backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)',
+          color: '#9ba3af', fontSize: '13px', fontWeight: 500,
+          cursor: 'pointer', transition: 'all 0.12s',
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.backgroundColor = '#1e222c';
+          el.style.color = '#f1f3f6';
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.backgroundColor = '#181b22';
+          el.style.color = '#9ba3af';
+        }}
       >
-        <ArrowLeft size={16} />
-        Back
+        <ArrowLeft size={13} /> Back
       </button>
 
-      <div className="mx-auto grid min-h-screen max-w-7xl gap-8 px-6 py-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }} className="space-y-8">
-          <div className="space-y-4">
-            <div className="app-chip w-fit">
-              <Sparkles size={14} className="text-cyan-200" />
-              Secure access to your cloud workspace
-            </div>
-            <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
-              {isRegister ? 'Create your KH Cloud account.' : 'Welcome back to KH Cloud.'}
-            </h1>
-            <p className="max-w-xl text-base leading-7 text-slate-300 md:text-lg">
-              Sign in to manage deployment pipelines, databases, object storage, and edge functions from a single workspace.
-            </p>
+      {/* Auth card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        style={{
+          width: '100%', maxWidth: '400px',
+          backgroundColor: '#111318',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '16px',
+          padding: '28px',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          position: 'relative',
+        }}
+      >
+        {/* Top accent line */}
+        <div style={{
+          position: 'absolute', top: 0, left: '20%', right: '20%',
+          height: '1px', background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.6), transparent)',
+        }} />
+
+        {/* Logo + Title */}
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '11px',
+            background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+            boxShadow: '0 4px 16px rgba(124,58,237,0.4)',
+          }}>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff', letterSpacing: '0.04em' }}>KH</span>
           </div>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#f1f3f6', marginBottom: '6px' }}>
+            {isRegister ? 'Create your account' : 'Welcome back'}
+          </h1>
+          <p style={{ fontSize: '13px', color: '#6b7280' }}>
+            {isRegister
+              ? 'Sign up to start deploying with KH Cloud'
+              : 'Sign in to your KH Cloud workspace'}
+          </p>
+        </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              ['Access', 'Role-aware workspace routing'],
-              ['Security', 'Passkey, OAuth, and email login'],
-              ['Speed', 'Launch from a single verified session'],
-            ].map(([title, copy]) => (
-              <div key={title} className="app-panel rounded-[1.5rem] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">{title}</div>
-                <div className="mt-2 text-sm font-semibold text-white">{copy}</div>
-              </div>
-            ))}
+        {/* Error */}
+        {error && (
+          <div style={{
+            marginBottom: '16px', padding: '10px 14px',
+            backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: '8px', fontSize: '13px', color: '#fca5a5',
+          }}>
+            {error}
           </div>
-        </motion.div>
+        )}
 
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.05 }} className="relative">
-          <div className="absolute -inset-6 rounded-[2rem] bg-cyan-400/8 blur-3xl" />
-          <div className="app-panel-strong relative rounded-[2rem] p-6 md:p-8">
-            <div className="mb-7 flex items-center justify-between gap-4">
-              <div>
-                <div className="app-muted-label">Authentication</div>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
-                  {isRegister ? 'Create account' : 'Sign in'}
-                </h2>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
-                <ShieldCheck size={20} />
-              </div>
-            </div>
+        {/* OAuth buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+          <button
+            onClick={() => handleOAuthSimulate('GitHub')}
+            disabled={loading}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+              height: '36px', borderRadius: '8px',
+              backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.1)',
+              color: '#d1d5db', fontSize: '13px', fontWeight: 500,
+              cursor: 'pointer', transition: 'all 0.12s',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#1e222c';
+              el.style.borderColor = 'rgba(255,255,255,0.18)';
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#181b22';
+              el.style.borderColor = 'rgba(255,255,255,0.1)';
+            }}
+          >
+            <GithubIcon size={14} /> GitHub
+          </button>
+          <button
+            onClick={() => handleOAuthSimulate('Google')}
+            disabled={loading}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+              height: '36px', borderRadius: '8px',
+              backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.1)',
+              color: '#d1d5db', fontSize: '13px', fontWeight: 500,
+              cursor: 'pointer', transition: 'all 0.12s',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#1e222c';
+              el.style.borderColor = 'rgba(255,255,255,0.18)';
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.backgroundColor = '#181b22';
+              el.style.borderColor = 'rgba(255,255,255,0.1)';
+            }}
+          >
+            <GoogleIcon size={14} /> Google
+          </button>
+        </div>
 
-            {error && (
-              <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.07)' }} />
+          <span style={{ fontSize: '11px', color: '#4b5563', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>or</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.07)' }} />
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <AnimatePresence mode="popLayout">
+            {isRegister && (
+              <motion.div
+                key="name-field"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <label className="rw-label">Full name</label>
+                <div style={{ position: 'relative' }}>
+                  <User size={13} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#4b5563' }} />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="rw-input"
+                    style={{ paddingLeft: '32px' }}
+                  />
+                </div>
+              </motion.div>
             )}
+          </AnimatePresence>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <AnimatePresence mode="popLayout">
-                {isRegister && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2">
-                    <label className="app-muted-label block">Full name</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Jane Doe"
-                        className="glass-input h-12 pl-11"
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div className="space-y-2">
-                <label className="app-muted-label block">Email address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    className="glass-input h-12 pl-11"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="app-muted-label block">Password</label>
-                  {!isRegister && (
-                    <button type="button" className="text-xs font-semibold text-cyan-200 transition-colors hover:text-cyan-100">
-                      Forgot?
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="glass-input h-12 pl-11"
-                  />
-                </div>
-              </div>
-
-              <button type="submit" disabled={loading} className="app-button-primary h-12 w-full">
-                {loading ? (
-                  <>
-                    <Loader2 className="animate-spin" size={16} />
-                    Authenticating...
-                  </>
-                ) : isRegister ? (
-                  <>
-                    Create account
-                    <ArrowRight size={16} />
-                  </>
-                ) : (
-                  <>
-                    Sign in
-                    <ArrowRight size={16} />
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/10" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">or continue with</span>
-              <div className="h-px flex-1 bg-white/10" />
+          <div>
+            <label className="rw-label">Email address</label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={13} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#4b5563' }} />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="rw-input"
+                style={{ paddingLeft: '32px' }}
+              />
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button onClick={() => handleOAuthSimulate('GitHub')} disabled={loading} className="app-button-secondary h-12">
-                <Github size={16} />
-                GitHub
-              </button>
-              <button onClick={() => handleOAuthSimulate('Google')} disabled={loading} className="app-button-secondary h-12">
-                <Key size={16} className="text-slate-400" />
-                Google
-              </button>
-            </div>
-
-            <button onClick={() => handleOAuthSimulate('Passkey')} disabled={loading} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full border border-dashed border-cyan-400/30 bg-cyan-400/5 text-sm font-semibold text-cyan-100 transition-all hover:bg-cyan-400/10 active:scale-[0.98]">
-              <ShieldCheck size={16} />
-              Sign in with passkey or 2FA
-            </button>
-
-            <button onClick={() => setIsRegister(!isRegister)} className="mt-6 flex w-full items-center justify-center gap-2 text-sm font-semibold text-slate-300 transition-colors hover:text-white">
-              {isRegister ? 'Already have an account?' : "Need an account?"}
-              <span className="text-cyan-200">{isRegister ? 'Sign in' : 'Create one'}</span>
-            </button>
           </div>
-        </motion.div>
-      </div>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label className="rw-label" style={{ margin: 0 }}>Password</label>
+              {!isRegister && (
+                <button
+                  type="button"
+                  style={{ fontSize: '12px', color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <Lock size={13} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#4b5563' }} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="rw-input"
+                style={{ paddingLeft: '32px', paddingRight: '36px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: '11px', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#4b5563', display: 'flex', alignItems: 'center',
+                  padding: '2px',
+                }}
+              >
+                {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+              height: '38px', borderRadius: '8px', marginTop: '4px',
+              backgroundColor: '#7c3aed',
+              border: '1px solid rgba(124,58,237,0.5)',
+              color: '#fff', fontSize: '13px', fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(124,58,237,0.3)',
+              transition: 'all 0.15s',
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading
+              ? <><Loader2 size={13} className="animate-spin" /> {isRegister ? 'Creating...' : 'Signing in...'}</>
+              : <>{isRegister ? 'Create account' : 'Sign in'} <ArrowRight size={13} /></>
+            }
+          </button>
+        </form>
+
+        {/* Passkey option */}
+        <button
+          onClick={() => handleOAuthSimulate('Passkey')}
+          disabled={loading}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+            width: '100%', height: '36px', marginTop: '10px',
+            borderRadius: '8px',
+            backgroundColor: 'transparent',
+            border: '1px dashed rgba(124,58,237,0.3)',
+            color: '#9ba3af', fontSize: '13px', fontWeight: 500,
+            cursor: 'pointer', transition: 'all 0.12s',
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.borderColor = 'rgba(124,58,237,0.5)';
+            el.style.color = '#c4b5fd';
+            el.style.backgroundColor = 'rgba(124,58,237,0.06)';
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.borderColor = 'rgba(124,58,237,0.3)';
+            el.style.color = '#9ba3af';
+            el.style.backgroundColor = 'transparent';
+          }}
+        >
+          <ShieldCheck size={13} /> Sign in with passkey
+        </button>
+
+        {/* Toggle register/login */}
+        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#6b7280' }}>
+          {isRegister ? 'Already have an account? ' : "Don't have an account? "}
+          <button
+            onClick={() => { setIsRegister(!isRegister); setError(null); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a78bfa', fontWeight: 600, fontSize: '13px' }}
+          >
+            {isRegister ? 'Sign in' : 'Sign up'}
+          </button>
+        </p>
+      </motion.div>
     </div>
   );
 }

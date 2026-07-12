@@ -273,91 +273,43 @@ export default function AdminTab() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
+    <div className="rw-page">
       {/* Header */}
-      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
-              <Shield size={16} />
-            </div>
-            <div>
-              <div className="app-muted-label mb-1">Admin console</div>
-              <h2 className="text-xl font-semibold tracking-tight text-white">System admin console</h2>
-              <p className="mt-1 text-sm text-slate-400">Full infrastructure control, plan overrides, and cleanup tools.</p>
-            </div>
-          </div>
-
-          {/* Sub-tabs selectors */}
-          <div className="flex flex-wrap gap-2 rounded-full border border-white/10 bg-slate-950/60 p-1 text-[11px] font-bold text-slate-400">
-            <button
-              onClick={() => setSubTab('users')}
-                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
-                subTab === 'users' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
-              }`}
-            >
-              <Users size={12} />
-              Users
+      <div className="rw-page-header">
+        <div>
+          <h1 className="rw-page-title">System Admin</h1>
+          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Full infrastructure control, plan overrides, and cleanup tools.</p>
+        </div>
+        {/* Sub-tabs */}
+        <div style={{ display: 'flex', gap: '4px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '8px', padding: '3px' }}>
+          {([['users', 'Users', Users], ['projects', 'Containers', Layers], ['buckets', 'Storage', HardDrive], ['vps-storage', 'VPS', HardDrive], ['billing', 'Plans', CreditCard]] as const).map(([id, label, Icon]) => (
+            <button key={id} onClick={() => setSubTab(id as any)}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0 10px', height: '26px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', border: 'none', transition: 'all 0.12s',
+                backgroundColor: subTab === id ? 'rgba(124,58,237,0.15)' : 'transparent',
+                color: subTab === id ? '#c4b5fd' : '#6b7280'
+              }}>
+              <Icon size={11} />{label}
             </button>
-            <button
-              onClick={() => setSubTab('projects')}
-                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
-                subTab === 'projects' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
-              }`}
-            >
-              <Layers size={12} />
-              App Containers
-            </button>
-            <button
-              onClick={() => setSubTab('buckets')}
-                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
-                subTab === 'buckets' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
-              }`}
-            >
-              <HardDrive size={12} />
-              Object Storage
-            </button>
-            <button
-              onClick={() => setSubTab('vps-storage')}
-                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
-                subTab === 'vps-storage' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
-              }`}
-            >
-              <HardDrive size={12} />
-              VPS Storage
-            </button>
-            <button
-              onClick={() => setSubTab('billing')}
-                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
-                subTab === 'billing' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
-              }`}
-            >
-              <CreditCard size={12} />
-              Plans Override
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Main viewport */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+      <div className="rw-page-content">
+        <div style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
           {/* Quick Metrics */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
-            <div className="grid grid-cols-3 gap-4 shrink-0">
-              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-slate-950/60">
-                <span className="app-muted-label block mb-1">Total system users</span>
-                <span className="text-2xl font-black text-white">{users.length}</span>
-              </div>
-              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-slate-950/60">
-                <span className="app-muted-label block mb-1">Monitored web containers</span>
-                <span className="text-2xl font-black text-indigo-400">{subTab === 'projects' ? projects.length : projects.reduce((acc, u) => acc + (u.projectsCount || 0), 0)}</span>
-              </div>
-              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-slate-950/60">
-                <span className="app-muted-label block mb-1">Global storage buckets</span>
-                <span className="text-2xl font-black text-purple-400">{subTab === 'buckets' ? buckets.length : buckets.reduce((acc, u) => acc + (u.bucketsCount || 0), 0)}</span>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              {[
+                { label: 'Total users', value: users.length, color: '#f1f3f6' },
+                { label: 'Web containers', value: subTab === 'projects' ? projects.length : projects.reduce((acc: number, u: any) => acc + (u.projectsCount || 0), 0), color: '#818cf8' },
+                { label: 'Storage buckets', value: subTab === 'buckets' ? buckets.length : buckets.reduce((acc: number, u: any) => acc + (u.bucketsCount || 0), 0), color: '#a78bfa' },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
+                  <div style={{ fontSize: '11px', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: '6px' }}>{label}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.03em', color }}>{value}</div>
+                </div>
+              ))}
             </div>
           )}
 

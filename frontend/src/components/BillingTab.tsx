@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CreditCard, FileText, Layers, Database, HardDrive, DollarSign, Check, Lock } from 'lucide-react';
 
 export default function BillingTab() {
   const { activeTeam } = useAppStore();
   const [billing, setBilling] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingPlanId, setUpdatingPlanId] = useState<string | null>(null);
 
   const fetchBillingInfo = async () => {
     if (!activeTeam) return;
@@ -17,127 +16,173 @@ export default function BillingTab() {
     try {
       const data = await apiRequest(`/billing?teamId=${activeTeam.id}`);
       setBilling(data);
-    } catch (err) {
-      // Mock Billing Fallback
+    } catch {
       setBilling({
         subscription: { planId: 'hobby', currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() },
         plans: [
-          { id: 'hobby', name: 'Hobby', price: 0, specs: '1 Team member, 3 projects, 5GB storage' },
-          { id: 'pro', name: 'Pro', price: 29, specs: 'Unlimited members, 25 projects, 50GB storage' },
-          { id: 'enterprise', name: 'Enterprise', price: 250, specs: 'Custom limits, dedicated servers, SLA' },
+          { id: 'hobby',      name: 'Hobby',      price: 0,   specs: '1 member · 3 projects · 5 GB' },
+          { id: 'pro',        name: 'Pro',         price: 29,  specs: 'Unlimited members · 25 projects · 50 GB' },
+          { id: 'enterprise', name: 'Enterprise',  price: 250, specs: 'Custom limits · Dedicated · SLA' },
         ],
         invoices: [
-          { id: 'inv_398a', date: 'Jul 01, 2026', amount: '$0.00', status: 'PAID' },
-          { id: 'inv_8912', date: 'Jun 01, 2026', amount: '$0.00', status: 'PAID' },
+          { id: 'INV-2026-07', date: 'Jul 01, 2026', amount: '$0.00', status: 'PAID' },
+          { id: 'INV-2026-06', date: 'Jun 01, 2026', amount: '$0.00', status: 'PAID' },
         ],
-        usage: { activeProjects: 0, databasesCount: 0, storageGB: '0.00', currentSpend: '0.00' }
+        usage: { activeProjects: 0, databasesCount: 0, storageGB: '0.00', currentSpend: '0.00' },
       });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchBillingInfo();
-  }, [activeTeam]);
+  useEffect(() => { fetchBillingInfo(); }, [activeTeam]);
 
-  const handleUpdatePlan = async (planId: string) => {
-    if (!activeTeam || planId === billing?.subscription?.planId) return;
-    setUpdatingPlanId(planId);
-    try {
-      await apiRequest(`/billing/plan?teamId=${activeTeam.id}`, {
-        method: 'POST',
-        body: JSON.stringify({ planId }),
-      });
-      fetchBillingInfo();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setUpdatingPlanId(null);
-    }
-  };
+  const periodEnd = billing?.subscription?.currentPeriodEnd
+    ? new Date(billing.subscription.currentPeriodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : '—';
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
-      {/* Header */}
-      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
+    <div className="rw-page">
+      {/* Page header */}
+      <div className="rw-page-header">
         <div>
-          <div className="app-muted-label mb-1">Billing</div>
-          <h2 className="text-xl font-semibold tracking-tight text-white">Billing & usage</h2>
-          <p className="mt-1 text-sm text-slate-400">View plan usage, invoices, and current spend with a cleaner summary.</p>
+          <h1 className="rw-page-title">Billing & Usage</h1>
+          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+            Manage your subscription, view usage, and download invoices.
+          </p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="rw-page-content">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-            <Loader2 className="animate-spin text-cyan-300" size={32} />
-            <span className="text-xs uppercase tracking-[0.18em]">Connecting to billing gateway</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px', gap: '12px', color: '#6b7280' }}>
+            <Loader2 size={18} className="animate-spin" style={{ color: '#7c3aed' }} />
+            <span style={{ fontSize: '13px' }}>Loading billing information...</span>
           </div>
         ) : (
-          <div className="max-w-5xl mx-auto space-y-8">
-            
-            {/* Usage Summary Grid */}
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
-                <span className="app-muted-label block mb-1">Active projects</span>
-                <span className="text-2xl font-black text-white">{billing?.usage?.activeProjects}</span>
+          <div style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+            {/* Current plan banner */}
+            <div style={{
+              backgroundColor: '#111318',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '12px',
+              padding: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '10px',
+                  backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <CreditCard size={17} style={{ color: '#a78bfa' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>
+                    {billing?.plans?.find((p: any) => p.id === billing?.subscription?.planId)?.name || 'Hobby'} Plan
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                    Renews on {periodEnd}
+                  </div>
+                </div>
               </div>
-              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
-                <span className="app-muted-label block mb-1">Active databases</span>
-                <span className="text-2xl font-black text-white">{billing?.usage?.databasesCount}</span>
+              <span style={{
+                padding: '4px 10px', borderRadius: '9999px',
+                backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)',
+                fontSize: '11px', fontWeight: 500, color: '#c4b5fd',
+              }}>
+                Active
+              </span>
+            </div>
+
+            {/* Usage stats */}
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>
+                Current usage
               </div>
-              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
-                <span className="app-muted-label block mb-1">Storage assets</span>
-                <span className="text-2xl font-black text-white">{billing?.usage?.storageGB} GB</span>
-              </div>
-              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
-                <span className="app-muted-label block mb-1">Current month cost</span>
-                <span className="text-2xl font-black text-cyan-200">${billing?.usage?.currentSpend}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+                {[
+                  { label: 'Projects',     value: billing?.usage?.activeProjects,   icon: Layers,   color: '#7c3aed' },
+                  { label: 'Databases',    value: billing?.usage?.databasesCount,   icon: Database, color: '#3b82f6' },
+                  { label: 'Storage',      value: `${billing?.usage?.storageGB} GB`, icon: HardDrive, color: '#22c55e' },
+                  { label: 'Month spend',  value: `$${billing?.usage?.currentSpend}`, icon: DollarSign, color: '#f59e0b' },
+                ].map(({ label, value, icon: Icon, color }) => (
+                  <div key={label} style={{
+                    backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
+                    borderRadius: '10px', padding: '16px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '11px', color: '#4b5563', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+                      <div style={{ width: '26px', height: '26px', borderRadius: '7px', backgroundColor: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={12} style={{ color }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f3f6' }}>{value ?? '—'}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Plans Section */}
+            {/* Plans */}
             <div>
-              <h3 className="app-muted-label mb-1">Select subscription plan</h3>
-              <p className="mb-4 text-[10px] text-slate-500">
-                Plan modifications are restricted. Only system administrators can change a team's plan.
+              <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '4px' }}>
+                Subscription plan
+              </div>
+              <p style={{ fontSize: '12px', color: '#4b5563', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Lock size={11} /> Plan changes are restricted to system administrators.
               </p>
-              <div className="grid md:grid-cols-3 gap-6">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
                 {billing?.plans?.map((plan: any) => {
                   const isCurrent = billing?.subscription?.planId === plan.id;
                   return (
-                    <div
-                      key={plan.id}
-                      className={`app-panel relative flex h-56 flex-col justify-between rounded-[1.75rem] border p-6 transition-all ${
-                          isCurrent ? 'border-cyan-400/20 bg-cyan-400/[0.03]' : 'border-white/10'
-                      }`}
-                    >
+                    <div key={plan.id} style={{
+                      backgroundColor: isCurrent ? 'rgba(124,58,237,0.06)' : '#111318',
+                      border: isCurrent ? '1px solid rgba(124,58,237,0.3)' : '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: '12px', padding: '18px',
+                      display: 'flex', flexDirection: 'column', gap: '12px',
+                      position: 'relative',
+                    }}>
                       {isCurrent && (
-                        <span className="absolute top-4 right-4 rounded-full bg-cyan-400/10 px-2 py-0.5 text-[9px] font-bold text-cyan-200">
-                          Active
-                        </span>
+                        <div style={{
+                          position: 'absolute', top: '-1px', left: '15px', right: '15px',
+                          height: '1px', background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.8), transparent)',
+                        }} />
                       )}
-
                       <div>
-                        <h4 className="mb-1 text-xs font-bold text-white">{plan.name}</h4>
-                        <div className="flex items-baseline gap-0.5 mb-4">
-                          <span className="text-2xl font-black">${plan.price}</span>
-                          <span className="text-slate-500 text-[10px]">/ month</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>{plan.name}</span>
+                          {isCurrent && (
+                            <span style={{
+                              padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 500,
+                              backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd',
+                              border: '1px solid rgba(124,58,237,0.3)',
+                            }}>Active</span>
+                          )}
                         </div>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">{plan.specs}</p>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.04em', color: '#f1f3f6' }}>${plan.price}</span>
+                          <span style={{ fontSize: '12px', color: '#6b7280' }}>/mo</span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>{plan.specs}</p>
                       </div>
-
                       <button
-                        disabled={true}
-                        className={`mt-6 flex h-11 w-full items-center justify-center gap-1.5 rounded-full text-xs font-bold cursor-not-allowed transition-colors ${
-                          isCurrent
-                            ? 'bg-cyan-400/10 text-cyan-200'
-                            : 'bg-white/5 text-slate-500'
-                        }`}
+                        disabled
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                          height: '32px', borderRadius: '7px', fontSize: '12px', fontWeight: 500,
+                          cursor: 'not-allowed', opacity: 0.6,
+                          backgroundColor: isCurrent ? 'rgba(124,58,237,0.15)' : '#181b22',
+                          border: isCurrent ? '1px solid rgba(124,58,237,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                          color: isCurrent ? '#a78bfa' : '#6b7280',
+                        }}
                       >
-                        {isCurrent ? 'Current Plan' : 'Admin Upgrade Only'}
+                        {isCurrent ? <><Check size={11} /> Current plan</> : <><Lock size={11} /> Admin only</>}
                       </button>
                     </div>
                   );
@@ -147,27 +192,52 @@ export default function BillingTab() {
 
             {/* Invoices */}
             <div>
-              <h3 className="app-muted-label mb-4">Invoice history</h3>
-              <div className="app-panel overflow-hidden rounded-[1.75rem] border border-white/10">
+              <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>
+                Invoice history
+              </div>
+              <div style={{
+                backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '12px', overflow: 'hidden',
+              }}>
                 {billing?.invoices?.length === 0 ? (
-                  <div className="p-8 text-center text-slate-500 text-xs font-medium">No invoices found.</div>
+                  <div style={{ padding: '32px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>
+                    No invoices yet.
+                  </div>
                 ) : (
-                  <div className="divide-y divide-white/10">
-                    {billing?.invoices?.map((inv: any) => (
-                      <div key={inv.id} className="flex items-center justify-between p-4 text-xs">
-                        <div>
-                          <span className="block font-semibold text-white">{inv.id}</span>
-                          <span className="mt-0.5 block text-[10px] text-slate-500">{inv.date}</span>
+                  billing?.invoices?.map((inv: any, i: number) => (
+                    <div
+                      key={inv.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '14px 16px',
+                        borderBottom: i < billing.invoices.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '30px', height: '30px', borderRadius: '8px',
+                          backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.07)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <FileText size={13} style={{ color: '#6b7280' }} />
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="font-bold text-white">{inv.amount}</span>
-                          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-300">
-                            {inv.status}
-                          </span>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{inv.id}</div>
+                          <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>{inv.date}</div>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>{inv.amount}</span>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 500,
+                          backgroundColor: 'rgba(34,197,94,0.1)', color: '#22c55e',
+                          border: '1px solid rgba(34,197,94,0.2)',
+                        }}>
+                          {inv.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
