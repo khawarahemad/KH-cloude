@@ -9,7 +9,7 @@ import {
   Table, Pencil, Save, X, ChevronLeft, ChevronRight, Search
 } from 'lucide-react';
 
-type DbView = 'sql' | 'table-editor';
+type DbView = 'sql' | 'table-editor' | 'guide';
 
 export default function DatabasesTab() {
   const { activeTeam } = useAppStore();
@@ -283,6 +283,15 @@ export default function DatabasesTab() {
             >
               <Terminal size={11} />
               SQL Console
+            </button>
+            <button
+              onClick={() => setDbView('guide')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
+                dbView === 'guide' ? 'bg-indigo-500 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <FileText size={11} />
+              Connection Guide
             </button>
           </div>
         </div>
@@ -667,6 +676,118 @@ export default function DatabasesTab() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+            {/* ===== CONNECTION GUIDE VIEW ===== */}
+            {dbView === 'guide' && (
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 text-zinc-300 select-text text-left">
+                <div>
+                  <h3 className="text-sm font-bold text-white mb-1.5">Database Connection & Query Guide</h3>
+                  <p className="text-xs text-zinc-500">
+                    Each SQLite database is sandboxed under your workspace tenant. You can query your database instances in real-time inside your edge functions or query them externally from your client apps using HTTP/REST API endpoints securely with your workspace API Keys.
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6 items-start">
+                  
+                  {/* A. Query inside Edge Functions */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 1: Query inside Edge Functions</span>
+                    <div className="bg-[#050507] border border-indigo-500/10 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-zinc-400">
+                        Edge functions receive a pre-authorized <code className="bg-white/5 px-1 rounded text-white font-mono">db</code> client. No credentials required:
+                      </p>
+                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[10px] text-indigo-300 whitespace-pre-wrap leading-relaxed">
+{`export default async function handler({ db }) {
+  // Query primary team database
+  const res = await db.query(
+    "SELECT * FROM storage_buckets"
+  );
+  
+  // Or query this specific database
+  const conn = db.connect("${activeDb?.id}");
+  const rows = await conn.query(
+    "SELECT * FROM storage_objects LIMIT 5"
+  );
+  
+  return { status: 200, body: rows };
+}`}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* B. cURL External API Request */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 2: Query via cURL (HTTP API)</span>
+                    <div className="bg-[#050507] border border-orange-500/10 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-zinc-400">
+                        Query your database externally from your terminal using standard HTTP POST requests. Provide your team's API keys:
+                      </p>
+                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[9px] text-orange-300 whitespace-pre-wrap leading-relaxed">
+{`curl -X POST \\
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"sql": "SELECT * FROM storage_buckets"}' \\
+  https://api.khawarahemad.com/api/databases/${activeDb?.id}/query`}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* C. Node.js Integration */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 3: External Node.js (fetch)</span>
+                    <div className="bg-[#050507] border border-white/5 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-zinc-400">
+                        Query the database programmatically inside a Node.js / Next.js backend app:
+                      </p>
+                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed">
+{`const runQuery = async () => {
+  const res = await fetch(
+    "https://api.khawarahemad.com/api/databases/${activeDb?.id}/query",
+    {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer YOUR_SERVICE_KEY",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sql: "SELECT * FROM storage_buckets"
+      })
+    }
+  );
+  const data = await res.json();
+  console.log("Query Result:", data);
+};`}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* D. Python Integration */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 4: External Python (requests)</span>
+                    <div className="bg-[#050507] border border-white/5 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-zinc-400">
+                        Fetch rows from your Python backends, data scripts, or machine learning pipelines:
+                      </p>
+                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed">
+{`import requests
+
+url = "https://api.khawarahemad.com/api/databases/${activeDb?.id}/query"
+headers = {
+    "Authorization": "Bearer YOUR_SERVICE_KEY",
+    "Content-Type": "application/json"
+}
+payload = {
+    "sql": "SELECT * FROM storage_buckets"
+}
+
+response = requests.post(url, headers=headers, json=payload)
+data = response.json()
+print("Query Data:", data)`}
+                      </pre>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             )}

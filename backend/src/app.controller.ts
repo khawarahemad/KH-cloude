@@ -1162,6 +1162,40 @@ export class AppController {
     return this.databases.deleteRow(id, teamId, table, pk, pkValue);
   }
 
+  @Post('databases/:id/query')
+  async runRawQuery(
+    @Param('id') id: string,
+    @Headers() headers: Record<string, string>,
+    @Query('apikey') queryApiKey: string,
+    @Body() body: { teamId: string; sql: string }
+  ) {
+    const db = await this.prisma.databaseInstance.findUnique({
+      where: { id }
+    });
+    if (!db) throw new NotFoundException('Database not found.');
+
+    let passedKey = queryApiKey || headers['apikey'] || headers['x-api-key'];
+    if (!passedKey && headers['authorization']) {
+      const parts = headers['authorization'].split(/\s+/);
+      if (parts[0]?.toLowerCase() === 'bearer') {
+        passedKey = parts[1];
+      }
+    }
+
+    if (!passedKey) {
+      throw new BadRequestException('API key required. Provide apikey header or Authorization bearer token.');
+    }
+
+    const keyMatch = await this.prisma.apiKey.findFirst({
+      where: { teamId: db.teamId, key: passedKey }
+    });
+    if (!keyMatch) {
+      throw new BadRequestException('Invalid API Key.');
+    }
+
+    return this.databases.runQuery(id, db.teamId, body.sql);
+  }
+
   // --- EDGE FUNCTIONS ENDPOINTS ---
 
   @Get('edge-functions')

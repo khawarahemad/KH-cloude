@@ -357,7 +357,7 @@ export default function EdgeFunctionsTab() {
                     </div>
                   )}
                 </>
-              ) : (
+              ) : sidePanel === 'env' ? (
                 <>
                   <div>
                     <label className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 block mb-1">
@@ -388,9 +388,8 @@ export default function EdgeFunctionsTab() {
                     <div>{'env.DATABASE_URL → "..."'}</div>
                   </div>
                 </>
-              )}
-
-              {sidePanel === 'guide' && (
+              ) : (
+                /* Guide Panel */
                 <div className="space-y-4 text-[10px] text-zinc-400 leading-relaxed font-medium">
                   <div>
                     <h4 className="font-bold text-white uppercase tracking-wider mb-1.5">Edge Function Context</h4>
