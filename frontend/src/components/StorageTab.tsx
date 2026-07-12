@@ -680,7 +680,7 @@ client.put_object()
                                 {item.isFolder ? (
                                   <Folder className="text-indigo-400 shrink-0" size={16} />
                                 ) : (
-                                  <File className="text-zinc-400 shrink-0" size={16} />
+                                  <FileIcon className="text-zinc-400 shrink-0" size={16} />
                                 )}
                                 <span className="truncate hover:text-white transition-colors">
                                   {item.name}
@@ -950,7 +950,7 @@ client.put_object()
           <div className="glass rounded-2xl max-w-xl w-full border border-white/10 shadow-2xl flex flex-col overflow-hidden max-h-[600px]">
             <div className="h-14 border-b border-white/5 px-6 flex items-center justify-between shrink-0 bg-black/40">
               <div className="flex items-center gap-2">
-                <File size={16} className="text-indigo-400" />
+                <FileIcon size={16} className="text-indigo-400" />
                 <h3 className="text-xs font-bold truncate max-w-sm">{previewFile.key}</h3>
               </div>
               <button
@@ -992,7 +992,7 @@ client.put_object()
                 </div>
               ) : (
                 <div className="flex flex-col items-center text-zinc-500 text-xs gap-3">
-                  <File size={48} className="opacity-40" />
+                  <FileIcon size={48} className="opacity-40" />
                   <span>Binary asset ({previewFile.contentType})</span>
                   <a
                     href={previewUrl}
