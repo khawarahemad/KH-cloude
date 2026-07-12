@@ -5,11 +5,11 @@ import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { 
   Users, Layers, HardDrive, CreditCard, Shield, Trash2, 
-  RefreshCw, Power, Check, Loader2, Search, Sliders
+  RefreshCw, Power, Check, Loader2, Search, Sliders, Copy, ExternalLink
 } from 'lucide-react';
 
 export default function AdminTab() {
-  const { user, setActiveTab } = useAppStore();
+  const { user } = useAppStore();
   const [subTab, setSubTab] = useState<'users' | 'projects' | 'buckets' | 'billing'>('users');
   const [loading, setLoading] = useState(true);
   
@@ -37,10 +37,11 @@ export default function AdminTab() {
     if (!user) return;
     setLoading(true);
     try {
-      if (subTab === 'users') {
-        const data = await apiRequest(`/admin/users?adminUserId=${user.id}`);
-        setUsers(data);
-      } else if (subTab === 'projects') {
+      // Always fetch users to populate system teams list in UI
+      const usersData = await apiRequest(`/admin/users?adminUserId=${user.id}`);
+      setUsers(usersData);
+
+      if (subTab === 'projects') {
         const data = await apiRequest(`/admin/projects?adminUserId=${user.id}`);
         setProjects(data);
       } else if (subTab === 'buckets') {
@@ -57,6 +58,25 @@ export default function AdminTab() {
   useEffect(() => {
     fetchAdminData();
   }, [subTab, user]);
+
+  // Extract all unique organizations/teams across all registered users
+  const allSystemTeams = React.useMemo(() => {
+    const teamsMap = new Map<string, any>();
+    users.forEach(u => {
+      if (u.teams) {
+        u.teams.forEach((t: any) => {
+          teamsMap.set(t.id, { ...t, owner: u.name, email: u.email });
+        });
+      }
+    });
+    return Array.from(teamsMap.values());
+  }, [users]);
+
+  // Copy to clipboard helper
+  const handleCopyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    alert(`Copied ${label} to clipboard!`);
+  };
 
   // Action Handlers
   const handleToggleRole = async (targetUserId: string, currentRole: string) => {
@@ -179,6 +199,7 @@ export default function AdminTab() {
       });
       alert('Subscription manually updated successfully!');
       setOverrideTeamId('');
+      fetchAdminData();
     } catch (err: any) {
       alert(err.message || 'Failed to override subscription.');
     } finally {
@@ -211,11 +232,11 @@ export default function AdminTab() {
         </div>
 
         {/* Sub-tabs selectors */}
-        <div className="flex gap-1.5 bg-[#0a0a0c] border border-white/5 rounded-xl p-1 text-[11px] font-bold">
+        <div className="flex gap-1.5 bg-[#0a0a0c] border border-white/5 rounded-xl p-1 text-[11px] font-bold text-zinc-400">
           <button
             onClick={() => setSubTab('users')}
             className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'users' ? 'bg-white/5 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+              subTab === 'users' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
             }`}
           >
             <Users size={12} />
@@ -224,7 +245,7 @@ export default function AdminTab() {
           <button
             onClick={() => setSubTab('projects')}
             className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'projects' ? 'bg-white/5 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+              subTab === 'projects' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
             }`}
           >
             <Layers size={12} />
@@ -233,7 +254,7 @@ export default function AdminTab() {
           <button
             onClick={() => setSubTab('buckets')}
             className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'buckets' ? 'bg-white/5 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+              subTab === 'buckets' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
             }`}
           >
             <HardDrive size={12} />
@@ -242,7 +263,7 @@ export default function AdminTab() {
           <button
             onClick={() => setSubTab('billing')}
             className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'billing' ? 'bg-white/5 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'
+              subTab === 'billing' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
             }`}
           >
             <CreditCard size={12} />
@@ -260,15 +281,15 @@ export default function AdminTab() {
             <div className="grid grid-cols-3 gap-6 shrink-0">
               <div className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.01]">
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Total System Users</span>
-                <span className="text-2xl font-black text-white">{subTab === 'users' ? users.length : '—'}</span>
+                <span className="text-2xl font-black text-white">{users.length}</span>
               </div>
               <div className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.01]">
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Monitored Web Containers</span>
-                <span className="text-2xl font-black text-indigo-400">{subTab === 'projects' ? projects.length : '—'}</span>
+                <span className="text-2xl font-black text-indigo-400">{subTab === 'projects' ? projects.length : projects.reduce((acc, u) => acc + (u.projectsCount || 0), 0)}</span>
               </div>
               <div className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.01]">
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Global Storage Buckets</span>
-                <span className="text-2xl font-black text-purple-400">{subTab === 'buckets' ? buckets.length : '—'}</span>
+                <span className="text-2xl font-black text-purple-400">{subTab === 'buckets' ? buckets.length : buckets.reduce((acc, u) => acc + (u.bucketsCount || 0), 0)}</span>
               </div>
             </div>
           )}
@@ -308,35 +329,80 @@ export default function AdminTab() {
               {subTab === 'users' && (
                 <div className="divide-y divide-white/5 text-left">
                   <div className="grid grid-cols-4 p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-black/40">
-                    <span>User Profile</span>
+                    <span>User / Organizations</span>
                     <span>System Role</span>
-                    <span>Deployed Resources</span>
+                    <span>Resources</span>
                     <span className="text-right">Actions</span>
                   </div>
                   
                   {users
                     .filter(u => (u.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(u => (
-                      <div key={u.id} className="grid grid-cols-4 p-4 items-center text-xs text-zinc-300">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-white">{u.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono">{u.email}</span>
+                      <div key={u.id} className="grid grid-cols-4 p-4 items-start text-xs text-zinc-300 gap-4">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-bold text-white text-sm">{u.name}</span>
+                          <span className="text-[10px] text-zinc-500 font-mono mb-2">{u.email}</span>
+                          
+                          {/* User Teams/Orgs */}
+                          <div className="space-y-1">
+                            <span className="text-[8px] uppercase tracking-wider text-zinc-600 block font-black">Teams Owned/Joined:</span>
+                            {u.teams && u.teams.map((t: any) => (
+                              <div key={t.id} className="flex items-center justify-between gap-2 bg-white/[0.02] border border-white/5 rounded-lg p-2">
+                                <div className="flex flex-col gap-0.5 truncate min-w-0">
+                                  <span className="font-bold text-zinc-300 truncate text-[11px]">{t.name}</span>
+                                  <span className="text-[8px] font-mono text-zinc-600 truncate">{t.id}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                                    t.planId === 'pro' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                    t.planId === 'enterprise' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
+                                    'bg-zinc-800 text-zinc-500'
+                                  }`}>
+                                    {t.planId}
+                                  </span>
+                                  <button
+                                    onClick={() => handleCopyText(t.id, 'Team ID')}
+                                    className="p-1 hover:text-white hover:bg-white/5 rounded transition-colors text-zinc-500"
+                                    title="Copy Team ID"
+                                  >
+                                    <Copy size={10} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setOverrideTeamId(t.id);
+                                      setOverridePlanId(t.planId);
+                                      setOverrideStatus(t.status);
+                                      setSubTab('billing');
+                                    }}
+                                    className="p-1 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-colors text-zinc-500"
+                                    title="Manage Subscription Plan"
+                                  >
+                                    <Sliders size={10} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                            {(!u.teams || u.teams.length === 0) && (
+                              <span className="text-[10px] text-zinc-600 italic">No associated teams</span>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold ${
+
+                        <div className="pt-2">
+                          <span className={`px-2.5 py-1 rounded-md text-[9px] font-black tracking-wide ${
                             u.role === 'ADMIN' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-zinc-800 text-zinc-400'
                           }`}>
                             {u.role}
                           </span>
                         </div>
-                        <div className="flex items-center gap-4 text-[10px] font-semibold text-zinc-400">
-                          <span>{u.projectsCount} Apps</span>
-                          <span>•</span>
-                          <span>{u.databasesCount} DBs</span>
-                          <span>•</span>
-                          <span>{u.bucketsCount} Buckets</span>
+
+                        <div className="flex flex-col gap-1.5 pt-2 text-[10px] font-bold text-zinc-400">
+                          <span>{u.projectsCount} Apps Monitored</span>
+                          <span>{u.databasesCount} Databases</span>
+                          <span>{u.bucketsCount} Storage Buckets</span>
                         </div>
-                        <div className="flex justify-end gap-3">
+
+                        <div className="flex justify-end gap-3 pt-2">
                           <button
                             onClick={() => handleToggleRole(u.id, u.role)}
                             disabled={actingId === u.id}
@@ -376,12 +442,26 @@ export default function AdminTab() {
                     .map(p => (
                       <div key={p.id} className="grid grid-cols-4 p-4 items-center text-xs text-zinc-300">
                         <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-white">{p.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono">({p.slug})</span>
+                          <span className="font-bold text-white text-sm">{p.name}</span>
+                          <span className="text-[10px] text-zinc-500 font-mono mb-1">({p.slug})</span>
+                          
+                          {p.team && (
+                            <div className="flex items-center gap-1.5 text-[9px] text-zinc-500">
+                              <span className="font-semibold">Org: {p.team.name}</span>
+                              <button
+                                onClick={() => handleCopyText(p.team.id, 'Team ID')}
+                                className="hover:text-white"
+                                title="Copy Team ID"
+                              >
+                                <Copy size={8} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <div className="font-mono text-[10px] text-zinc-400 truncate pr-4">
-                          <a href={`https://${p.slug}.khawarahemad.com`} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline">
+                          <a href={`https://${p.slug}.khawarahemad.com`} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline inline-flex items-center gap-1">
                             {p.slug}.khawarahemad.com
+                            <ExternalLink size={10} />
                           </a>
                         </div>
                         <div>
@@ -437,10 +517,23 @@ export default function AdminTab() {
                     .map(b => (
                       <div key={b.id} className="grid grid-cols-4 p-4 items-center text-xs text-zinc-300">
                         <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-white">{b.name}</span>
-                          <span className="text-[10px] text-zinc-500 uppercase font-semibold">
+                          <span className="font-bold text-white text-sm">{b.name}</span>
+                          <span className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
                             {b.isPublic ? '🌐 PUBLIC' : '🔒 PRIVATE'}
                           </span>
+                          
+                          {b.team && (
+                            <div className="flex items-center gap-1.5 text-[9px] text-zinc-500">
+                              <span className="font-semibold">Org: {b.team.name}</span>
+                              <button
+                                onClick={() => handleCopyText(b.team.id, 'Team ID')}
+                                className="hover:text-white"
+                                title="Copy Team ID"
+                              >
+                                <Copy size={8} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {editingLimitId === b.id ? (
@@ -506,62 +599,109 @@ export default function AdminTab() {
               {/* SUB TAB: PLANS OVERRIDE */}
               {subTab === 'billing' && (
                 <div className="p-8">
-                  <div className="max-w-md mx-auto space-y-6">
-                    <div>
-                      <h3 className="font-bold text-sm text-white">Manual Subscription Quota Override</h3>
-                      <p className="text-xs text-zinc-400">Instantly upgrade or modify a team's resource access tier without Stripe gateway hooks.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    
+                    {/* Left: Override Form */}
+                    <div className="md:col-span-2 space-y-6">
+                      <div>
+                        <h3 className="font-bold text-sm text-white">Manual Subscription Quota Override</h3>
+                        <p className="text-xs text-zinc-400">Instantly upgrade or modify a team's resource access tier without Stripe gateway hooks.</p>
+                      </div>
+
+                      <form onSubmit={handleOverrideSubscription} className="space-y-4 text-left">
+                        <div>
+                          <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Team ID</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. b8f498c1-849c-..."
+                            value={overrideTeamId}
+                            onChange={(e) => setOverrideTeamId(e.target.value)}
+                            className="w-full h-10 px-3 rounded-xl glass-input text-xs text-white"
+                          />
+                          <span className="text-[9px] text-zinc-600 block mt-1">Select an organization from the panel on the right or enter a Team ID manually.</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Subscription Plan</label>
+                            <select
+                              value={overridePlanId}
+                              onChange={(e) => setOverridePlanId(e.target.value)}
+                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/10 text-xs text-white"
+                            >
+                              <option value="hobby">Hobby (Free)</option>
+                              <option value="pro">Pro ($29/mo)</option>
+                              <option value="enterprise">Enterprise ($250/mo)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Billing Status</label>
+                            <select
+                              value={overrideStatus}
+                              onChange={(e) => setOverrideStatus(e.target.value)}
+                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/10 text-xs text-white"
+                            >
+                              <option value="active">Active</option>
+                              <option value="canceled">Canceled</option>
+                              <option value="past_due">Past Due</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full h-10 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs transition-colors active:scale-95 duration-100 flex items-center justify-center gap-1.5"
+                        >
+                          <Sliders size={12} />
+                          Apply Manual Plan Override
+                        </button>
+                      </form>
                     </div>
 
-                    <form onSubmit={handleOverrideSubscription} className="space-y-4 text-left">
+                    {/* Right: Quick Select Organizations Sidebar */}
+                    <div className="border-l border-white/5 pl-6 space-y-4">
                       <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Team ID</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. b8f498c1-849c-..."
-                          value={overrideTeamId}
-                          onChange={(e) => setOverrideTeamId(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl glass-input text-xs text-white"
-                        />
-                        <span className="text-[9px] text-zinc-600 block mt-1">Copy the ID from database or team settings page.</span>
+                        <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider">Quick Select Organization</h4>
+                        <p className="text-[10px] text-zinc-600">Select any system team to pre-fill the form.</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Subscription Plan</label>
-                          <select
-                            value={overridePlanId}
-                            onChange={(e) => setOverridePlanId(e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl bg-black border border-white/10 text-xs text-white"
+                      <div className="space-y-2 overflow-y-auto max-h-[300px] pr-2">
+                        {allSystemTeams.map((t: any) => (
+                          <button
+                            key={t.id}
+                            onClick={() => {
+                              setOverrideTeamId(t.id);
+                              setOverridePlanId(t.planId);
+                              setOverrideStatus(t.status);
+                            }}
+                            className={`w-full text-left p-2.5 rounded-xl border transition-all flex flex-col gap-1 ${
+                              overrideTeamId === t.id 
+                                ? 'bg-indigo-500/10 border-indigo-500/40 text-white' 
+                                : 'bg-white/[0.01] border-white/5 text-zinc-400 hover:bg-white/[0.03] hover:border-white/10'
+                            }`}
                           >
-                            <option value="hobby">Hobby (Free)</option>
-                            <option value="pro">Pro ($29/mo)</option>
-                            <option value="enterprise">Enterprise ($250/mo)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Billing Status</label>
-                          <select
-                            value={overrideStatus}
-                            onChange={(e) => setOverrideStatus(e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl bg-black border border-white/10 text-xs text-white"
-                          >
-                            <option value="active">Active</option>
-                            <option value="canceled">Canceled</option>
-                            <option value="past_due">Past Due</option>
-                          </select>
-                        </div>
+                            <div className="flex justify-between items-center w-full">
+                              <span className="font-bold text-xs truncate max-w-[120px] text-white">{t.name}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase shrink-0 ${
+                                t.planId === 'pro' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                                t.planId === 'enterprise' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
+                                'bg-zinc-800 text-zinc-500'
+                              }`}>
+                                {t.planId}
+                              </span>
+                            </div>
+                            <span className="text-[8px] font-mono text-zinc-600 truncate w-full">{t.id}</span>
+                            <span className="text-[9px] text-zinc-500 truncate w-full mt-0.5">Owner: {t.owner}</span>
+                          </button>
+                        ))}
+                        {allSystemTeams.length === 0 && (
+                          <div className="text-[11px] text-zinc-600 italic py-4">No organizations found.</div>
+                        )}
                       </div>
+                    </div>
 
-                      <button
-                        type="submit"
-                        className="w-full h-10 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs transition-colors active:scale-95 duration-100 flex items-center justify-center gap-1.5"
-                      >
-                        <Sliders size={12} />
-                        Apply Manual Plan Override
-                      </button>
-                    </form>
                   </div>
                 </div>
               )}

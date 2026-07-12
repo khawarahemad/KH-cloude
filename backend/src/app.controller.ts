@@ -684,6 +684,7 @@ export class AppController {
                 projects: true,
                 databases: true,
                 buckets: true,
+                billingSubscription: true,
               }
             }
           }
@@ -702,6 +703,13 @@ export class AppController {
         bucketsCount += tm.team.buckets.length;
       });
 
+      const userTeams = u.teamMembers.map(tm => ({
+        id: tm.team.id,
+        name: tm.team.name,
+        planId: tm.team.billingSubscription?.planId || 'hobby',
+        status: tm.team.billingSubscription?.status || 'active',
+      }));
+
       return {
         id: u.id,
         name: u.name,
@@ -711,6 +719,7 @@ export class AppController {
         projectsCount,
         databasesCount,
         bucketsCount,
+        teams: userTeams,
       };
     });
   }
