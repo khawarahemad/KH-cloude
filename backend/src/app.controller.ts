@@ -1009,6 +1009,69 @@ export class AppController {
     };
   }
 
+  @Get('admin/system/storage-analyzer')
+  async adminGetSystemStorageAnalyzer(@Query('adminUserId') adminUserId: string) {
+    await this.verifyAdmin(adminUserId);
+
+    const { execSync } = require('child_process');
+    const path = require('path');
+    const fs = require('fs');
+
+    let dockerDf = 'Docker not active or command not found.';
+    try {
+      dockerDf = execSync('docker system df', { timeout: 4000, encoding: 'utf8' });
+    } catch (e) {
+      try {
+        dockerDf = execSync('docker df', { timeout: 4000, encoding: 'utf8' });
+      } catch (err) {}
+    }
+
+    let topDirs = [];
+    const dirsToCheck = [
+      '/var/lib/docker',
+      '/var/log',
+      '/root',
+      '/home',
+      '/usr',
+      '/var/lib/kh-cloud',
+    ];
+
+    for (const dir of dirsToCheck) {
+      try {
+        if (fs.existsSync(dir)) {
+          const sizeStr = execSync(`du -sh ${dir} 2>/dev/null`, { timeout: 3000, encoding: 'utf8' });
+          if (sizeStr) {
+            const parts = sizeStr.trim().split(/\s+/);
+            topDirs.push({ path: dir, size: parts[0] });
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Also run du -sh on root / if possible but limit to depth 1
+    let rootDirsRaw = '';
+    try {
+      rootDirsRaw = execSync('du -sh /* 2>/dev/null | sort -hr | head -n 10', { timeout: 5000, encoding: 'utf8' });
+    } catch (e) {}
+
+    const parsedRootDirs = [];
+    if (rootDirsRaw) {
+      const lines = rootDirsRaw.trim().split('\n');
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          parsedRootDirs.push({ path: parts[1], size: parts[0] });
+        }
+      }
+    }
+
+    return {
+      dockerDf,
+      topDirs: topDirs.length > 0 ? topDirs : parsedRootDirs,
+      rawRootDirs: rootDirsRaw,
+    };
+  }
+
   // --- TABLE EDITOR ENDPOINTS ---
 
   @Get('databases/:id/schema/:table')

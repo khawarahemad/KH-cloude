@@ -34,6 +34,24 @@ export default function AdminTab() {
   const [editingLimitId, setEditingLimitId] = useState<string | null>(null);
   const [newLimitGB, setNewLimitGB] = useState('');
 
+  // Storage Analyzer states
+  const [analyzerLoading, setAnalyzerLoading] = useState(false);
+  const [analyzerResult, setAnalyzerResult] = useState<any>(null);
+
+  const handleRunAnalyzer = async () => {
+    if (!user) return;
+    setAnalyzerLoading(true);
+    setAnalyzerResult(null);
+    try {
+      const data = await apiRequest(`/admin/system/storage-analyzer?adminUserId=${user.id}`);
+      setAnalyzerResult(data);
+    } catch (err: any) {
+      alert(err.message || 'Failed to run disk scan.');
+    } finally {
+      setAnalyzerLoading(false);
+    }
+  };
+
   const fetchAdminData = async () => {
     if (!user) return;
     setLoading(true);
@@ -679,6 +697,72 @@ export default function AdminTab() {
                       </table>
                     </div>
                   </div>
+
+                  {/* Storage Analyzer Section */}
+                  <div className="pt-6 border-t border-white/5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">VPS System Analyzer</h4>
+                        <p className="text-[10px] text-zinc-500 font-medium">Investigate why disk space is occupied. Runs real-time docker system df and path size scanning on the VPS.</p>
+                      </div>
+                      <button
+                        onClick={handleRunAnalyzer}
+                        disabled={analyzerLoading}
+                        className="h-8 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95"
+                      >
+                        {analyzerLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                        Scan VPS Directories
+                      </button>
+                    </div>
+
+                    {analyzerLoading && (
+                      <div className="flex flex-col items-center justify-center py-12 text-zinc-500 gap-2 border border-white/5 rounded-2xl bg-black/20">
+                        <Loader2 className="animate-spin text-indigo-400" size={20} />
+                        <span className="text-[10px] font-medium">Running disk scans and Docker disk usage audit on VPS...</span>
+                      </div>
+                    )}
+
+                    {analyzerResult && (
+                      <div className="grid md:grid-cols-2 gap-6 items-start animate-fade-in">
+                        
+                        {/* Top Root Directories sizes */}
+                        <div className="space-y-3">
+                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Top VPS Directories (du -sh)</span>
+                          <div className="border border-white/5 rounded-2xl overflow-hidden bg-black/35 text-[11px]">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="border-b border-white/5 bg-black/40 text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                                  <th className="p-2.5">Path</th>
+                                  <th className="p-2.5 text-right">Size On Disk</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5 text-zinc-300 font-mono">
+                                {analyzerResult.topDirs.map((dir: any, i: number) => (
+                                  <tr key={i} className="hover:bg-white/[0.01]">
+                                    <td className="p-2.5">{dir.path}</td>
+                                    <td className="p-2.5 text-right font-bold text-white">{dir.size}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="text-[9px] text-zinc-600 leading-relaxed font-medium">
+                            * Note: <strong>/var/lib/docker</strong> holds your container images and container runtimes. Large sizes here indicate docker image layers.
+                          </p>
+                        </div>
+
+                        {/* Docker system df */}
+                        <div className="space-y-3">
+                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Docker Storage Report (system df)</span>
+                          <pre className="bg-[#050507] border border-white/5 rounded-2xl p-4 font-mono text-[9px] text-zinc-400 overflow-auto whitespace-pre-wrap leading-relaxed max-h-[300px]">
+                            {analyzerResult.dockerDf}
+                          </pre>
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               )}
 
