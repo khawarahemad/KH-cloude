@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
-import { Shield, Plus, Loader2, Trash, Mail, Clock, ShieldCheck, User } from 'lucide-react';
+import { Shield, Plus, Loader2, Trash, Mail, Clock, ShieldCheck, User, Key, Copy, Check, Eye, EyeOff } from 'lucide-react';
 
 export default function TeamsTab() {
   const { activeTeam, user } = useAppStore();
@@ -12,6 +12,9 @@ export default function TeamsTab() {
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Invite Form
@@ -19,24 +22,36 @@ export default function TeamsTab() {
   const [inviteRole, setInviteRole] = useState<'ADMIN' | 'DEVELOPER' | 'VIEWER'>('DEVELOPER');
   const [inviting, setInviting] = useState(false);
 
+  const handleCopyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   const fetchData = async () => {
     if (!activeTeam) return;
     setLoading(true);
     try {
-      const [membersData, invitesData, auditData] = await Promise.all([
+      const [membersData, invitesData, auditData, keysData] = await Promise.all([
         apiRequest(`/teams/${activeTeam.id}/members`),
         apiRequest(`/teams/${activeTeam.id}/invites`),
         apiRequest(`/teams/${activeTeam.id}/audit`),
+        apiRequest(`/teams/${activeTeam.id}/keys`),
       ]);
       setMembers(membersData);
       setInvites(invitesData);
       setAuditLogs(auditData);
+      setApiKeys(keysData);
     } catch (err) {
       // Mock Fallbacks
       setMembers([
         { id: 'm-1', user: { name: user?.name || 'Developer', email: user?.email || 'dev@khcloud.com' }, role: 'OWNER' }
       ]);
       setInvites([]);
+      setApiKeys([
+        { id: 'k-1', name: 'anon', key: 'kh_anon_mock_1234567890abcdef', role: 'ANON' },
+        { id: 'k-2', name: 'service_role', key: 'kh_service_mock_1234567890abcdef', role: 'SERVICE_ROLE' }
+      ]);
       setAuditLogs([
         { id: 'a-1', action: 'TEAM.CREATE', targetType: 'TEAM', createdAt: new Date().toISOString() }
       ]);
@@ -158,6 +173,54 @@ export default function TeamsTab() {
                   </div>
                 </div>
               )}
+
+              {/* Workspace API & Service Keys */}
+              <div>
+                <h3 className="text-xs font-bold text-zinc-400 mb-4 uppercase tracking-wider">Workspace API & Service Keys</h3>
+                <div className="space-y-4 mb-8">
+                  {apiKeys.map((keyObj) => (
+                    <div key={keyObj.id} className="border border-white/5 rounded-2xl p-5 bg-white/[0.01] relative flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Key size={14} className="text-indigo-400" />
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">{keyObj.name} key</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+                          keyObj.role === 'SERVICE_ROLE' 
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                        }`}>
+                          {keyObj.role === 'SERVICE_ROLE' ? 'Bypasses Row Security / Full Admin Access' : 'Client Safe / Restricted Access'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 bg-[#050507] border border-white/5 rounded-lg px-3 py-2 text-[10px] font-mono text-zinc-300">
+                        <span className="truncate flex-1 select-all">
+                          {showKeys[keyObj.id] ? keyObj.key : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'}
+                        </span>
+                        
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button 
+                            type="button"
+                            onClick={() => setShowKeys(prev => ({ ...prev, [keyObj.id]: !prev[keyObj.id] }))}
+                            className="text-zinc-500 hover:text-white"
+                          >
+                            {showKeys[keyObj.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                          
+                          <button 
+                            type="button"
+                            onClick={() => handleCopyText(keyObj.key, keyObj.id)} 
+                            className="text-zinc-500 hover:text-white"
+                          >
+                            {copiedId === keyObj.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {/* Audit Logs */}
               <div>

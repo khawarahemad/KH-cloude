@@ -31,6 +31,25 @@ export class TeamsService {
       },
     });
 
+    // Generate default api keys
+    const crypto = require('crypto');
+    await this.prisma.apiKey.create({
+      data: {
+        teamId: team.id,
+        name: 'anon',
+        key: 'kh_anon_' + crypto.randomBytes(32).toString('hex'),
+        role: 'ANON',
+      },
+    });
+    await this.prisma.apiKey.create({
+      data: {
+        teamId: team.id,
+        name: 'service_role',
+        key: 'kh_service_' + crypto.randomBytes(32).toString('hex'),
+        role: 'SERVICE_ROLE',
+      },
+    });
+
     // Generate hobby subscription by default
     await this.prisma.billingSubscription.create({
       data: {
@@ -53,6 +72,41 @@ export class TeamsService {
     });
 
     return team;
+  }
+
+  async getOrCreateApiKeys(teamId: string) {
+    const existing = await this.prisma.apiKey.findMany({
+      where: { teamId },
+    });
+
+    if (existing.length > 0) {
+      return existing;
+    }
+
+    const crypto = require('crypto');
+    const anonKey = 'kh_anon_' + crypto.randomBytes(32).toString('hex');
+    const serviceKey = 'kh_service_' + crypto.randomBytes(32).toString('hex');
+
+    const created = await Promise.all([
+      this.prisma.apiKey.create({
+        data: {
+          teamId,
+          name: 'anon',
+          key: anonKey,
+          role: 'ANON',
+        },
+      }),
+      this.prisma.apiKey.create({
+        data: {
+          teamId,
+          name: 'service_role',
+          key: serviceKey,
+          role: 'SERVICE_ROLE',
+        },
+      }),
+    ]);
+
+    return created;
   }
 
   async getTeams(userId: string) {

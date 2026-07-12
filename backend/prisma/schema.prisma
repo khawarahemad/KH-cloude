@@ -88,6 +88,7 @@ model Team {
   billingSubscription BillingSubscription?
   usageMetrics       UsageMetric[]
   edgeFunctions      EdgeFunction[]
+  apiKeys            ApiKey[]
 }
 
 enum TeamRole {
@@ -345,4 +346,15 @@ model EdgeFunction {
   updatedAt   DateTime @updatedAt
 
   @@unique([teamId, slug])
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name      String   // e.g. "anon" or "service_role"
+  key       String   @unique
+  role      String   @default("ANON") // ANON, SERVICE_ROLE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

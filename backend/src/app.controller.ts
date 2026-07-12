@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, BadRequestException, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, BadRequestException, NotFoundException, Headers } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import { PrismaService } from './prisma/prisma.service';
@@ -126,6 +126,11 @@ export class AppController {
   @Get('teams/:teamId/audit')
   async getAuditLogs(@Param('teamId') teamId: string) {
     return this.teams.getAuditLogs(teamId);
+  }
+
+  @Get('teams/:teamId/keys')
+  async getTeamKeys(@Param('teamId') teamId: string) {
+    return this.teams.getOrCreateApiKeys(teamId);
   }
 
   // --- PROJECTS ENDPOINTS ---
@@ -1188,9 +1193,35 @@ export class AppController {
   @Post('edge-functions/:id/invoke')
   async invokeEdgeFunction(
     @Param('id') id: string,
+    @Headers() headers: Record<string, string>,
+    @Query('apikey') queryApiKey: string,
     @Body() body: { teamId: string; method?: string; path?: string; query?: any; body?: any; headers?: any }
   ) {
-    return this.edgeFunctions.invokeFunction(id, body.teamId, body);
+    const fn = await this.prisma.edgeFunction.findUnique({
+      where: { id }
+    });
+    if (!fn) throw new NotFoundException('Edge function not found.');
+
+    let passedKey = queryApiKey || headers['apikey'] || headers['x-api-key'];
+    if (!passedKey && headers['authorization']) {
+      const parts = headers['authorization'].split(/\s+/);
+      if (parts[0]?.toLowerCase() === 'bearer') {
+        passedKey = parts[1];
+      }
+    }
+
+    if (!passedKey) {
+      throw new BadRequestException('API key required. Provide apikey header or Authorization bearer token.');
+    }
+
+    const keyMatch = await this.prisma.apiKey.findFirst({
+      where: { teamId: fn.teamId, key: passedKey }
+    });
+    if (!keyMatch) {
+      throw new BadRequestException('Invalid API Key.');
+    }
+
+    return this.edgeFunctions.invokeFunction(id, fn.teamId, body);
   }
 }
 

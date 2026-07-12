@@ -55,12 +55,18 @@ export default function EdgeFunctionsTab() {
   const [sidePanel, setSidePanel] = useState<'env' | 'invoke'>('invoke');
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+
   const fetchFunctions = async () => {
     if (!activeTeam) return;
     setLoading(true);
     try {
-      const data = await apiRequest(`/edge-functions?teamId=${activeTeam.id}`);
-      setFunctions(data);
+      const [fns, keys] = await Promise.all([
+        apiRequest(`/edge-functions?teamId=${activeTeam.id}`),
+        apiRequest(`/teams/${activeTeam.id}/keys`),
+      ]);
+      setFunctions(fns);
+      setApiKeys(keys);
     } catch (err) {
       console.error(err);
     } finally {
@@ -151,10 +157,12 @@ export default function EdgeFunctionsTab() {
       return;
     }
 
+    const serviceKeyObj = apiKeys.find(k => k.role === 'SERVICE_ROLE');
+
     setInvoking(true);
     setInvokeResult(null);
     try {
-      const res = await apiRequest(`/edge-functions/${activeFn.id}/invoke`, {
+      const res = await apiRequest(`/edge-functions/${activeFn.id}/invoke${serviceKeyObj ? `?apikey=${serviceKeyObj.key}` : ''}`, {
         method: 'POST',
         body: JSON.stringify({ teamId: activeTeam.id, ...payloadData }),
       });
