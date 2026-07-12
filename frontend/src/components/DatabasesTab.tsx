@@ -678,6 +678,8 @@ export default function DatabasesTab() {
                   </div>
                 </div>
               </div>
+            )}
+
             {/* ===== CONNECTION GUIDE VIEW ===== */}
             {dbView === 'guide' && (
               <div className="flex-1 overflow-y-auto p-6 space-y-6 text-zinc-300 select-text text-left">
