@@ -33,88 +33,89 @@ export default function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-white/5 bg-[#0a0a0c]/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
-      {/* Brand & Workspace Switcher */}
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2 font-bold text-base tracking-tight select-none">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center">
-            <span className="text-white text-[10px] font-black">KH</span>
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 px-4 backdrop-blur-2xl md:px-6">
+      <div className="flex h-18 items-center justify-between gap-4 py-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex items-center gap-3 select-none">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 to-emerald-300 text-slate-950 shadow-lg shadow-cyan-400/20">
+              <span className="text-[11px] font-black tracking-[0.22em]">KH</span>
+            </div>
+            <div className="hidden sm:block">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Cloud control plane</div>
+              <div className="text-sm font-semibold text-white">KH Cloud</div>
+            </div>
           </div>
-          <span className="hidden md:inline">KH Cloud</span>
-        </div>
 
-        {/* Vertical Divider */}
-        <div className="h-4 w-[1px] bg-white/10 hidden md:block" />
+          <div className="hidden h-10 w-px bg-white/10 md:block" />
 
-        {/* Team Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 h-9 px-3 rounded-lg hover:bg-white/5 text-sm font-medium transition-colors text-zinc-300 hover:text-white"
-          >
-            <span>{activeTeam?.name || 'Loading Team...'}</span>
-            <ChevronDown size={14} className="text-zinc-500" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/40 hover:bg-white/10"
+            >
+              <span className="max-w-40 truncate">{activeTeam?.name || 'Loading team...'}</span>
+              <ChevronDown size={14} className="text-slate-400" />
+            </button>
 
-          {dropdownOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
-              <div className="absolute top-10 left-0 w-56 rounded-xl border border-white/10 bg-[#0c0c0e] p-1.5 shadow-2xl z-20">
-                <div className="px-2.5 py-1.5 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                  Select Workspace
-                </div>
-                {teams.map((t) => (
+            {dropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
+                <div className="absolute left-0 top-12 z-20 w-64 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl shadow-black/40">
+                  <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    Select workspace
+                  </div>
+                  <div className="space-y-1">
+                    {teams.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setActiveTeam(t);
+                          setDropdownOpen(false);
+                        }}
+                        className={`flex h-10 w-full items-center justify-between rounded-xl px-3 text-left text-sm transition-all ${
+                          activeTeam?.id === t.id
+                            ? 'bg-cyan-400/10 text-cyan-200 ring-1 ring-cyan-400/20'
+                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        <span className="truncate">{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="my-2 h-px bg-white/8" />
+
                   <button
-                    key={t.id}
                     onClick={() => {
-                      setActiveTeam(t);
+                      setNewTeamOpen(true);
                       setDropdownOpen(false);
                     }}
-                    className={`w-full text-left h-8 px-2.5 rounded-lg text-xs font-medium flex items-center justify-between transition-colors ${
-                      activeTeam?.id === t.id ? 'bg-indigo-500/10 text-indigo-400' : 'hover:bg-white/5 text-zinc-400 hover:text-white'
-                    }`}
+                    className="flex h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold text-cyan-200 transition-all hover:bg-cyan-400/10"
                   >
-                    {t.name}
+                    <Plus size={14} />
+                    New team
                   </button>
-                ))}
-                
-                <div className="h-[1px] bg-white/5 my-1.5" />
-                
-                <button
-                  onClick={() => {
-                    setNewTeamOpen(true);
-                    setDropdownOpen(false);
-                  }}
-                  className="w-full text-left h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-indigo-400 hover:bg-indigo-500/5 transition-colors"
-                >
-                  <Plus size={14} />
-                  New Team
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Status indicator & Profile */}
-      <div className="flex items-center gap-4">
-        {/* Status Indicator */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/10 bg-emerald-500/5 text-[10px] text-emerald-400 font-semibold tracking-wide">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          SYSTEMS OPERATIONAL
-        </div>
-
-        {/* Profile Dropdown */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden md:block">
-            <div className="text-xs font-bold">{user?.name}</div>
-            <div className="text-[10px] text-zinc-500">{user?.email}</div>
+                </div>
+              </>
+            )}
           </div>
-          
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/8 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300 sm:flex">
+            <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.7)]" />
+            Systems healthy
+          </div>
+
+          <div className="hidden text-right md:block">
+            <div className="text-sm font-semibold text-white">{user?.name}</div>
+            <div className="text-xs text-slate-400">{user?.email}</div>
+          </div>
+
           <button
             onClick={logout}
-            title="Log Out"
-            className="w-9 h-9 rounded-xl hover:bg-red-500/10 border border-white/5 text-zinc-400 hover:text-red-400 flex items-center justify-center transition-all active:scale-95 duration-100"
+            title="Log out"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-all hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-300 active:scale-[0.98]"
           >
             <LogOut size={16} />
           </button>
@@ -123,33 +124,36 @@ export default function Header() {
 
       {/* New Team Modal */}
       {newTeamOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="glass p-6 rounded-2xl max-w-sm w-full border border-white/10 shadow-2xl">
-            <h3 className="text-base font-bold mb-1">Create New Workspace</h3>
-            <p className="text-xs text-zinc-400 mb-4">Teams allow you to collaborate on projects, databases and storage buckets.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-6 backdrop-blur-xl">
+          <div className="glass-card w-full max-w-md rounded-[1.75rem] p-6 md:p-7">
+            <div className="mb-5 space-y-2">
+              <div className="app-muted-label">Workspace setup</div>
+              <h3 className="text-2xl font-semibold tracking-tight text-white">Create new workspace</h3>
+              <p className="text-sm leading-6 text-slate-300">Teams keep projects, databases, and storage grouped in one place.</p>
+            </div>
             <form onSubmit={handleCreateTeam} className="space-y-4">
               <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Team Name</label>
+                <label className="app-muted-label block mb-2">Team name</label>
                 <input
                   type="text"
                   required
                   value={newTeamName}
                   onChange={(e) => setNewTeamName(e.target.value)}
                   placeholder="e.g. Acme Corp"
-                  className="w-full h-10 px-3 rounded-xl glass-input text-sm text-white"
+                  className="glass-input h-12"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setNewTeamOpen(false)}
-                  className="h-9 px-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold text-white"
+                  className="app-button-secondary h-11 px-5 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-xs font-semibold text-white"
+                  className="app-button-primary h-11 px-5 text-xs"
                 >
                   Create
                 </button>

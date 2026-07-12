@@ -21,13 +21,15 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 border-r border-white/5 bg-[#070708] hidden md:flex flex-col justify-between py-6 px-4 shrink-0">
-      <div className="space-y-6">
-        {/* Navigation Section */}
-        <div className="space-y-1">
-          <div className="px-3 text-[10px] font-bold text-zinc-600 uppercase tracking-wider mb-2">
-            Infrastructure
-          </div>
+    <aside className="hidden w-72 shrink-0 flex-col justify-between border-r border-white/10 bg-slate-950/55 px-4 py-5 backdrop-blur-2xl md:flex">
+      <div className="space-y-5">
+        <div className="glass-card rounded-[1.5rem] p-4">
+          <div className="app-muted-label mb-2">Workspace navigation</div>
+          <div className="text-lg font-semibold tracking-tight text-white">Infrastructure</div>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Everything you manage from the control plane lives here.</p>
+        </div>
+
+        <div className="space-y-2">
           {navigation.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -35,27 +37,29 @@ export default function Sidebar() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full h-9 px-3 rounded-lg text-xs font-semibold flex items-center gap-2.5 transition-all ${
+                className={`group flex h-12 w-full items-center gap-3 rounded-2xl px-4 text-left text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-white/5 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.02]'
+                    ? 'bg-cyan-400/10 text-white ring-1 ring-cyan-400/20'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
                 }`}
               >
-                <Icon size={16} className={isActive ? 'text-indigo-400' : 'text-zinc-500'} />
-                {item.label}
+                <span className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${isActive ? 'bg-cyan-400/15 text-cyan-200' : 'bg-white/5 text-slate-500 group-hover:text-slate-200'}`}>
+                  <Icon size={16} />
+                </span>
+                <span className="truncate">{item.label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Version badge */}
-      <div className="px-3">
-        <div className="p-3 rounded-xl border border-white/5 bg-white/[0.01] text-[10px] text-zinc-500 flex flex-col gap-1 select-none">
-          <div className="font-bold text-zinc-400">KH CLOUD CLI</div>
-          <div>v1.0.4 — Running Local</div>
-          <a href="#" className="text-indigo-400 hover:underline font-medium mt-1 inline-block">Download CLI</a>
-        </div>
+      <div className="glass-card rounded-[1.5rem] p-4 text-sm text-slate-400">
+        <div className="app-muted-label mb-2">Release channel</div>
+        <div className="text-white">KH Cloud CLI</div>
+        <div className="mt-1 text-xs text-slate-500">v1.0.4 running locally</div>
+        <a href="#" className="mt-3 inline-flex text-xs font-semibold text-cyan-200 transition-colors hover:text-cyan-100">
+          Download CLI
+        </a>
       </div>
     </aside>
   );

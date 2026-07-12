@@ -273,86 +273,89 @@ export default function AdminTab() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#030303]">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Header */}
-      <div className="h-16 border-b border-white/5 px-6 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
-            <Shield size={16} />
+      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
+              <Shield size={16} />
+            </div>
+            <div>
+              <div className="app-muted-label mb-1">Admin console</div>
+              <h2 className="text-xl font-semibold tracking-tight text-white">System admin console</h2>
+              <p className="mt-1 text-sm text-slate-400">Full infrastructure control, plan overrides, and cleanup tools.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-sm font-bold tracking-tight text-white">System Admin Console</h2>
-            <p className="text-[10px] text-zinc-500 font-medium">Full infrastructure control & plan overrides</p>
-          </div>
-        </div>
 
-        {/* Sub-tabs selectors */}
-        <div className="flex gap-1.5 bg-[#0a0a0c] border border-white/5 rounded-xl p-1 text-[11px] font-bold text-zinc-400">
-          <button
-            onClick={() => setSubTab('users')}
-            className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'users' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
-            }`}
-          >
-            <Users size={12} />
-            Users
-          </button>
-          <button
-            onClick={() => setSubTab('projects')}
-            className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'projects' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
-            }`}
-          >
-            <Layers size={12} />
-            App Containers
-          </button>
-          <button
-            onClick={() => setSubTab('buckets')}
-            className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'buckets' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
-            }`}
-          >
-            <HardDrive size={12} />
-            Object Storage
-          </button>
-          <button
-            onClick={() => setSubTab('vps-storage')}
-            className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'vps-storage' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
-            }`}
-          >
-            <HardDrive size={12} />
-            VPS Storage
-          </button>
-          <button
-            onClick={() => setSubTab('billing')}
-            className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
-              subTab === 'billing' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
-            }`}
-          >
-            <CreditCard size={12} />
-            Plans Override
-          </button>
+          {/* Sub-tabs selectors */}
+          <div className="flex flex-wrap gap-2 rounded-full border border-white/10 bg-white/5 p-1 text-[11px] font-bold text-slate-400">
+            <button
+              onClick={() => setSubTab('users')}
+              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                subTab === 'users' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
+              }`}
+            >
+              <Users size={12} />
+              Users
+            </button>
+            <button
+              onClick={() => setSubTab('projects')}
+              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                subTab === 'projects' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
+              }`}
+            >
+              <Layers size={12} />
+              App Containers
+            </button>
+            <button
+              onClick={() => setSubTab('buckets')}
+              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                subTab === 'buckets' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
+              }`}
+            >
+              <HardDrive size={12} />
+              Object Storage
+            </button>
+            <button
+              onClick={() => setSubTab('vps-storage')}
+              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                subTab === 'vps-storage' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
+              }`}
+            >
+              <HardDrive size={12} />
+              VPS Storage
+            </button>
+            <button
+              onClick={() => setSubTab('billing')}
+              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                subTab === 'billing' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
+              }`}
+            >
+              <CreditCard size={12} />
+              Plans Override
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main viewport */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="max-w-6xl mx-auto space-y-6">
 
           {/* Quick Metrics */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
-            <div className="grid grid-cols-3 gap-6 shrink-0">
-              <div className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.01]">
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Total System Users</span>
+            <div className="grid grid-cols-3 gap-4 shrink-0">
+              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-white/[0.01]">
+                <span className="app-muted-label block mb-1">Total system users</span>
                 <span className="text-2xl font-black text-white">{users.length}</span>
               </div>
-              <div className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.01]">
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Monitored Web Containers</span>
+              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-white/[0.01]">
+                <span className="app-muted-label block mb-1">Monitored web containers</span>
                 <span className="text-2xl font-black text-indigo-400">{subTab === 'projects' ? projects.length : projects.reduce((acc, u) => acc + (u.projectsCount || 0), 0)}</span>
               </div>
-              <div className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.01]">
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Global Storage Buckets</span>
+              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-white/[0.01]">
+                <span className="app-muted-label block mb-1">Global storage buckets</span>
                 <span className="text-2xl font-black text-purple-400">{subTab === 'buckets' ? buckets.length : buckets.reduce((acc, u) => acc + (u.bucketsCount || 0), 0)}</span>
               </div>
             </div>
@@ -360,20 +363,20 @@ export default function AdminTab() {
 
           {/* Search bar & Refresh */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
-            <div className="flex gap-4 items-center">
+            <div className="flex items-center gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
                 <input
                   type="text"
                   placeholder={`Search ${subTab}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 pl-10 pr-4 rounded-xl glass-input text-xs text-white"
+                  className="glass-input h-11 w-full pl-10 pr-4 text-xs text-white"
                 />
               </div>
               <button
                 onClick={fetchAdminData}
-                className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-zinc-400 hover:text-white transition-colors hover:bg-white/10 active:scale-95"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               </button>
@@ -382,17 +385,17 @@ export default function AdminTab() {
 
           {/* Tab Views */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 text-zinc-500 gap-3">
-              <Loader2 className="animate-spin text-indigo-400" size={32} />
-              <span className="text-xs">Gathering platform details...</span>
+            <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+              <Loader2 className="animate-spin text-cyan-300" size={32} />
+              <span className="text-xs uppercase tracking-[0.18em]">Gathering platform details</span>
             </div>
           ) : (
-            <div className="glass-card border border-white/5 rounded-2xl overflow-hidden bg-white/[0.01]">
+            <div className="glass-card overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.01]">
               
               {/* SUB TAB: USERS LIST */}
               {subTab === 'users' && (
                 <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-4 p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-black/40">
+                  <div className="grid grid-cols-4 bg-slate-950/50 p-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     <span>User / Organizations</span>
                     <span>System Role</span>
                     <span>Resources</span>
@@ -402,10 +405,10 @@ export default function AdminTab() {
                   {users
                     .filter(u => (u.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(u => (
-                      <div key={u.id} className="grid grid-cols-4 p-4 items-start text-xs text-zinc-300 gap-4">
+                      <div key={u.id} className="grid grid-cols-4 gap-4 p-4 items-start text-xs text-slate-300">
                         <div className="flex flex-col gap-1">
                           <span className="font-bold text-white text-sm">{u.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono mb-2">{u.email}</span>
+                          <span className="mb-2 text-[10px] font-mono text-slate-500">{u.email}</span>
                           
                           {/* User Teams/Orgs */}
                           <div className="space-y-1">

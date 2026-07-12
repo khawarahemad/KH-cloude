@@ -414,9 +414,10 @@ client.put_object()
   const displayItems = getDisplayItems();
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#030303]">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Header */}
-      <div className="h-16 border-b border-white/5 px-6 flex items-center justify-between shrink-0">
+      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           {activeBucket && (
             <button
@@ -424,69 +425,72 @@ client.put_object()
                 setActiveBucket(null);
                 setCurrentPrefix('');
               }}
-              className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft size={16} />
             </button>
           )}
-          <h2 className="text-sm font-bold tracking-tight">
-            {activeBucket ? `Bucket: ${activeBucket.name}` : 'Object Storage Buckets'}
-          </h2>
+          <div>
+            <div className="app-muted-label mb-1">Object Storage</div>
+            <h2 className="text-lg font-semibold tracking-tight text-white">{activeBucket ? activeBucket.name : 'Storage buckets'}</h2>
+          </div>
         </div>
 
         {!activeBucket && (
           <button
             onClick={() => setCreateOpen(true)}
-            className="h-9 px-3.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors flex items-center gap-1.5 active:scale-95 duration-100"
+            className="app-button-primary h-11 px-5 text-xs"
           >
             <Plus size={14} />
-            Create Bucket
+            Create bucket
           </button>
         )}
+        </div>
       </div>
 
       {/* Main Container */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {billingLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-            <Loader2 className="animate-spin text-indigo-400" size={32} />
-            <span className="text-xs">Checking subscription plan...</span>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+            <Loader2 className="animate-spin text-cyan-300" size={32} />
+            <span className="text-xs uppercase tracking-[0.18em]">Checking subscription plan</span>
           </div>
         ) : (billing?.subscription?.planId !== 'pro' && billing?.subscription?.planId !== 'enterprise') ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center max-w-xl mx-auto">
-            <div className="relative mb-6 text-indigo-400">
-              <div className="absolute inset-0 rounded-3xl bg-indigo-500/20 blur-xl animate-pulse"></div>
-              <div className="relative w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+          <div className="glass-card mx-auto flex max-w-2xl flex-col items-center justify-center rounded-[2rem] px-6 py-16 text-center">
+            <div className="relative mb-6 text-cyan-200">
+              <div className="absolute inset-0 rounded-[1.75rem] bg-cyan-400/20 blur-2xl animate-pulse"></div>
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-cyan-400/10 text-cyan-200 shadow-lg shadow-cyan-400/20">
                 <Sparkles size={28} className="animate-bounce" />
               </div>
             </div>
             
-            <h3 className="font-extrabold text-xl mb-2 text-white">Object Storage is a Pro Feature</h3>
-            <p className="text-xs text-zinc-400 max-w-sm mb-8 leading-relaxed">
+            <div className="app-muted-label mb-2">Storage access</div>
+            <h3 className="text-2xl font-semibold tracking-tight text-white">Object storage is a Pro feature</h3>
+            <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">
               Store and serve files, images, database backups, and static assets globally with S3 compatibility. Upgrade your team subscription to unlock high-performance Object Storage.
             </p>
 
-            <div className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-5 mb-8 text-left space-y-3.5">
-              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Plan Benefits Included:</div>
+            <div className="mt-8 w-full rounded-[1.5rem] border border-white/10 bg-white/5 p-5 text-left space-y-3.5">
+              <div className="app-muted-label">Plan benefits included</div>
               <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                <div className="flex items-center gap-2 text-zinc-300">
-                  <span className="text-indigo-400">✓</span> High-performance MinIO/S3 compatible storage
+                <div className="flex items-center gap-2 text-slate-200">
+                  <span className="text-cyan-200">✓</span> High-performance MinIO/S3 compatible storage
                 </div>
-                <div className="flex items-center gap-2 text-zinc-300">
-                  <span className="text-indigo-400">✓</span> Global Traefik routing with CDN acceleration
+                <div className="flex items-center gap-2 text-slate-200">
+                  <span className="text-cyan-200">✓</span> Global Traefik routing with CDN acceleration
                 </div>
-                <div className="flex items-center gap-2 text-zinc-300">
-                  <span className="text-indigo-400">✓</span> Automatic Image optimization & webp conversion
+                <div className="flex items-center gap-2 text-slate-200">
+                  <span className="text-cyan-200">✓</span> Automatic image optimization & webp conversion
                 </div>
-                <div className="flex items-center gap-2 text-zinc-300">
-                  <span className="text-indigo-400">✓</span> Granular Read/Write API Access Keys
+                <div className="flex items-center gap-2 text-slate-200">
+                  <span className="text-cyan-200">✓</span> Granular read/write API access keys
                 </div>
               </div>
             </div>
 
             <button
               onClick={() => setActiveTab('billing')}
-              className="h-10 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-bold text-xs transition-all shadow-md shadow-indigo-500/10 active:scale-95 duration-100 flex items-center gap-2"
+              className="app-button-primary h-11 px-6 text-xs mt-2"
             >
               <Zap size={12} className="text-white" />
               Upgrade to Pro Plan
@@ -502,42 +506,42 @@ client.put_object()
             ) : !activeBucket ? (
               /* BUCKETS GRID LIST */
               buckets.length === 0 ? (
-                <div className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl py-20 text-center glass-card max-w-lg mx-auto bg-white/[0.01]">
-                  <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 mb-4">
+                <div className="glass-card mx-auto flex max-w-lg flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/10 py-20 text-center bg-white/[0.01]">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-slate-400">
                     <HardDrive size={20} />
                   </div>
-                  <h3 className="font-bold text-sm mb-1">No Storage Buckets active</h3>
-                  <p className="text-xs text-zinc-400 max-w-xs mb-6">Create fully managed, S3 compatible object storage buckets to hold application assets, media and backups.</p>
+                  <h3 className="text-lg font-semibold text-white mb-1">No storage buckets active</h3>
+                  <p className="text-sm text-slate-300 max-w-xs mb-6">Create fully managed, S3 compatible object storage buckets for assets, media, and backups.</p>
                   <button
                     onClick={() => setCreateOpen(true)}
-                    className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs transition-colors active:scale-95"
+                    className="app-button-primary h-11 px-5 text-xs"
                   >
                     Provision first bucket
                   </button>
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 max-w-7xl mx-auto">
                   {buckets.map((b) => (
                     <div
                       key={b.id}
                       onClick={() => setActiveBucket(b)}
-                      className="glass-card p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all cursor-pointer flex flex-col justify-between h-44 bg-white/[0.01] active:scale-[0.98]"
+                      className="glass-card flex h-48 cursor-pointer flex-col justify-between rounded-[1.75rem] border border-white/10 p-6 bg-white/[0.01] transition-all hover:-translate-y-0.5 hover:border-cyan-400/20 active:scale-[0.99]"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-bold text-white truncate max-w-[150px]">{b.name}</span>
+                          <span className="text-sm font-semibold text-white truncate max-w-[150px]">{b.name}</span>
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black tracking-wide ${
                             b.isPublic ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-zinc-800 text-zinc-400'
                           }`}>
                             {b.isPublic ? 'PUBLIC' : 'PRIVATE'}
                           </span>
                         </div>
-                        <div className="text-[10px] text-zinc-500 mt-2 font-medium font-mono">
+                        <div className="mt-2 font-mono text-[10px] font-medium text-slate-500">
                           storage.khawarahemad.com
                         </div>
                       </div>
 
-                      <div className="border-t border-white/5 pt-4 flex items-center justify-between text-[10px] text-zinc-400 font-bold">
+                      <div className="flex items-center justify-between border-t border-white/10 pt-4 text-[10px] font-bold text-slate-400">
                         <div className="flex items-center gap-4">
                           <span>{formatBytes(b.sizeUsed || 0)} used</span>
                           <span>•</span>
@@ -548,7 +552,7 @@ client.put_object()
                             e.stopPropagation();
                             handleDeleteBucket(b.id);
                           }}
-                          className="text-zinc-500 hover:text-red-400 transition-colors p-1"
+                          className="text-slate-500 transition-colors hover:text-red-300 p-1"
                         >
                           <Trash size={14} />
                         </button>

@@ -115,25 +115,30 @@ export default function Home() {
 
   if (view === 'dashboard' && isAdminSubdomain && user?.role !== 'ADMIN') {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#030303] text-center p-6 select-none">
-        <div className="relative mb-6">
-          <div className="absolute inset-0 rounded-3xl bg-red-500/20 blur-xl animate-pulse"></div>
-          <div className="relative w-16 h-16 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
-            <Shield size={28} />
+      <div className="min-h-screen w-screen flex items-center justify-center px-6 text-center select-none app-shell">
+        <div className="glass-card relative mx-auto flex max-w-md flex-col items-center gap-6 rounded-[2rem] p-8 md:p-10">
+          <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-red-400/60 to-transparent" />
+          <div className="relative">
+            <div className="absolute inset-0 rounded-[1.75rem] bg-red-400/20 blur-2xl animate-pulse"></div>
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-[1.5rem] border border-red-400/20 bg-red-400/10 text-red-300">
+              <Shield size={28} />
+            </div>
           </div>
+          <div className="space-y-2">
+            <h3 className="text-2xl font-semibold tracking-tight text-white">Access denied</h3>
+            <p className="text-sm leading-6 text-slate-300">
+              The domain <strong className="text-zinc-200">admin.khawarahemad.com</strong> is reserved for system administrators. Your account does not have admin privileges.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              useAppStore.getState().logout();
+            }}
+            className="app-button-primary"
+          >
+            Sign out and log in as admin
+          </button>
         </div>
-        <h3 className="font-extrabold text-xl mb-2 text-white">Access Denied</h3>
-        <p className="text-xs text-zinc-400 max-w-sm mb-8 leading-relaxed">
-          The domain <strong className="text-zinc-300">admin.khawarahemad.com</strong> is reserved for system administrators. Your account does not have admin privileges.
-        </p>
-        <button
-          onClick={() => {
-            useAppStore.getState().logout();
-          }}
-          className="h-10 px-6 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all active:scale-95 duration-100"
-        >
-          Sign Out & Log In as Admin
-        </button>
       </div>
     );
   }
@@ -152,16 +157,12 @@ export default function Home() {
     }} onAuthSuccess={handleAuthSuccess} />;}
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#030303]">
-      {/* Top Navigation Header */}
+    <div className="h-screen w-screen flex flex-col overflow-hidden app-shell">
       <Header />
 
-      {/* Main body split (Sidebar + Viewport) */}
       <div className="flex-1 flex min-h-0 min-w-0">
         <Sidebar />
-        
-        {/* Dynamic Inner Tab Viewport */}
-        <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#030303]">
+        <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-transparent">
           {renderActiveTab()}
         </main>
       </div>

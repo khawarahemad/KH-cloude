@@ -590,71 +590,79 @@ export default function ProjectsTab() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#030303]">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Dynamic Header */}
-      <div className="h-16 border-b border-white/5 px-6 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 md:px-6 shrink-0">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3">
           {activeProjectId && (
             <button
               onClick={() => setActiveProjectId(null)}
-              className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft size={16} />
             </button>
           )}
-          <h2 className="text-sm font-bold tracking-tight">
-            {activeProjectId ? `Project: ${projectDetails?.name || 'Loading...'}` : 'App Hosting'}
-          </h2>
+          <div>
+            <div className="app-muted-label mb-1">App Hosting</div>
+            <h2 className="text-xl font-semibold tracking-tight text-white md:text-2xl">
+              {activeProjectId ? projectDetails?.name || 'Loading project...' : 'Deployments overview'}
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              {activeProjectId ? 'Manage runtime, domains, environment variables, and delivery controls.' : 'Create, ship, and observe production apps from one workspace.'}
+            </p>
+          </div>
         </div>
 
-        {!activeProjectId && (
-          <button
-            onClick={() => setWizardOpen(true)}
-            className="h-9 px-3.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors flex items-center gap-1.5 active:scale-95 duration-100"
-          >
-            <Plus size={14} />
-            Deploy App
-          </button>
-        )}
+          {!activeProjectId && (
+            <button
+              onClick={() => setWizardOpen(true)}
+              className="app-button-primary h-11 px-5 text-xs md:text-sm"
+            >
+              <Plus size={14} />
+              Deploy app
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main View Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-            <Loader2 className="animate-spin text-indigo-400" size={32} />
-            <span className="text-xs">Fetching projects from your cluster...</span>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+            <Loader2 className="animate-spin text-cyan-300" size={32} />
+            <span className="text-xs tracking-[0.18em] uppercase">Fetching projects from your cluster</span>
           </div>
         ) : !activeProjectId ? (
           /* PROJECTS GRID LIST */
           projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl py-20 text-center glass-card max-w-lg mx-auto">
-              <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-zinc-500 mb-4">
+            <div className="glass-card mx-auto flex max-w-xl flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/10 py-20 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
                 <Layers size={20} />
               </div>
-              <h3 className="font-bold text-sm mb-1">No Projects provisioned</h3>
-              <p className="text-xs text-zinc-400 max-w-xs mb-6">Import your code from GitHub and scale it globally in seconds.</p>
+              <div className="app-muted-label mb-2">No projects yet</div>
+              <h3 className="text-2xl font-semibold tracking-tight text-white">Provision your first deployment.</h3>
+              <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">Import code from GitHub, configure the runtime, and launch a production-ready app in one flow.</p>
               <button
                 onClick={() => setWizardOpen(true)}
-                className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs transition-colors active:scale-95"
+                className="app-button-primary mt-7 h-11 px-5 text-xs"
               >
                 Provision first project
               </button>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 max-w-7xl mx-auto">
               {projects.map((proj) => {
                 const latestDep = proj.deployments?.[0];
                 return (
                   <div
                     key={proj.id}
                     onClick={() => setActiveProjectId(proj.id)}
-                    className="glass-card p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-all cursor-pointer flex flex-col justify-between h-44 active:scale-[0.98]"
+                    className="glass-card group flex h-52 cursor-pointer flex-col justify-between rounded-[1.75rem] border border-white/10 p-6 transition-all hover:-translate-y-0.5 hover:border-cyan-400/20 active:scale-[0.99]"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-white truncate max-w-[150px]">{proj.name}</span>
-                        {/* Status badge */}
+                        <span className="text-sm font-semibold text-white truncate max-w-[150px]">{proj.name}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                           proj.status === 'READY'
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
@@ -667,15 +675,15 @@ export default function ProjectsTab() {
                       </div>
                       
                       {/* Repo info */}
-                      <div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-1 font-medium">
-                        <Github size={12} className="text-zinc-600" />
+                      <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
+                        <Github size={12} className="text-slate-500" />
                         {proj.githubRepo || 'Manual upload'}
                       </div>
                     </div>
 
-                    <div className="border-t border-white/5 pt-4 flex items-center justify-between text-[10px] text-zinc-400">
-                      <span className="truncate max-w-[150px] font-medium">{proj.domains?.[0]?.hostname || 'No domain'}</span>
-                      <span className="text-zinc-500">
+                    <div className="flex items-center justify-between border-t border-white/10 pt-4 text-[10px] text-slate-400">
+                      <span className="truncate max-w-[150px] font-medium text-slate-300">{proj.domains?.[0]?.hostname || 'No domain'}</span>
+                      <span className="text-slate-500">
                         {latestDep ? `Active ${new Date(latestDep.createdAt).toLocaleDateString()}` : 'Never deployed'}
                       </span>
                     </div>
@@ -686,23 +694,23 @@ export default function ProjectsTab() {
           )
         ) : (
           /* PROJECT DETAILS VIEW */
-          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="mx-auto max-w-6xl space-y-6">
             {/* Status overview bar */}
-            <div className="glass p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="app-panel flex flex-col items-start justify-between gap-6 rounded-[1.75rem] p-6 md:flex-row md:items-center">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
                   <Server size={20} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold">{projectDetails?.name}</h3>
+                    <h3 className="text-lg font-semibold text-white">{projectDetails?.name}</h3>
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                       projectDetails?.status === 'READY' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-400'
                     }`}>
                       {projectDetails?.status}
                     </span>
                   </div>
-                  <div className="text-xs text-zinc-400 flex items-center gap-1.5 mt-1">
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
                     <Globe size={12} />
                     <a href={`https://${projectDetails?.domains?.[0]?.hostname}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-indigo-400">
                       {projectDetails?.domains?.[0]?.hostname}
@@ -712,16 +720,13 @@ export default function ProjectsTab() {
               </div>
 
               <div className="flex items-center gap-3">
-                <button
-                  onClick={handleRestart}
-                  className="h-9 px-3 rounded-lg border border-white/10 hover:bg-white/5 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                >
+                <button onClick={handleRestart} className="app-button-secondary h-11 px-4 text-xs">
                   <RefreshCw size={12} />
                   Restart App
                 </button>
                 <button
                   onClick={handleDeploy}
-                  className="h-9 px-3.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-indigo-500/10"
+                  className="app-button-primary h-11 px-4 text-xs"
                 >
                   <Play size={12} />
                   Redeploy
@@ -730,15 +735,15 @@ export default function ProjectsTab() {
             </div>
 
             {/* Content selector tabs */}
-            <div className="flex border-b border-white/5 text-xs font-semibold gap-6">
+            <div className="flex flex-wrap gap-2 border-b border-white/10 text-xs font-semibold">
               {(['deployments', 'env', 'domains', 'metrics', 'console', 'terminal', 'settings'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setDetailsTab(tab)}
-                  className={`pb-3 capitalize transition-all border-b-2 ${
+                  className={`rounded-full px-4 py-2 capitalize transition-all ${
                     detailsTab === tab
-                      ? 'border-indigo-500 text-white'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                      ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
                   }`}
                 >
                   {tab === 'env' ? 'Environment Variables' : tab === 'console' ? 'Runtime Logs' : tab === 'terminal' ? 'Interactive Terminal' : tab}

@@ -100,18 +100,24 @@ export default function TeamsTab() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#030303]">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Header */}
-      <div className="h-16 border-b border-white/5 px-6 flex items-center shrink-0">
-        <h2 className="text-sm font-bold tracking-tight">Workspace settings</h2>
+      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="app-muted-label mb-1">Team workspace</div>
+            <h2 className="text-xl font-semibold tracking-tight text-white">Workspace settings</h2>
+            <p className="mt-1 text-sm text-slate-400">Manage members, access keys, and invitations from one surface.</p>
+          </div>
+        </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-            <Loader2 className="animate-spin text-indigo-400" size={32} />
-            <span className="text-xs">Fetching workspace details...</span>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+            <Loader2 className="animate-spin text-cyan-300" size={32} />
+            <span className="text-xs uppercase tracking-[0.18em]">Fetching workspace details</span>
           </div>
         ) : (
           <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
@@ -121,20 +127,20 @@ export default function TeamsTab() {
               
               {/* Active Members list */}
               <div>
-                <h3 className="text-xs font-bold text-zinc-400 mb-4 uppercase tracking-wider">Workspace Members</h3>
-                <div className="border border-white/5 rounded-2xl overflow-hidden glass-card divide-y divide-white/5">
+                <h3 className="app-muted-label mb-4">Workspace members</h3>
+                <div className="glass-card overflow-hidden rounded-[1.75rem] divide-y divide-white/10">
                   {members.map((member) => (
                     <div key={member.id} className="p-4 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold uppercase">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/5 text-slate-300 font-bold uppercase">
                           {member.user?.name?.substring(0, 2)}
                         </div>
                         <div>
-                          <span className="font-bold text-zinc-300 block">{member.user?.name}</span>
-                          <span className="text-[10px] text-zinc-500 mt-0.5 block">{member.user?.email}</span>
+                          <span className="block font-semibold text-white">{member.user?.name}</span>
+                          <span className="mt-0.5 block text-[10px] text-slate-500">{member.user?.email}</span>
                         </div>
                       </div>
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 uppercase tracking-wide">
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-200 uppercase tracking-wide">
                         {member.role}
                       </span>
                     </div>
@@ -145,24 +151,24 @@ export default function TeamsTab() {
               {/* Pending Invites */}
               {invites.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-bold text-zinc-400 mb-4 uppercase tracking-wider">Pending Invitations</h3>
-                  <div className="border border-white/5 rounded-2xl overflow-hidden glass-card divide-y divide-white/5">
+                  <h3 className="app-muted-label mb-4">Pending invitations</h3>
+                  <div className="glass-card overflow-hidden rounded-[1.75rem] divide-y divide-white/10">
                     {invites.map((invite) => (
                       <div key={invite.id} className="p-4 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2 text-zinc-300">
-                          <Mail size={14} className="text-zinc-500" />
+                          <Mail size={14} className="text-slate-500" />
                           <span>{invite.email}</span>
-                          <span className="text-[9px] text-zinc-500 uppercase">({invite.role})</span>
+                          <span className="text-[9px] text-slate-500 uppercase">({invite.role})</span>
                         </div>
 
                         <div className="flex items-center gap-4">
-                          <span className="text-[9px] text-zinc-500 flex items-center gap-1">
+                          <span className="text-[9px] text-slate-500 flex items-center gap-1">
                             <Clock size={10} />
                             PENDING
                           </span>
                           <button
                             onClick={() => handleCancelInvite(invite.id)}
-                            className="text-zinc-500 hover:text-red-400"
+                            className="text-slate-500 hover:text-red-300"
                             title="Cancel Invite"
                           >
                             ✕
@@ -176,13 +182,13 @@ export default function TeamsTab() {
 
               {/* Workspace API & Service Keys */}
               <div>
-                <h3 className="text-xs font-bold text-zinc-400 mb-4 uppercase tracking-wider">Workspace API & Service Keys</h3>
+                <h3 className="app-muted-label mb-4">Workspace API & service keys</h3>
                 <div className="space-y-4 mb-8">
                   {apiKeys.map((keyObj) => (
-                    <div key={keyObj.id} className="border border-white/5 rounded-2xl p-5 bg-white/[0.01] relative flex flex-col justify-between">
+                    <div key={keyObj.id} className="glass-card relative flex flex-col justify-between rounded-[1.75rem] p-5 bg-white/[0.01]">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <Key size={14} className="text-indigo-400" />
+                          <Key size={14} className="text-cyan-200" />
                           <span className="text-xs font-bold text-white uppercase tracking-wider">{keyObj.name} key</span>
                         </div>
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
@@ -194,7 +200,7 @@ export default function TeamsTab() {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2 bg-[#050507] border border-white/5 rounded-lg px-3 py-2 text-[10px] font-mono text-zinc-300">
+                      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-300">
                         <span className="truncate flex-1 select-all">
                           {showKeys[keyObj.id] ? keyObj.key : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'}
                         </span>
@@ -203,7 +209,7 @@ export default function TeamsTab() {
                           <button 
                             type="button"
                             onClick={() => setShowKeys(prev => ({ ...prev, [keyObj.id]: !prev[keyObj.id] }))}
-                            className="text-zinc-500 hover:text-white"
+                            className="text-slate-500 hover:text-white"
                           >
                             {showKeys[keyObj.id] ? <EyeOff size={13} /> : <Eye size={13} />}
                           </button>
@@ -211,7 +217,7 @@ export default function TeamsTab() {
                           <button 
                             type="button"
                             onClick={() => handleCopyText(keyObj.key, keyObj.id)} 
-                            className="text-zinc-500 hover:text-white"
+                            className="text-slate-500 hover:text-white"
                           >
                             {copiedId === keyObj.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                           </button>
@@ -224,20 +230,20 @@ export default function TeamsTab() {
 
               {/* Audit Logs */}
               <div>
-                <h3 className="text-xs font-bold text-zinc-400 mb-4 uppercase tracking-wider">Workspace Audit Logs</h3>
-                <div className="border border-white/5 rounded-2xl overflow-hidden glass-card divide-y divide-white/5 max-h-80 overflow-y-auto">
+                <h3 className="app-muted-label mb-4">Workspace audit logs</h3>
+                <div className="glass-card max-h-80 overflow-y-auto overflow-hidden rounded-[1.75rem] divide-y divide-white/10">
                   {auditLogs.length === 0 ? (
-                    <div className="p-8 text-center text-zinc-500 text-xs font-medium">No actions logged yet.</div>
+                    <div className="p-8 text-center text-slate-500 text-xs font-medium">No actions logged yet.</div>
                   ) : (
                     auditLogs.map((log) => (
                       <div key={log.id} className="p-4 text-xs hover:bg-white/[0.005] transition-colors">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-zinc-300 font-mono text-[10px]">{log.action}</span>
-                          <span className="text-[9px] text-zinc-500 font-medium">
+                          <span className="font-bold text-slate-200 font-mono text-[10px]">{log.action}</span>
+                            <span className="text-[9px] text-slate-500 font-medium">
                             {new Date(log.createdAt).toLocaleString()}
                           </span>
                         </div>
-                        <div className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1.5 font-medium">
+                        <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
                           <User size={10} />
                           <span>{log.user?.name || 'System Operator'}</span>
                           {log.details && (
@@ -257,31 +263,31 @@ export default function TeamsTab() {
 
             {/* INVITE NEW MEMBER FORM (1 Col) */}
             <div className="space-y-6">
-              <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4">
+              <div className="glass-card rounded-[1.75rem] border border-white/10 space-y-4 p-6">
                 <div className="flex items-center gap-2 text-xs font-bold text-white">
-                  <ShieldCheck size={16} className="text-indigo-400" />
+                  <ShieldCheck size={16} className="text-cyan-200" />
                   Invite Workspace Member
                 </div>
 
                 <form onSubmit={handleSendInvite} className="space-y-4">
                   <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Email Address</label>
+                    <label className="app-muted-label block mb-2">Email address</label>
                     <input
                       type="email"
                       required
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       placeholder="dev@company.com"
-                      className="w-full h-10 px-3 rounded-xl glass-input text-xs text-white"
+                      className="glass-input h-11 w-full text-xs text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Workspace Role</label>
+                    <label className="app-muted-label block mb-2">Workspace role</label>
                     <select
                       value={inviteRole}
                       onChange={(e: any) => setInviteRole(e.target.value)}
-                      className="w-full h-10 px-3 rounded-xl glass-input text-xs text-zinc-300 font-semibold focus:ring-0 focus:outline-none"
+                      className="glass-input h-11 w-full text-xs font-semibold text-white focus:ring-0 focus:outline-none"
                     >
                       <option value="DEVELOPER" className="bg-[#0c0c0e] text-white">Developer</option>
                       <option value="ADMIN" className="bg-[#0c0c0e] text-white">Administrator</option>
@@ -292,7 +298,7 @@ export default function TeamsTab() {
                   <button
                     type="submit"
                     disabled={inviting}
-                    className="w-full h-10 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors flex items-center justify-center gap-1.5 active:scale-95 duration-100"
+                    className="app-button-primary h-11 w-full text-xs"
                   >
                     {inviting ? (
                       <>

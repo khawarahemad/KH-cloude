@@ -58,46 +58,50 @@ export default function BillingTab() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#030303]">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Header */}
-      <div className="h-16 border-b border-white/5 px-6 flex items-center shrink-0">
-        <h2 className="text-sm font-bold tracking-tight">Billing & Usage</h2>
+      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
+        <div>
+          <div className="app-muted-label mb-1">Billing</div>
+          <h2 className="text-xl font-semibold tracking-tight text-white">Billing & usage</h2>
+          <p className="mt-1 text-sm text-slate-400">View plan usage, invoices, and current spend with a cleaner summary.</p>
+        </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-            <Loader2 className="animate-spin text-indigo-400" size={32} />
-            <span className="text-xs">Connecting to Stripe gateway...</span>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+            <Loader2 className="animate-spin text-cyan-300" size={32} />
+            <span className="text-xs uppercase tracking-[0.18em]">Connecting to billing gateway</span>
           </div>
         ) : (
           <div className="max-w-5xl mx-auto space-y-8">
             
             {/* Usage Summary Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="glass-card p-5 rounded-2xl border border-white/5">
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Active Projects</span>
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+                <span className="app-muted-label block mb-1">Active projects</span>
                 <span className="text-2xl font-black text-white">{billing?.usage?.activeProjects}</span>
               </div>
-              <div className="glass-card p-5 rounded-2xl border border-white/5">
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Active Databases</span>
+              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+                <span className="app-muted-label block mb-1">Active databases</span>
                 <span className="text-2xl font-black text-white">{billing?.usage?.databasesCount}</span>
               </div>
-              <div className="glass-card p-5 rounded-2xl border border-white/5">
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Storage Assets</span>
+              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+                <span className="app-muted-label block mb-1">Storage assets</span>
                 <span className="text-2xl font-black text-white">{billing?.usage?.storageGB} GB</span>
               </div>
-              <div className="glass-card p-5 rounded-2xl border border-white/5">
-                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Current Month Cost</span>
+              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+                <span className="app-muted-label block mb-1">Current month cost</span>
                 <span className="text-2xl font-black text-indigo-400">${billing?.usage?.currentSpend}</span>
               </div>
             </div>
 
             {/* Plans Section */}
             <div>
-              <h3 className="text-xs font-bold text-zinc-400 mb-1 uppercase tracking-wider">Select Subscription Plan</h3>
-              <p className="text-[10px] text-zinc-500 mb-4">
+              <h3 className="app-muted-label mb-1">Select subscription plan</h3>
+              <p className="mb-4 text-[10px] text-slate-500">
                 Plan modifications are restricted. Only system administrators can change a team's plan.
               </p>
               <div className="grid md:grid-cols-3 gap-6">
@@ -106,31 +110,31 @@ export default function BillingTab() {
                   return (
                     <div
                       key={plan.id}
-                      className={`glass-card p-6 rounded-2xl border relative flex flex-col justify-between h-56 transition-all ${
-                        isCurrent ? 'border-indigo-500 bg-indigo-500/[0.02]' : 'border-white/5'
+                      className={`glass-card relative flex h-56 flex-col justify-between rounded-[1.75rem] border p-6 transition-all ${
+                        isCurrent ? 'border-cyan-400/20 bg-cyan-400/[0.03]' : 'border-white/10'
                       }`}
                     >
                       {isCurrent && (
-                        <span className="absolute top-4 right-4 text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400">
+                        <span className="absolute top-4 right-4 rounded-full bg-cyan-400/10 px-2 py-0.5 text-[9px] font-bold text-cyan-200">
                           Active
                         </span>
                       )}
 
                       <div>
-                        <h4 className="text-xs font-bold text-white mb-1">{plan.name}</h4>
+                        <h4 className="mb-1 text-xs font-bold text-white">{plan.name}</h4>
                         <div className="flex items-baseline gap-0.5 mb-4">
                           <span className="text-2xl font-black">${plan.price}</span>
-                          <span className="text-zinc-500 text-[10px]">/ month</span>
+                          <span className="text-slate-500 text-[10px]">/ month</span>
                         </div>
-                        <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">{plan.specs}</p>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold">{plan.specs}</p>
                       </div>
 
                       <button
                         disabled={true}
-                        className={`w-full h-9 mt-6 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-not-allowed ${
+                        className={`mt-6 flex h-11 w-full items-center justify-center gap-1.5 rounded-full text-xs font-bold cursor-not-allowed transition-colors ${
                           isCurrent
-                            ? 'bg-indigo-500/10 text-indigo-400'
-                            : 'bg-zinc-800/40 text-zinc-500'
+                            ? 'bg-cyan-400/10 text-cyan-200'
+                            : 'bg-white/5 text-slate-500'
                         }`}
                       >
                         {isCurrent ? 'Current Plan' : 'Admin Upgrade Only'}
@@ -143,21 +147,21 @@ export default function BillingTab() {
 
             {/* Invoices */}
             <div>
-              <h3 className="text-xs font-bold text-zinc-400 mb-4 uppercase tracking-wider">Invoice History</h3>
-              <div className="border border-white/5 rounded-2xl overflow-hidden glass-card">
+              <h3 className="app-muted-label mb-4">Invoice history</h3>
+              <div className="glass-card overflow-hidden rounded-[1.75rem] border border-white/10">
                 {billing?.invoices?.length === 0 ? (
-                  <div className="p-8 text-center text-zinc-500 text-xs font-medium">No invoices found.</div>
+                  <div className="p-8 text-center text-slate-500 text-xs font-medium">No invoices found.</div>
                 ) : (
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-white/10">
                     {billing?.invoices?.map((inv: any) => (
-                      <div key={inv.id} className="p-4 flex items-center justify-between text-xs">
+                      <div key={inv.id} className="flex items-center justify-between p-4 text-xs">
                         <div>
-                          <span className="font-bold text-zinc-300 block">{inv.id}</span>
-                          <span className="text-[10px] text-zinc-500 mt-0.5 block">{inv.date}</span>
+                          <span className="block font-semibold text-white">{inv.id}</span>
+                          <span className="mt-0.5 block text-[10px] text-slate-500">{inv.date}</span>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="font-bold text-white">{inv.amount}</span>
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-300">
                             {inv.status}
                           </span>
                         </div>

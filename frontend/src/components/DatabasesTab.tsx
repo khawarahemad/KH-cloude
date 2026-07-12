@@ -245,31 +245,35 @@ export default function DatabasesTab() {
 
   if (activeDb) {
     return (
-      <div className="flex-1 flex flex-col min-h-0 bg-[#030303]">
+      <div className="flex-1 flex flex-col min-h-0 bg-transparent">
         {/* Header */}
-        <div className="h-14 border-b border-white/5 px-5 flex items-center justify-between shrink-0">
+        <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => { setActiveDb(null); setActiveTable(null); }}
-              className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft size={15} />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
                 <Database size={12} />
               </div>
-              <h2 className="text-sm font-bold text-white">{activeDb.name}</h2>
-              <span className="text-[9px] font-black uppercase bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded">{activeDb.type}</span>
+              <div>
+                <div className="app-muted-label mb-1">Database workspace</div>
+                <h2 className="text-lg font-semibold text-white">{activeDb.name}</h2>
+              </div>
+              <span className="text-[9px] font-black uppercase bg-cyan-400/10 text-cyan-200 px-2 py-1 rounded-full">{activeDb.type}</span>
             </div>
           </div>
 
           {/* Sub-view toggle */}
-          <div className="flex bg-white/[0.03] border border-white/5 rounded-lg p-0.5">
+          <div className="flex rounded-full border border-white/10 bg-white/5 p-1">
             <button
               onClick={() => setDbView('table-editor')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
-                dbView === 'table-editor' ? 'bg-indigo-500 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'
+              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold transition-all ${
+                dbView === 'table-editor' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Table size={11} />
@@ -277,8 +281,8 @@ export default function DatabasesTab() {
             </button>
             <button
               onClick={() => setDbView('sql')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
-                dbView === 'sql' ? 'bg-indigo-500 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'
+              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold transition-all ${
+                dbView === 'sql' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'text-slate-400 hover:text-white'
               }`}
             >
               <Terminal size={11} />
@@ -286,26 +290,27 @@ export default function DatabasesTab() {
             </button>
             <button
               onClick={() => setDbView('guide')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
-                dbView === 'guide' ? 'bg-indigo-500 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'
+              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-bold transition-all ${
+                dbView === 'guide' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'text-slate-400 hover:text-white'
               }`}
             >
               <FileText size={11} />
               Connection Guide
             </button>
           </div>
+          </div>
         </div>
 
         {/* Workspace split */}
-        <div className="flex-1 flex min-h-0 min-w-0">
+        <div className="flex-1 flex min-h-0 min-w-0 p-4 pt-0">
 
           {/* Tables Sidebar */}
-          <aside className="w-52 border-r border-white/5 flex flex-col min-h-0 bg-[#040406] shrink-0">
-            <div className="p-3 border-b border-white/5 flex items-center justify-between">
-              <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Tables</span>
+          <aside className="glass-card w-56 flex flex-col min-h-0 rounded-[1.5rem] shrink-0 overflow-hidden">
+            <div className="p-3 border-b border-white/10 flex items-center justify-between">
+              <span className="app-muted-label">Tables</span>
               <button
                 onClick={() => fetchTables(activeDb.id)}
-                className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-white transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 transition-colors hover:text-white"
               >
                 <RefreshCw size={10} className={tablesLoading ? 'animate-spin' : ''} />
               </button>
@@ -313,11 +318,11 @@ export default function DatabasesTab() {
 
             <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
               {tablesLoading ? (
-                <div className="flex items-center justify-center p-6 text-zinc-600 text-[10px] gap-1.5">
+                <div className="flex items-center justify-center p-6 text-slate-500 text-[10px] gap-1.5">
                   <Loader2 className="animate-spin" size={11} />Loading
                 </div>
               ) : tables.length === 0 ? (
-                <div className="p-3 text-center text-[10px] text-zinc-600 italic leading-relaxed">
+                <div className="p-3 text-center text-[10px] text-slate-500 italic leading-relaxed">
                   No tables yet.<br />Use SQL Console to create one.
                 </div>
               ) : (
@@ -325,13 +330,13 @@ export default function DatabasesTab() {
                   <button
                     key={t}
                     onClick={() => { setDbView('table-editor'); handleSelectTable(t); }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg transition-all flex items-center gap-2 group text-[11px] font-semibold ${
+                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-2 group text-[11px] font-semibold ${
                       activeTable === t && dbView === 'table-editor'
-                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                        ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <FileText size={11} className={activeTable === t ? 'text-indigo-400' : 'text-zinc-600 group-hover:text-indigo-400'} />
+                    <FileText size={11} className={activeTable === t ? 'text-cyan-200' : 'text-slate-600 group-hover:text-cyan-200'} />
                     <span className="truncate flex-1">{t}</span>
                   </button>
                 ))
@@ -346,19 +351,19 @@ export default function DatabasesTab() {
             {dbView === 'table-editor' && (
               <div className="flex-1 flex flex-col min-h-0">
                 {!activeTable ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center text-zinc-600 gap-4 px-6">
-                    <div className="w-12 h-12 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-zinc-700">
+                  <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-500 gap-4 px-6">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-slate-600">
                       <Table size={22} />
                     </div>
                     <div>
-                      <div className="text-sm font-bold text-zinc-500 mb-1">Select a table</div>
-                      <p className="text-xs text-zinc-600 max-w-xs">
+                      <div className="text-sm font-semibold text-slate-300 mb-1">Select a table</div>
+                      <p className="text-xs text-slate-500 max-w-xs">
                         Click a table in the sidebar to open the Table Editor, or switch to SQL Console to create new tables.
                       </p>
                     </div>
                     <button
                       onClick={() => setDbView('sql')}
-                      className="h-8 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-300 flex items-center gap-1.5 transition-colors"
+                      className="app-button-secondary h-10 px-4 text-xs"
                     >
                       <Terminal size={11} />
                       Open SQL Console
@@ -367,14 +372,14 @@ export default function DatabasesTab() {
                 ) : (
                   <>
                     {/* Table toolbar */}
-                    <div className="h-11 border-b border-white/5 px-4 flex items-center justify-between shrink-0 bg-[#040406]">
+                    <div className="flex items-center justify-between shrink-0 border-b border-white/10 bg-slate-950/40 px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-white">{activeTable}</span>
                         {tableSchema && (
-                          <span className="text-[8px] text-zinc-600 font-mono">pk: {tableSchema.primaryKey}</span>
+                          <span className="text-[8px] text-slate-500 font-mono">pk: {tableSchema.primaryKey}</span>
                         )}
                         {tableTotal > 0 && (
-                          <span className="text-[9px] text-zinc-600 bg-white/5 px-1.5 py-0.5 rounded">{tableTotal} rows</span>
+                          <span className="text-[9px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded-full">{tableTotal} rows</span>
                         )}
                       </div>
 
@@ -386,18 +391,18 @@ export default function DatabasesTab() {
                             onChange={(e) => setTableFilter(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && loadTableData(activeTable!, tablePage, tableFilter)}
                             placeholder="Filter (SQL WHERE)"
-                            className="h-7 pl-6 pr-2 rounded-lg bg-black/30 border border-white/5 text-[10px] text-zinc-300 outline-0 w-44 font-mono"
+                            className="glass-input h-8 w-44 rounded-full pl-6 pr-2 text-[10px] font-mono text-white"
                           />
                         </div>
                         <button
                           onClick={() => loadTableData(activeTable!, tablePage, tableFilter)}
-                          className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 transition-colors hover:text-white"
                         >
                           <RefreshCw size={11} className={tableLoading ? 'animate-spin' : ''} />
                         </button>
                         <button
                           onClick={() => { setAddingRow(true); setNewRowData({}); }}
-                          className="h-7 px-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-bold flex items-center gap-1 active:scale-95"
+                          className="app-button-primary h-8 px-3 text-[10px]"
                         >
                           <Plus size={10} />
                           Insert Row
@@ -408,12 +413,12 @@ export default function DatabasesTab() {
                     {/* Table grid */}
                     <div className="flex-1 overflow-auto relative">
                       {tableLoading ? (
-                        <div className="flex items-center justify-center h-full text-zinc-500 gap-2">
-                          <Loader2 className="animate-spin text-indigo-400" size={20} />
+                        <div className="flex items-center justify-center h-full text-slate-500 gap-2">
+                          <Loader2 className="animate-spin text-cyan-300" size={20} />
                           <span className="text-xs">Loading rows...</span>
                         </div>
                       ) : tableColumns.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-2">
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
                           <Database size={20} />
                           <span className="text-xs">No rows in this table yet. Click "Insert Row" to add one.</span>
                         </div>
@@ -825,7 +830,7 @@ print("Query Data:", data)`}
 
   // ---- Render: Database List ----
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#030303]">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Header */}
       <div className="h-16 border-b border-white/5 px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">

@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --background: 225 44% 6%;
+    --foreground: 220 22% 98%;
+    --card: 224 40% 10%;
+    --card-foreground: 220 22% 98%;
+    --popover: 224 40% 10%;
+    --popover-foreground: 220 22% 98%;
+    --primary: 183 100% 64%;
+    --primary-foreground: 224 44% 8%;
+    --secondary: 225 30% 18%;
+    --secondary-foreground: 220 22% 98%;
+    --muted: 225 25% 14%;
+    --muted-foreground: 225 10% 66%;
+    --accent: 35 92% 60%;
+    --accent-foreground: 224 44% 8%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 226 24% 20%;
+    --input: 226 24% 20%;
+    --ring: 183 100% 64%;
     --radius: 0.75rem;
   }
 }
@@ -32,37 +32,104 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-white/10 selection:text-white;
+    @apply bg-background text-foreground antialiased selection:bg-cyan-400/20 selection:text-white;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(25, 211, 201, 0.16), transparent 32%),
+      radial-gradient(circle at 80% 15%, rgba(245, 158, 11, 0.14), transparent 28%),
+      radial-gradient(circle at 60% 75%, rgba(59, 130, 246, 0.14), transparent 30%),
+      linear-gradient(180deg, #07111f 0%, #060b14 42%, #04070d 100%);
+    background-attachment: fixed;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 84px 84px;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 90%);
+    opacity: 0.45;
   }
 }
 
-/* Glassmorphism custom classes */
 .glass {
-  background: rgba(10, 10, 12, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(10, 14, 26, 0.78));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.35);
 }
 
 .glass-card {
-  background: rgba(20, 20, 25, 0.4);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(13, 20, 38, 0.8), rgba(8, 12, 24, 0.72));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 18px 60px rgba(2, 6, 23, 0.28);
 }
 
 .glass-input {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(148, 163, 184, 0.16);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-input:focus {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(34, 211, 238, 0.55);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.1);
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 10% 0%, rgba(34, 211, 238, 0.08), transparent 24%),
+    radial-gradient(circle at 90% 8%, rgba(245, 158, 11, 0.08), transparent 20%),
+    linear-gradient(180deg, rgba(7, 17, 31, 0.95), rgba(4, 7, 13, 0.98));
+}
+
+.app-panel {
+  background: linear-gradient(180deg, rgba(13, 20, 38, 0.76), rgba(8, 12, 24, 0.7));
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 24px 64px rgba(2, 6, 23, 0.24);
+}
+
+.app-panel-strong {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.9), rgba(8, 12, 24, 0.82));
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.app-chip {
+  @apply inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-slate-300 uppercase;
+}
+
+.app-muted-label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500;
+}
+
+.app-title {
+  @apply text-3xl font-semibold tracking-tight text-white md:text-4xl;
+}
+
+.app-subtitle {
+  @apply max-w-2xl text-sm leading-6 text-slate-300 md:text-base;
+}
+
+.app-button-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition-all duration-200 hover:bg-cyan-200 active:scale-[0.98];
+}
+
+.app-button-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:border-white/20 hover:bg-white/10 active:scale-[0.98];
 }
 
 /* Custom scrollbar */
