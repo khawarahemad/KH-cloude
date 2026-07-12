@@ -81,4 +81,78 @@ export class DatabasesService {
 
     return { success: true };
   }
+
+  async getTables(dbId: string, teamId: string) {
+    const db = await this.prisma.databaseInstance.findFirst({
+      where: { id: dbId, teamId },
+    });
+    if (!db) throw new NotFoundException('Database not found.');
+
+    const dbPath = `./data/virtual_db_${dbId}.db`;
+    const fs = require('fs');
+    if (!fs.existsSync(dbPath)) {
+      return [];
+    }
+
+    const Database = require('better-sqlite3');
+    const client = new Database(dbPath);
+
+    try {
+      const rows = client.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';").all();
+      return rows.map((r: any) => r.name);
+    } catch (err) {
+      return [];
+    } finally {
+      client.close();
+    }
+  }
+
+  async runQuery(dbId: string, teamId: string, sql: string) {
+    const db = await this.prisma.databaseInstance.findFirst({
+      where: { id: dbId, teamId },
+    });
+    if (!db) throw new NotFoundException('Database not found.');
+
+    const dbPath = `./data/virtual_db_${dbId}.db`;
+    
+    const fs = require('fs');
+    const path = require('path');
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const Database = require('better-sqlite3');
+    const client = new Database(dbPath);
+
+    try {
+      const stmt = client.prepare(sql);
+      if (stmt.reader) {
+        const rows = stmt.all();
+        return { 
+          success: true, 
+          rows, 
+          columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+          message: `Query returned ${rows.length} row(s).`
+        };
+      } else {
+        const info = stmt.run();
+        return { 
+          success: true, 
+          affectedRows: info.changes, 
+          lastInsertRowid: info.lastInsertRowid.toString(),
+          message: `Query executed successfully. ${info.changes} row(s) affected.`
+        };
+      }
+    } catch (err: any) {
+      try {
+        client.exec(sql);
+        return { success: true, message: 'Command executed successfully.' };
+      } catch (execErr: any) {
+        throw new BadRequestException(execErr.message);
+      }
+    } finally {
+      client.close();
+    }
+  }
 }

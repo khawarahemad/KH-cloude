@@ -263,6 +263,22 @@ export class AppController {
     return this.databases.deleteDatabase(id, teamId);
   }
 
+  @Get('databases/:id/tables')
+  async getDatabaseTables(
+    @Param('id') id: string,
+    @Query('teamId') teamId: string
+  ) {
+    return this.databases.getTables(id, teamId);
+  }
+
+  @Post('databases/:id/query')
+  async runDatabaseQuery(
+    @Param('id') id: string,
+    @Body() body: { sql: string; teamId: string }
+  ) {
+    return this.databases.runQuery(id, body.teamId, body.sql);
+  }
+
   // --- OBJECT STORAGE (BUCKETS) ENDPOINTS ---
 
   @Post('storage/buckets')
