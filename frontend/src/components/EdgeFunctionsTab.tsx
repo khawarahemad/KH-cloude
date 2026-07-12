@@ -52,7 +52,7 @@ export default function EdgeFunctionsTab() {
   const [invokePayload, setInvokePayload] = useState('{\n  "method": "GET",\n  "path": "/",\n  "body": null\n}');
   const [createOpen, setCreateOpen] = useState(false);
   const [newFnName, setNewFnName] = useState('');
-  const [sidePanel, setSidePanel] = useState<'env' | 'invoke'>('invoke');
+  const [sidePanel, setSidePanel] = useState<'env' | 'invoke' | 'guide'>('invoke');
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   const [apiKeys, setApiKeys] = useState<any[]>([]);
@@ -251,22 +251,34 @@ export default function EdgeFunctionsTab() {
             {/* Side Panel Tabs */}
             <div className="h-8 border-b border-white/5 flex text-[10px] font-bold shrink-0">
               <button
+                type="button"
                 onClick={() => setSidePanel('invoke')}
                 className={`flex-1 flex items-center justify-center gap-1.5 transition-colors ${
                   sidePanel === 'invoke' ? 'text-orange-400 border-b border-orange-400' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 <Play size={10} />
-                Test & Invoke
+                Test
               </button>
               <button
+                type="button"
                 onClick={() => setSidePanel('env')}
                 className={`flex-1 flex items-center justify-center gap-1.5 transition-colors ${
                   sidePanel === 'env' ? 'text-orange-400 border-b border-orange-400' : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
                 <Settings size={10} />
-                Environment
+                Env
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidePanel('guide')}
+                className={`flex-1 flex items-center justify-center gap-1.5 transition-colors ${
+                  sidePanel === 'guide' ? 'text-orange-400 border-b border-orange-400' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <Zap size={10} />
+                Guide
               </button>
             </div>
 
@@ -376,6 +388,70 @@ export default function EdgeFunctionsTab() {
                     <div>{'env.DATABASE_URL → "..."'}</div>
                   </div>
                 </>
+              )}
+
+              {sidePanel === 'guide' && (
+                <div className="space-y-4 text-[10px] text-zinc-400 leading-relaxed font-medium">
+                  <div>
+                    <h4 className="font-bold text-white uppercase tracking-wider mb-1.5">Edge Function Context</h4>
+                    <p className="mb-2">Your functions run securely sandboxed. They receive a single context parameter object:</p>
+                    <pre className="bg-black/40 border border-white/5 rounded-lg p-2.5 font-mono text-[8px] text-zinc-500 whitespace-pre-wrap">
+                      {"export default async function handler({ req, env, storage, db }) {\n  // your code here\n}"}
+                    </pre>
+                  </div>
+
+                  <hr className="border-white/5" />
+
+                  <div>
+                    <h4 className="font-bold text-white uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded bg-indigo-400 inline-block" />
+                      A. Databases Access (SQLite)
+                    </h4>
+                    <p className="mb-2">To query your workspace's virtual SQLite databases:</p>
+                    <pre className="bg-[#050507] border border-indigo-500/10 rounded-lg p-2.5 font-mono text-[8px] text-indigo-300 whitespace-pre-wrap leading-normal mb-2">
+                      {"// Query primary database:\nconst res = await db.query(\n  'SELECT * FROM storage_buckets'\n);\n\n// Query specific database:\nconst conn = db.connect('DB_ID');\nconst rows = await conn.query(\n  'SELECT * FROM users WHERE id = ?',\n  [1]\n);"}
+                    </pre>
+                  </div>
+
+                  <hr className="border-white/5" />
+
+                  <div>
+                    <h4 className="font-bold text-white uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded bg-emerald-400 inline-block" />
+                      B. Storage Access (S3)
+                    </h4>
+                    <p className="mb-2">Read or list files inside your S3 object storage:</p>
+                    <pre className="bg-[#050507] border border-emerald-500/10 rounded-lg p-2.5 font-mono text-[8px] text-emerald-300 whitespace-pre-wrap leading-normal">
+                      {"// Get file contents:\nconst file = await storage.getObject(\n  'bucket-name',\n  'uploads/avatar.png'\n);\n\n// List files with prefix:\nconst files = await storage.listObjects(\n  'bucket-name',\n  'uploads/'\n);"}
+                    </pre>
+                  </div>
+
+                  <hr className="border-white/5" />
+
+                  <div>
+                    <h4 className="font-bold text-white uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded bg-amber-400 inline-block" />
+                      C. External API Invocation
+                    </h4>
+                    <p className="mb-2">Send HTTP/HTTPS calls using the globally injected <code className="text-amber-400 font-mono">fetch()</code>:</p>
+                    <pre className="bg-[#050507] border border-amber-500/10 rounded-lg p-2.5 font-mono text-[8px] text-amber-300 whitespace-pre-wrap leading-normal">
+                      {"const res = await fetch(\n  'https://api.github.com/users'\n);\nconst data = await res.json();"}
+                    </pre>
+                  </div>
+
+                  <hr className="border-white/5" />
+
+                  <div>
+                    <h4 className="font-bold text-white uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded bg-orange-400 inline-block" />
+                      D. External Auth API Call
+                    </h4>
+                    <p className="mb-2">To call this function from an external app or client, pass the team's key (found in Workspace settings):</p>
+                    <pre className="bg-[#050507] border border-orange-500/10 rounded-lg p-2.5 font-mono text-[8px] text-orange-300 whitespace-pre-wrap leading-normal">
+                      {"// Option A: Authorization header\ncurl -X POST \\\n  -H 'Authorization: Bearer YOUR_SERVICE_KEY' \\\n  -d '{\"foo\": \"bar\"}' \\\n  https://api.khawarahemad.com/api/edge-functions/FUNCTION_ID/invoke\n\n// Option B: Query parameter\ncurl -X POST \\\n  https://api.khawarahemad.com/api/edge-functions/FUNCTION_ID/invoke?apikey=YOUR_ANON_KEY"}
+                    </pre>
+                  </div>
+                </div>
               )}
             </div>
           </div>
