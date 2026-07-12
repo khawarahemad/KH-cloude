@@ -667,120 +667,105 @@ export default function ProjectsTab() {
           )
         ) : (
           /* PROJECT DETAILS VIEW */
-            <div className="mx-auto max-w-6xl space-y-6">
-            {/* Status overview bar */}
-            <div className="app-panel-strong flex flex-col items-start justify-between gap-6 rounded-[1.75rem] p-6 md:flex-row md:items-center">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/10 text-violet-300">
-                  <Server size={20} />
+            <div className="space-y-0">
+            {/* Project Header Bar */}
+            <div style={{ backgroundColor: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Server size={16} style={{ color: '#a78bfa' }} />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold text-white">{projectDetails?.name}</h3>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                      projectDetails?.status === 'READY' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-500/10 text-slate-400'
-                    }`}>
-                      {projectDetails?.status}
-                    </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '15px', fontWeight: 600, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{projectDetails?.name}</span>
+                    <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em',
+                      backgroundColor: projectDetails?.status === 'READY' ? 'rgba(34,197,94,0.1)' : 'rgba(124,58,237,0.1)',
+                      color: projectDetails?.status === 'READY' ? '#22c55e' : '#a78bfa',
+                      border: projectDetails?.status === 'READY' ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(124,58,237,0.2)'
+                    }}>{projectDetails?.status}</span>
                   </div>
-                  <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
-                    <Globe size={12} />
-                    <a href={`https://${projectDetails?.domains?.[0]?.hostname}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-violet-300">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', fontSize: '11px', color: '#6b7280' }}>
+                    <Globe size={11} />
+                    <a href={`https://${projectDetails?.domains?.[0]?.hostname}`} target="_blank" rel="noopener noreferrer" style={{ color: '#7c3aed', textDecoration: 'none' }} className="hover:underline">
                       {projectDetails?.domains?.[0]?.hostname}
                     </a>
                   </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3">
-                <button onClick={handleRestart} className="app-button-secondary h-11 px-4 text-xs">
-                  <RefreshCw size={12} />
-                  Restart App
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <button onClick={handleRestart} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 12px', borderRadius: '7px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#9ba3af', fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.12s' }} className="hover:bg-white/5 hover:text-white">
+                  <RefreshCw size={12} /> Restart
                 </button>
-                <button
-                  onClick={handleDeploy}
-                  className="app-button-primary h-11 px-4 text-xs"
-                >
-                  <Play size={12} />
-                  Redeploy
+                <button onClick={handleDeploy} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 14px', borderRadius: '7px', backgroundColor: '#7c3aed', border: '1px solid rgba(124,58,237,0.5)', color: '#fff', fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.12s' }}>
+                  <Play size={12} /> Redeploy
                 </button>
               </div>
             </div>
 
-            {/* Content selector tabs */}
-            <div className="flex gap-6 border-b border-white/5 pb-px mb-6 overflow-x-auto scrollbar-none">
+            {/* Sub-tab Navigation - no glitch, fixed height */}
+            <div style={{ backgroundColor: '#0e1015', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0', overflowX: 'auto' }}>
               {(['deployments', 'env', 'domains', 'metrics', 'console', 'terminal', 'settings'] as const).map(tab => {
                 const isActive = detailsTab === tab;
+                const labels: Record<string, string> = { deployments: 'Deployments', env: 'Variables', domains: 'Domains', metrics: 'Metrics', console: 'Logs', terminal: 'Terminal', settings: 'Settings' };
                 return (
                   <button
                     key={tab}
                     onClick={() => setDetailsTab(tab)}
-                    className={`relative pb-3 text-xs font-medium transition-all focus:outline-none whitespace-nowrap ${
-                      isActive ? 'text-violet-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
+                    style={{
+                      position: 'relative', padding: '0 16px', height: '40px', fontSize: '12px', fontWeight: isActive ? 600 : 400,
+                      color: isActive ? '#c4b5fd' : '#6b7280', backgroundColor: 'transparent', border: 'none',
+                      borderBottom: isActive ? '2px solid #7c3aed' : '2px solid transparent',
+                      cursor: 'pointer', transition: 'color 0.12s', whiteSpace: 'nowrap', outline: 'none',
+                    }}
                   >
-                    {tab === 'env' ? 'Variables' : tab === 'console' ? 'Logs' : tab === 'terminal' ? 'Terminal' : tab === 'deployments' ? 'Deployments' : tab === 'domains' ? 'Domains' : tab === 'metrics' ? 'Metrics' : 'Settings'}
-                    {isActive && (
-                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-purple-500 rounded-full" />
-                    )}
+                    {labels[tab]}
                   </button>
                 );
               })}
             </div>
 
-            {/* TAB CONTENTS */}
-            <div className="min-h-[300px]">
-              {/* Deployments tab */}
+            {/* TAB CONTENT AREA */}
+            <div style={{ padding: '24px', minHeight: '400px' }}>
+
+              {/* ── Deployments ── */}
               {detailsTab === 'deployments' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-500">Deployment history</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Deployment History</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Each deployment is an immutable snapshot of your container.</div>
+                    </div>
                     {activeDeploymentId && (
-                      <button
-                        onClick={() => setLogsOpen(true)}
-                        className="text-xs text-violet-300 hover:underline flex items-center gap-1 font-semibold"
-                      >
-                        <Terminal size={12} />
-                        View Live Logs
+                      <button onClick={() => setLogsOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', backgroundColor: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', color: '#c4b5fd', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }}>
+                        <Terminal size={11} /> Live Logs
                       </button>
                     )}
                   </div>
-
-                  <div className="divide-y divide-white/10 border border-white/10 rounded-2xl app-panel overflow-hidden">
-                    {projectDetails?.deployments?.map((dep: any) => (
-                      <div key={dep.id} className="p-4 flex items-center justify-between text-xs hover:bg-white/[0.01] transition-colors">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold">{dep.commitMessage || 'Manual Deployment'}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
-                              dep.status === 'READY'
-                                ? 'bg-emerald-500/10 text-emerald-300'
-                                : dep.status === 'FAILED'
-                                ? 'bg-red-500/10 text-red-300'
-                                : 'bg-purple-500/10 text-violet-300'
-                            }`}>
-                              {dep.status}
-                            </span>
-                          </div>
-                            <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
-                            <span>Branch: {dep.branch}</span>
-                            <span>•</span>
-                            <span>{new Date(dep.createdAt).toLocaleString()}</span>
+                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
+                    {projectDetails?.deployments?.length === 0 && (
+                      <div style={{ padding: '48px 24px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No deployments yet. Click Redeploy to trigger the first build.</div>
+                    )}
+                    {projectDetails?.deployments?.map((dep: any, i: number) => (
+                      <div key={dep.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i < (projectDetails.deployments.length - 1) ? '1px solid rgba(255,255,255,0.06)' : 'none', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: dep.status === 'READY' ? '#22c55e' : dep.status === 'FAILED' ? '#ef4444' : '#a78bfa' }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dep.commitMessage || 'Manual Deployment'}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>
+                              <span>Branch: {dep.branch}</span>
+                              <span>·</span>
+                              <span>{new Date(dep.createdAt).toLocaleString()}</span>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={async () => {
-                              const logs = await apiRequest(`/deployments/${dep.id}/logs`);
-                              setBuildLogs(logs.logs);
-                              setLogStatus(dep.status);
-                              setLogsOpen(true);
-                            }}
-                            className="app-button-secondary h-8 px-2.5 text-[10px]"
-                          >
-                            <Terminal size={10} />
-                            Logs
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase',
+                            backgroundColor: dep.status === 'READY' ? 'rgba(34,197,94,0.1)' : dep.status === 'FAILED' ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.1)',
+                            color: dep.status === 'READY' ? '#22c55e' : dep.status === 'FAILED' ? '#ef4444' : '#a78bfa',
+                            border: dep.status === 'READY' ? '1px solid rgba(34,197,94,0.2)' : dep.status === 'FAILED' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(124,58,237,0.2)'
+                          }}>{dep.status}</span>
+                          <button onClick={async () => { const logs = await apiRequest(`/deployments/${dep.id}/logs`); setBuildLogs(logs.logs); setLogStatus(dep.status); setLogsOpen(true); }}
+                            style={{ height: '26px', padding: '0 10px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }} className="hover:bg-white/5 hover:text-white">
+                            <Terminal size={10} /> Logs
                           </button>
                         </div>
                       </div>
@@ -789,403 +774,195 @@ export default function ProjectsTab() {
                 </div>
               )}
 
-              {/* Env vars tab */}
+              {/* ── Env Variables ── */}
               {detailsTab === 'env' && (
-                <div className="space-y-5">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                     <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 mb-1">Environment variables</h4>
-                      <p className="text-[10px] text-slate-500">Injected into your container at runtime. Redeploy after changes.</p>
+                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Environment Variables</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Injected at runtime. Redeploy after any changes.</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => { setEnvBulkMode(!envBulkMode); setEnvBulkText(''); }}
-                        className={`h-7 px-3 rounded-lg text-[10px] font-semibold border transition-all ${
-                          envBulkMode
-                            ? 'bg-purple-500/10 border-purple-500/20 text-violet-300'
-                              : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
-                        }`}
-                      >
-                        {envBulkMode ? '✕ Cancel Paste' : '⊞ Bulk Paste .env'}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => { setEnvBulkMode(!envBulkMode); setEnvBulkText(''); }}
+                        style={{ height: '30px', padding: '0 12px', borderRadius: '7px', border: `1px solid ${envBulkMode ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.1)'}`, backgroundColor: envBulkMode ? 'rgba(124,58,237,0.1)' : 'transparent', color: envBulkMode ? '#c4b5fd' : '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }}>
+                        {envBulkMode ? '✕ Cancel' : '⊞ Bulk Paste'}
                       </button>
                       {envVars.length > 0 && (
-                        <button
-                          onClick={() => saveEnvVars(envVars)}
-                          disabled={envSaving}
-                          className="h-7 px-3 rounded-lg text-[10px] font-bold bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-50 transition-all flex items-center gap-1.5"
-                        >
-                          {envSaving ? (
-                            <><span className="w-2.5 h-2.5 border border-emerald-400/40 border-t-emerald-400 rounded-full animate-spin" />Saving...</>
-                          ) : envSaved ? (
-                            <>✓ Saved</>
-                          ) : (
-                            <>↑ Save All</>
-                          )}
+                        <button onClick={() => saveEnvVars(envVars)} disabled={envSaving}
+                          style={{ height: '30px', padding: '0 12px', borderRadius: '7px', backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#22c55e', fontSize: '11px', fontWeight: 600, cursor: 'pointer', opacity: envSaving ? 0.5 : 1 }}>
+                          {envSaving ? 'Saving...' : envSaved ? '✓ Saved' : '↑ Save All'}
                         </button>
                       )}
                     </div>
                   </div>
 
-                  {/* Bulk paste mode */}
-                  {envBulkMode && (
-                    <div className="space-y-2 max-w-2xl">
-                      <div className="text-[9px] text-slate-500">Paste your <code className="bg-white/5 px-1 rounded text-slate-200">.env</code> file contents below. Existing keys will be overwritten.</div>
-                      <textarea
-                        value={envBulkText}
-                        onChange={e => setEnvBulkText(e.target.value)}
-                        rows={8}
-                        placeholder={`DATABASE_URL=postgres://...\nSECRET_KEY=abc123\nNODE_ENV=production`}
-                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-slate-300 placeholder-slate-700 focus:outline-none focus:border-purple-500/40 resize-none"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleBulkPaste}
-                          disabled={!envBulkText.trim()}
-                          className="app-button-primary h-8 px-4 text-xs disabled:opacity-40"
-                        >
-                          Import Variables
-                        </button>
-                        <button
-                          onClick={() => { setEnvBulkMode(false); setEnvBulkText(''); }}
-                          className="app-button-secondary h-8 px-4 text-xs"
-                        >
-                          Cancel
-                        </button>
+                  {envBulkMode ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>Paste your <code style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '4px', fontFamily: 'monospace' }}>.env</code> file contents below.</div>
+                      <textarea value={envBulkText} onChange={e => setEnvBulkText(e.target.value)} rows={8} placeholder={`DATABASE_URL=postgres://...\nSECRET_KEY=abc123\nNODE_ENV=production`}
+                        style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#d1d5db', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.6, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={handleBulkPaste} disabled={!envBulkText.trim()}
+                          style={{ height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 500, cursor: 'pointer', opacity: !envBulkText.trim() ? 0.4 : 1 }}>Import Variables</button>
+                        <button onClick={() => { setEnvBulkMode(false); setEnvBulkText(''); }}
+                          style={{ height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#9ba3af', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
                       </div>
                     </div>
-                  )}
-
-                  {/* Add new variable row */}
-                  {!envBulkMode && (
-                    <div className="flex gap-2 max-w-2xl items-start">
-                      <div className="flex-1">
-                        <div className="text-[8px] text-slate-600 mb-1 ml-1">KEY</div>
-                        <input
-                          type="text"
-                          placeholder="VARIABLE_NAME"
-                          value={newEnvKey}
-                          onChange={(e) => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
-                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono font-bold text-white placeholder-slate-700 focus:outline-none focus:border-purple-500/40 transition-colors uppercase"
-                        />
-                      </div>
-                      <div className="flex-[2]">
-                        <div className="text-[8px] text-slate-600 mb-1 ml-1">VALUE</div>
-                        <input
-                          type={newEnvSecret ? 'password' : 'text'}
-                          placeholder="value"
-                          value={newEnvVal}
-                          onChange={(e) => setNewEnvVal(e.target.value)}
-                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-white placeholder-slate-700 focus:outline-none focus:border-purple-500/40 transition-colors"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1 items-center pt-[18px]">
-                        <button
-                          type="button"
-                          onClick={() => setNewEnvSecret(!newEnvSecret)}
-                          title={newEnvSecret ? 'Value is hidden' : 'Value is visible'}
-                          className={`w-9 h-9 rounded-xl border text-sm transition-all ${
-                            newEnvSecret
-                              ? 'bg-purple-500/10 border-purple-500/20 text-violet-300'
-                              : 'border-white/10 text-slate-500 hover:text-white'
-                          }`}
-                        >
+                  ) : (
+                    <>
+                      {/* Add new var row */}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Key</div>
+                          <input type="text" placeholder="VARIABLE_NAME" value={newEnvKey} onChange={e => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                            style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                        <div style={{ flex: 2 }}>
+                          <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Value</div>
+                          <input type={newEnvSecret ? 'password' : 'text'} placeholder="value" value={newEnvVal} onChange={e => setNewEnvVal(e.target.value)}
+                            style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                        <button type="button" onClick={() => setNewEnvSecret(!newEnvSecret)} title={newEnvSecret ? 'Value is hidden' : 'Value is visible'}
+                          style={{ width: '36px', height: '36px', borderRadius: '7px', border: `1px solid ${newEnvSecret ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.08)'}`, backgroundColor: newEnvSecret ? 'rgba(124,58,237,0.1)' : 'transparent', color: newEnvSecret ? '#c4b5fd' : '#6b7280', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {newEnvSecret ? '🔒' : '👁'}
                         </button>
+                        <button onClick={handleAddEnv} disabled={!newEnvKey.trim() || !newEnvVal.trim()}
+                          style={{ height: '36px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (!newEnvKey.trim() || !newEnvVal.trim()) ? 0.4 : 1 }}>+ Add</button>
                       </div>
-                      <div className="pt-[18px]">
-                        <button
-                          onClick={handleAddEnv}
-                          disabled={!newEnvKey.trim() || !newEnvVal.trim()}
-                          className="app-button-primary h-9 px-4 text-xs disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                        >
-                          + Add
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Variable list */}
-                  {!envBulkMode && (
-                    <div className="space-y-1.5 max-w-2xl">
-                      {envVars.length === 0 && (
-                        <div className="text-center py-8 text-[10px] text-slate-600">
-                          No environment variables configured yet.
-                        </div>
-                      )}
-                      {envVars.map((env) => (
-                        <div key={env.key} className="group rounded-xl border border-white/10 bg-white/[0.015] hover:border-white/15 transition-colors overflow-hidden">
-                          <div className="flex items-center h-11 px-3 gap-3">
-                            {/* Secret badge */}
-                            <span className={`text-[8px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${
-                              env.isSecret ? 'bg-amber-500/10 text-amber-300' : 'bg-slate-700/50 text-slate-500'
-                            }`}>
-                              {env.isSecret ? 'SECRET' : 'PLAIN'}
-                            </span>
-
-                            {/* Key */}
-                            <span className="font-mono font-bold text-xs text-slate-200 flex-shrink-0 w-44 truncate">{env.key}</span>
-
-                            {/* Value / edit */}
+                      {/* Variable list */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {envVars.length === 0 && <div style={{ padding: '32px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No environment variables configured yet.</div>}
+                        {envVars.map(env => (
+                          <div key={env.key} className="group" style={{ display: 'flex', alignItems: 'center', height: '44px', padding: '0 12px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', gap: '10px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', flexShrink: 0, backgroundColor: env.isSecret ? 'rgba(245,158,11,0.1)' : 'rgba(107,114,128,0.15)', color: env.isSecret ? '#f59e0b' : '#9ba3af' }}>{env.isSecret ? 'SECRET' : 'PLAIN'}</span>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '12px', color: '#e2e8f0', width: '160px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{env.key}</span>
                             {envEditingKey === env.key ? (
-                              <div className="flex-1 flex gap-2">
-                                <input
-                                  autoFocus
-                                  type="text"
-                                  value={envEditVal}
-                                  onChange={e => setEnvEditVal(e.target.value)}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') handleUpdateEnvValue(env.key, envEditVal);
-                                    if (e.key === 'Escape') setEnvEditingKey(null);
-                                  }}
-                                  className="flex-1 h-7 px-2 rounded-lg bg-slate-950/70 border border-purple-500/30 text-xs font-mono text-white focus:outline-none"
-                                />
-                                <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} className="h-7 px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold hover:bg-emerald-500/20">
-                                  Save
-                                </button>
-                                <button onClick={() => setEnvEditingKey(null)} className="h-7 px-2 rounded-lg border border-white/10 text-slate-500 text-[10px] hover:text-white">
-                                  ✕
-                                </button>
+                              <div style={{ flex: 1, display: 'flex', gap: '6px' }}>
+                                <input autoFocus type="text" value={envEditVal} onChange={e => setEnvEditVal(e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') handleUpdateEnvValue(env.key, envEditVal); if (e.key === 'Escape') setEnvEditingKey(null); }}
+                                  style={{ flex: 1, height: '28px', padding: '0 8px', borderRadius: '5px', backgroundColor: '#0e1015', border: '1px solid rgba(124,58,237,0.4)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', outline: 'none' }} />
+                                <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} style={{ height: '28px', padding: '0 10px', borderRadius: '5px', backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#22c55e', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Save</button>
+                                <button onClick={() => setEnvEditingKey(null)} style={{ height: '28px', width: '28px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#6b7280', cursor: 'pointer', backgroundColor: 'transparent' }}>✕</button>
                               </div>
                             ) : (
-                              <div className="flex-1 flex items-center gap-2 min-w-0">
-                                <span className="font-mono text-xs text-slate-500 truncate flex-1">
-                                  {envRevealedKeys.has(env.key) ? env.value : (env.isSecret ? '••••••••••••' : env.value)}
-                                </span>
-                              </div>
+                              <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {envRevealedKeys.has(env.key) ? env.value : (env.isSecret ? '••••••••••••' : env.value)}
+                              </span>
                             )}
-
-                            {/* Action buttons — visible on hover */}
                             {envEditingKey !== env.key && (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                {env.isSecret && (
-                                  <button
-                                    onClick={() => toggleReveal(env.key)}
-                                    title={envRevealedKeys.has(env.key) ? 'Hide value' : 'Reveal value'}
-                                    className="h-7 w-7 rounded-lg border border-white/10 text-slate-500 hover:text-white text-sm flex items-center justify-center transition-colors"
-                                  >
-                                    {envRevealedKeys.has(env.key) ? '🙈' : '👁'}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => { setEnvEditingKey(env.key); setEnvEditVal(env.value); }}
-                                  className="h-7 px-2 rounded-lg border border-white/10 text-slate-500 hover:text-white text-[9px] font-bold transition-colors"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleRemoveEnv(env.key)}
-                                  className="h-7 px-2 rounded-lg border border-white/10 text-slate-500 hover:text-red-300 hover:border-red-500/20 text-[9px] font-bold transition-colors"
-                                >
-                                  Remove
-                                </button>
+                              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                                {env.isSecret && <button onClick={() => toggleReveal(env.key)} style={{ height: '26px', width: '26px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', color: '#6b7280', cursor: 'pointer', backgroundColor: 'transparent', fontSize: '12px' }}>{envRevealedKeys.has(env.key) ? '🙈' : '👁'}</button>}
+                                <button onClick={() => { setEnvEditingKey(env.key); setEnvEditVal(env.value); }} style={{ height: '26px', padding: '0 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', backgroundColor: 'transparent' }}>Edit</button>
+                                <button onClick={() => handleRemoveEnv(env.key)} style={{ height: '26px', padding: '0 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', backgroundColor: 'transparent' }} className="hover:text-red-400 hover:border-red-500/30">Remove</button>
                               </div>
                             )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Footer hint */}
-                  {envVars.length > 0 && !envBulkMode && (
-                    <p className="text-[9px] text-slate-600 max-w-2xl">
-                      Changes are saved automatically per variable. Click <strong className="text-slate-300">Redeploy</strong> to apply them to your running container.
-                    </p>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
 
-              {/* Custom domains tab */}
+              {/* ── Domains ── */}
               {detailsTab === 'domains' && (
-                <div className="space-y-6">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px' }}>
                   <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 mb-2">Domains</h4>
-                    <p className="text-[10px] text-slate-500">Manage domains for your deployment. SSL is automatically provisioned.</p>
+                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Custom Domains</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Add your own domain. SSL is auto-provisioned via Let's Encrypt.</div>
                   </div>
 
-                  {/* ── Add domain form ── */}
-                  <form onSubmit={handleAddDomain} className="space-y-2 max-w-lg">
-                    <div className="flex gap-2">
-                      <div className="flex-1 relative">
-                        <input
-                          type="text"
-                          required
-                          placeholder="yourdomain.com or www.yourdomain.com"
-                          value={customDomain}
-                          onChange={(e) => { setCustomDomain(e.target.value); setDomainError(''); }}
-                          className="w-full h-10 px-3 pr-10 rounded-xl glass-input text-xs text-white placeholder-slate-600 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-colors"
-                        />
-                        {customDomain && getDomainType(customDomain) && (
-                          <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold px-1.5 py-0.5 rounded ${
-                            getDomainType(customDomain) === 'apex' ? 'bg-amber-500/20 text-amber-400' :
-                            getDomainType(customDomain) === 'www' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-purple-600/20 text-violet-400'
-                          }`}>
-                            {getDomainType(customDomain) === 'apex' ? 'ROOT' : getDomainType(customDomain) === 'www' ? 'WWW' : 'SUB'}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={domainAdding || !customDomain.trim()}
-                        className="h-10 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
-                      >
-                        {domainAdding ? (
-                          <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Adding...</>
-                        ) : 'Add Domain'}
-                      </button>
+                  <form onSubmit={handleAddDomain} style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <input type="text" required placeholder="yourdomain.com or www.yourdomain.com" value={customDomain}
+                        onChange={e => { setCustomDomain(e.target.value); setDomainError(''); }}
+                        style={{ width: '100%', height: '38px', padding: '0 12px', borderRadius: '8px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                      {customDomain && getDomainType(customDomain) && (
+                        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
+                          backgroundColor: getDomainType(customDomain) === 'apex' ? 'rgba(245,158,11,0.2)' : 'rgba(124,58,237,0.15)',
+                          color: getDomainType(customDomain) === 'apex' ? '#f59e0b' : '#c4b5fd'
+                        }}>{getDomainType(customDomain) === 'apex' ? 'ROOT' : getDomainType(customDomain) === 'www' ? 'WWW' : 'SUB'}</span>
+                      )}
                     </div>
-                    {domainError && (
-                      <p className="text-[10px] text-red-400 flex items-center gap-1">⚠ {domainError}</p>
-                    )}
+                    <button type="submit" disabled={domainAdding || !customDomain.trim()}
+                      style={{ height: '38px', padding: '0 18px', borderRadius: '8px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (domainAdding || !customDomain.trim()) ? 0.5 : 1 }}>
+                      {domainAdding ? 'Adding...' : 'Add Domain'}
+                    </button>
                   </form>
+                  {domainError && <div style={{ fontSize: '12px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px' }}>⚠ {domainError}</div>}
 
-                  {/* ── Dynamic DNS Instructions ── */}
+                  {/* DNS Instructions */}
                   {(() => {
                     const dtype = getDomainType(customDomain);
                     const cleanHost = customDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
                     const showApex = !customDomain || dtype === 'apex';
                     const showCname = !customDomain || dtype === 'www' || dtype === 'subdomain';
                     const nameLabel = dtype === 'www' ? 'www' : dtype === 'subdomain' ? cleanHost.split('.')[0] : '@';
-
                     return (
-                      <div className="max-w-lg space-y-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-zinc-400">DNS Configuration</span>
-                          {customDomain && dtype && (
-                            <span className="text-[8px] text-zinc-500">
-                              — {dtype === 'apex' ? 'Add an A record for the root domain' : dtype === 'www' ? 'Add a CNAME for the www subdomain' : 'Add a CNAME for this subdomain'}
-                            </span>
-                          )}
-                          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[9px] text-violet-400 hover:underline font-bold flex items-center gap-1">
-                            Cloudflare →
-                          </a>
-                        </div>
-
-                        {/* A Record - shown for apex or when no input */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em' }}>DNS Configuration</div>
                         {showApex && (
-                          <div className="rounded-xl border border-amber-500/10 overflow-hidden bg-black/20">
-                            <div className="px-3 py-1.5 bg-amber-500/5 border-b border-amber-500/10 flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-amber-400">A Record</span>
-                              <span className="text-[9px] text-zinc-500">Root / Apex domain ({cleanHost || 'yourdomain.com'})</span>
-                              <span className="ml-auto text-[8px] text-zinc-600">⚠ Delete old A records first</span>
+                          <div style={{ borderRadius: '8px', border: '1px solid rgba(245,158,11,0.15)', overflow: 'hidden' }}>
+                            <div style={{ padding: '8px 12px', backgroundColor: 'rgba(245,158,11,0.05)', borderBottom: '1px solid rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b' }}>A Record</span>
+                              <span style={{ fontSize: '10px', color: '#6b7280' }}>Root/Apex domain</span>
                             </div>
-                            <div className="grid grid-cols-3 divide-x divide-white/5 font-mono text-[9px]">
-                              {[
-                                { label: 'Type', val: 'A', color: 'text-amber-400', key: 'type-a' },
-                                { label: 'Name', val: '@', color: 'text-white', key: 'name-a' },
-                                { label: 'IPv4 Address', val: '204.168.147.13', color: 'text-emerald-400', key: 'ip' },
-                              ].map(f => (
-                                <div key={f.key} className="px-3 py-2.5 flex items-start justify-between group">
-                                  <div>
-                                    <span className="text-zinc-600 block text-[8px] mb-0.5">{f.label}</span>
-                                    <span className={`${f.color} font-bold`}>{f.val}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => copyToClipboard(f.val, f.key)}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] text-zinc-500 hover:text-white mt-0.5"
-                                  >
-                                    {copiedField === f.key ? '✓' : '⧉'}
-                                  </button>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
+                              {[{ l: 'Type', v: 'A', c: '#f59e0b' }, { l: 'Name', v: '@', c: '#f1f3f6' }, { l: 'IPv4', v: '204.168.147.13', c: '#22c55e' }].map(f => (
+                                <div key={f.l} style={{ padding: '10px 12px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '3px' }}>{f.l}</div>
+                                  <span style={{ color: f.c, fontWeight: 700 }}>{f.v}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
-
-                        {/* CNAME Record - shown for www/subdomain or when no input */}
                         {showCname && (
-                          <div className="rounded-xl border border-purple-600/10 overflow-hidden bg-black/20">
-                            <div className="px-3 py-1.5 bg-purple-500/5 border-b border-purple-600/10 flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-violet-400">CNAME Record</span>
-                              <span className="text-[9px] text-zinc-500">Subdomain ({dtype === 'www' ? cleanHost : dtype === 'subdomain' ? cleanHost : 'www.yourdomain.com'})</span>
+                          <div style={{ borderRadius: '8px', border: '1px solid rgba(124,58,237,0.15)', overflow: 'hidden' }}>
+                            <div style={{ padding: '8px 12px', backgroundColor: 'rgba(124,58,237,0.05)', borderBottom: '1px solid rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: '#c4b5fd' }}>CNAME Record</span>
+                              <span style={{ fontSize: '10px', color: '#6b7280' }}>Subdomain/www</span>
                             </div>
-                            <div className="grid grid-cols-3 divide-x divide-white/5 font-mono text-[9px]">
-                              {[
-                                { label: 'Type', val: 'CNAME', color: 'text-violet-400', key: 'type-c' },
-                                { label: 'Name', val: nameLabel, color: 'text-white', key: 'name-c' },
-                                { label: 'Target', val: 'cloud.khawarahemad.com', color: 'text-emerald-400', key: 'target' },
-                              ].map(f => (
-                                <div key={f.key} className="px-3 py-2.5 flex items-start justify-between group">
-                                  <div>
-                                    <span className="text-zinc-600 block text-[8px] mb-0.5">{f.label}</span>
-                                    <span className={`${f.color} font-bold`}>{f.val}</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => copyToClipboard(f.val, f.key)}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[8px] text-zinc-500 hover:text-white mt-0.5"
-                                  >
-                                    {copiedField === f.key ? '✓' : '⧉'}
-                                  </button>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
+                              {[{ l: 'Type', v: 'CNAME', c: '#c4b5fd' }, { l: 'Name', v: nameLabel, c: '#f1f3f6' }, { l: 'Target', v: 'cloud.khawarahemad.com', c: '#22c55e' }].map(f => (
+                                <div key={f.l} style={{ padding: '10px 12px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '3px' }}>{f.l}</div>
+                                  <span style={{ color: f.c, fontWeight: 700 }}>{f.v}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
-
-                        <p className="text-[8px] text-zinc-600">
-                          ☁ In Cloudflare, set Proxy to <strong className="text-zinc-500">DNS only</strong> (grey cloud). SSL is handled automatically by KH Cloud.
-                        </p>
+                        <div style={{ fontSize: '11px', color: '#4b5563' }}>☁ In Cloudflare, set Proxy to <strong style={{ color: '#6b7280' }}>DNS only</strong> (grey cloud).</div>
                       </div>
                     );
                   })()}
 
-                  {/* ── Domain List ── */}
-                  <div className="space-y-2 max-w-lg">
-                    {projectDetails?.domains?.length === 0 && (
-                      <p className="text-[10px] text-zinc-600 py-4 text-center">No domains connected yet.</p>
-                    )}
+                  {/* Domain list */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {projectDetails?.domains?.length === 0 && <div style={{ padding: '24px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No domains connected yet.</div>}
                     {projectDetails?.domains?.map((dom: any) => {
                       const isSystem = dom.hostname.endsWith('.khawarahemad.com');
                       const isActive = dom.status === 'ACTIVE' || !dom.status;
                       const isPending = dom.status === 'PENDING';
                       return (
-                        <div key={dom.id} className="p-3 rounded-xl border border-white/5 bg-white/[0.015] flex items-center gap-3 group hover:border-white/10 transition-colors">
-                          {/* Status dot */}
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                            isPending ? 'bg-amber-400 animate-pulse' : isActive ? 'bg-emerald-400' : 'bg-zinc-600'
-                          }`} />
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <a
-                                href={`https://${dom.hostname}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-bold text-white hover:text-violet-400 transition-colors truncate"
-                              >
-                                {dom.hostname}
-                              </a>
-                              {isSystem && (
-                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-purple-500/10 text-violet-400 font-bold flex-shrink-0">FREE</span>
-                              )}
-                              {dom.isCustom && (
-                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-700/50 text-zinc-400 font-bold flex-shrink-0">CUSTOM</span>
-                              )}
+                        <div key={dom.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#6b7280' }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <a href={`https://${dom.hostname}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', textDecoration: 'none' }} className="hover:text-violet-400">{dom.hostname}</a>
+                              {isSystem && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.1)', color: '#c4b5fd' }}>FREE</span>}
+                              {dom.isCustom && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(107,114,128,0.15)', color: '#9ba3af' }}>CUSTOM</span>}
                             </div>
-                            <div className="text-[9px] text-zinc-500 mt-0.5 flex items-center gap-1.5">
-                              {isPending ? (
-                                <><span className="text-amber-400">⟳ Provisioning SSL & routing...</span></>
-                              ) : isActive ? (
-                                <><span className="text-emerald-400">✓ HTTPS Active</span> · <span>{dom.isCustom ? 'Custom domain' : 'Auto-provisioned'}</span></>
-                              ) : (
-                                <span className="text-red-400">⚠ Verification failed</span>
-                              )}
+                            <div style={{ fontSize: '11px', color: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#ef4444', marginTop: '1px' }}>
+                              {isPending ? '⟳ Provisioning SSL & routing...' : isActive ? '✓ HTTPS Active' : '⚠ Verification failed'}
                             </div>
                           </div>
-
-                          {!isSystem && (
-                            <button
-                              onClick={() => handleRemoveDomain(dom.id)}
-                              disabled={removingDomainId === dom.id}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-zinc-500 hover:text-red-400 font-semibold disabled:opacity-50 flex-shrink-0 px-2 py-1 rounded hover:bg-red-500/5"
-                            >
-                              {removingDomainId === dom.id ? '...' : 'Remove'}
-                            </button>
-                          )}
+                          {!isSystem && <button onClick={() => handleRemoveDomain(dom.id)} disabled={removingDomainId === dom.id}
+                            style={{ height: '26px', padding: '0 10px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'transparent', color: '#6b7280', fontSize: '11px', fontWeight: 500, cursor: 'pointer', opacity: removingDomainId === dom.id ? 0.5 : 1 }} className="hover:text-red-400 hover:border-red-500/30">
+                            {removingDomainId === dom.id ? '...' : 'Remove'}
+                          </button>}
                         </div>
                       );
                     })}
@@ -1193,260 +970,158 @@ export default function ProjectsTab() {
                 </div>
               )}
 
-              {/* Metrics charts tab */}
+              {/* ── Metrics ── */}
               {detailsTab === 'metrics' && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* CPU Area Chart */}
-                  <div className="glass-card p-6 rounded-2xl border border-white/5">
-                    <h5 className="text-xs font-bold text-zinc-400 mb-4">CPU Usage (%)</h5>
-                    <div className="h-48 text-[10px] font-mono">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
+                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>CPU Usage (%)</div>
+                    <div style={{ height: '180px', fontSize: '10px' }}>
                       {metrics?.cpu && (
                         <RechartsContainer width="100%" height="100%">
                           <AreaChart data={metrics.cpu}>
-                            <defs>
-                              <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.2}/>
-                                <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
-                              </linearGradient>
-                            </defs>
-                            <XAxis dataKey="time" stroke="#4b5563" />
-                            <YAxis stroke="#4b5563" />
-                            <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)' }} />
-                            <Area type="monotone" dataKey="value" stroke="#818cf8" fillOpacity={1} fill="url(#colorCpu)" />
+                            <defs><linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#818cf8" stopOpacity={0.2}/><stop offset="95%" stopColor="#818cf8" stopOpacity={0}/></linearGradient></defs>
+                            <XAxis dataKey="time" stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                            <YAxis stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                            <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '11px' }} />
+                            <Area type="monotone" dataKey="value" stroke="#818cf8" fillOpacity={1} fill="url(#colorCpu)" strokeWidth={1.5} />
                           </AreaChart>
                         </RechartsContainer>
                       )}
+                      {!metrics?.cpu && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontSize: '12px' }}>No metrics data available</div>}
                     </div>
                   </div>
-
-                  {/* RAM Area Chart */}
-                  <div className="glass-card p-6 rounded-2xl border border-white/5">
-                    <h5 className="text-xs font-bold text-zinc-400 mb-4">Memory Allocation (MB)</h5>
-                    <div className="h-48 text-[10px] font-mono">
+                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>Memory Usage (MB)</div>
+                    <div style={{ height: '180px', fontSize: '10px' }}>
                       {metrics?.ram && (
                         <RechartsContainer width="100%" height="100%">
                           <AreaChart data={metrics.ram}>
-                            <defs>
-                              <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#c084fc" stopOpacity={0.2}/>
-                                <stop offset="95%" stopColor="#c084fc" stopOpacity={0}/>
-                              </linearGradient>
-                            </defs>
-                            <XAxis dataKey="time" stroke="#4b5563" />
-                            <YAxis stroke="#4b5563" />
-                            <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)' }} />
-                            <Area type="monotone" dataKey="value" stroke="#c084fc" fillOpacity={1} fill="url(#colorRam)" />
+                            <defs><linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#c084fc" stopOpacity={0.2}/><stop offset="95%" stopColor="#c084fc" stopOpacity={0}/></linearGradient></defs>
+                            <XAxis dataKey="time" stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                            <YAxis stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                            <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '11px' }} />
+                            <Area type="monotone" dataKey="value" stroke="#c084fc" fillOpacity={1} fill="url(#colorRam)" strokeWidth={1.5} />
                           </AreaChart>
                         </RechartsContainer>
                       )}
+                      {!metrics?.ram && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontSize: '12px' }}>No metrics data available</div>}
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Settings tab */}
-              {detailsTab === 'settings' && (
-                <div className="space-y-6">
-                  <form onSubmit={handleSaveSettings} className="glass-card p-6 rounded-2xl border border-white/5 space-y-6 max-w-3xl">
-                    <h4 className="text-sm font-bold text-white">Project Details</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
-                      <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Project Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-zinc-500 block mb-1">Repository</span>
-                        <span className="font-semibold text-white h-9 flex items-center">{projectDetails?.githubRepo}</span>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Git Branch</label>
-                        <input
-                          type="text"
-                          required
-                          value={editBranch}
-                          onChange={(e) => setEditBranch(e.target.value)}
-                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Root Directory</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. frontend (leave blank for root)"
-                          value={editRootDir}
-                          onChange={(e) => setEditRootDir(e.target.value)}
-                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
-                        />
-                        <span className="text-[9px] text-zinc-500 block mt-1 leading-normal">
-                          The subdirectory containing your app code.
-                        </span>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Port</label>
-                        <input
-                          type="number"
-                          required
-                          value={editPort}
-                          onChange={(e) => setEditPort(parseInt(e.target.value))}
-                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
-                        />
-                        <span className="text-[9px] text-zinc-500 block mt-1 leading-normal">
-                          Internal container port. Docker network isolation automatically prevents any overlaps.
-                        </span>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Install Command</label>
-                        <input
-                          type="text"
-                          required
-                          value={editInstallCmd}
-                          onChange={(e) => setEditInstallCmd(e.target.value)}
-                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Build Command</label>
-                        <input
-                          type="text"
-                          required
-                          value={editBuildCmd}
-                          onChange={(e) => setEditBuildCmd(e.target.value)}
-                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Start Command</label>
-                        <input
-                          type="text"
-                          required
-                          value={editStartCmd}
-                          onChange={(e) => setEditStartCmd(e.target.value)}
-                          className="w-full h-9 px-3 rounded-lg glass-input text-xs font-semibold text-white font-mono"
-                        />
-                      </div>
+              {/* ── Runtime Logs ── */}
+              {detailsTab === 'console' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Runtime Console</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Live stdout/stderr stream from the running container.</div>
                     </div>
+                    <button onClick={fetchRuntimeLogs} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }} className="hover:bg-white/5 hover:text-white">
+                      <RefreshCw size={11} /> Refresh
+                    </button>
+                  </div>
+                  <div style={{ fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '12px', lineHeight: 1.7, color: '#9ba3af', backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', padding: '16px', borderRadius: '10px', maxHeight: '420px', overflowY: 'auto', whiteSpace: 'pre-wrap', userSelect: 'text' }}>
+                    {runtimeLogs}
+                  </div>
+                </div>
+              )}
 
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="submit"
-                        disabled={settingsSaving}
-                        className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-md shadow-purple-500/10 disabled:bg-zinc-700 disabled:text-zinc-400"
-                      >
-                        {settingsSaving ? (
-                          <>
-                            <Loader2 size={12} className="animate-spin" />
-                            Saving...
-                          </>
-                        ) : 'Save Settings'}
+              {/* ── Interactive Terminal ── */}
+              {detailsTab === 'terminal' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Interactive Shell</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Execute shell commands inside the live container environment.</div>
+                  </div>
+                  <div style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '380px' }}>
+                    {/* Terminal header bar */}
+                    <div style={{ height: '32px', backgroundColor: '#0e1015', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', padding: '0 12px', gap: '6px' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
+                      <span style={{ fontSize: '11px', color: '#4b5563', marginLeft: '8px', fontFamily: 'monospace' }}>container shell</span>
+                    </div>
+                    <div style={{ flex: 1, padding: '12px 16px', overflowY: 'auto', fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '12px', lineHeight: 1.7 }}>
+                      {terminalHistory.map((line, idx) => (
+                        <div key={idx} style={{ color: line.startsWith('$') ? '#c4b5fd' : line.startsWith('Error') || line.startsWith('error') ? '#f87171' : '#9ba3af', fontWeight: line.startsWith('$') ? 700 : 400, whiteSpace: 'pre-wrap' }}>
+                          {line}
+                        </div>
+                      ))}
+                      {terminalRunning && <div style={{ color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}><Loader2 size={11} className="animate-spin" /> Executing...</div>}
+                    </div>
+                    <form onSubmit={handleTerminalSubmit} style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '8px 14px', backgroundColor: '#0a0b0e', gap: '8px' }}>
+                      <span style={{ color: '#22c55e', fontFamily: 'monospace', fontSize: '13px', fontWeight: 700, userSelect: 'none' }}>❯</span>
+                      <input type="text" value={terminalInput} onChange={e => setTerminalInput(e.target.value)} placeholder="Type command and press Enter..." disabled={terminalRunning}
+                        style={{ flex: 1, backgroundColor: 'transparent', border: 'none', outline: 'none', color: '#e2e8f0', fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '12px' }} />
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Settings ── */}
+              {detailsTab === 'settings' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '760px' }}>
+                  <form onSubmit={handleSaveSettings} style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>Project Configuration</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                      {[
+                        { label: 'Project Name', value: editName, setter: setEditName, type: 'text', required: true, mono: false, placeholder: 'my-project' },
+                        { label: 'Git Branch', value: editBranch, setter: setEditBranch, type: 'text', required: true, mono: true, placeholder: 'main' },
+                        { label: 'Root Directory', value: editRootDir, setter: setEditRootDir, type: 'text', required: false, mono: true, placeholder: 'e.g. frontend' },
+                        { label: 'Target Port', value: String(editPort), setter: (v: string) => setEditPort(parseInt(v)), type: 'number', required: true, mono: true, placeholder: '3000' },
+                        { label: 'Install Command', value: editInstallCmd, setter: setEditInstallCmd, type: 'text', required: true, mono: true, placeholder: 'npm install' },
+                        { label: 'Build Command', value: editBuildCmd, setter: setEditBuildCmd, type: 'text', required: true, mono: true, placeholder: 'npm run build' },
+                        { label: 'Start Command', value: editStartCmd, setter: setEditStartCmd, type: 'text', required: true, mono: true, placeholder: 'npm start' },
+                      ].map(field => (
+                        <div key={field.label}>
+                          <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', marginBottom: '6px' }}>{field.label}</div>
+                          <input type={field.type} required={field.required} value={field.value} onChange={e => field.setter(e.target.value)} placeholder={field.placeholder}
+                            style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#f1f3f6', fontSize: '13px', fontFamily: field.mono ? 'monospace' : 'inherit', fontWeight: field.mono ? 500 : 400, outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span style={{ fontSize: '11px', color: '#4b5563', flex: 1 }}>Repository: <strong style={{ color: '#9ba3af' }}>{projectDetails?.githubRepo}</strong></span>
+                      <button type="submit" disabled={settingsSaving}
+                        style={{ height: '34px', padding: '0 18px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: settingsSaving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {settingsSaving ? <><Loader2 size={12} className="animate-spin" /> Saving...</> : 'Save Settings'}
                       </button>
                     </div>
                   </form>
 
-                  {/* GitOps Guide Card */}
-                  <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4 max-w-3xl">
-                    <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                      <Github size={16} className="text-zinc-400" />
-                      GitOps Auto-Deployment
-                    </h4>
-                    <p className="text-[10px] text-zinc-400 leading-relaxed">
-                      Automatically trigger a clean rebuild and redeployment of your container whenever you push code changes to your repository.
-                    </p>
-                    <div className="space-y-2.5">
-                      <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Webhook Configuration:</div>
-                      <ol className="list-decimal list-inside text-[9px] text-zinc-400 space-y-1.5 leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5 font-medium">
-                        <li>Go to your repository settings on GitHub.</li>
-                        <li>Select <strong>Webhooks</strong> in the sidebar, and click <strong>Add webhook</strong>.</li>
-                        <li>Set <strong>Payload URL</strong> to: <code className="text-violet-400 select-all font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded">https://api.khawarahemad.com/api/github/webhook</code></li>
-                        <li>Set <strong>Content type</strong> to: <code className="text-zinc-300 font-mono">application/json</code></li>
-                        <li>Select <strong>Just the push event</strong> and click <strong>Add webhook</strong>.</li>
-                      </ol>
+                  {/* GitOps */}
+                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Github size={15} style={{ color: '#6b7280' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>GitOps Auto-Deployment</span>
                     </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6 }}>Automatically trigger a rebuild on every push to your connected repository.</div>
+                    <div style={{ backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563' }}>Webhook URL</div>
+                      <code style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c4b5fd' }}>https://api.khawarahemad.com/api/github/webhook</code>
+                    </div>
+                    <ol style={{ listStyleType: 'decimal', paddingLeft: '16px', fontSize: '12px', color: '#6b7280', lineHeight: 1.8, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <li>Go to your repo Settings → Webhooks → Add webhook</li>
+                      <li>Paste the Webhook URL above as Payload URL</li>
+                      <li>Set Content type to <code style={{ fontFamily: 'monospace', color: '#9ba3af' }}>application/json</code></li>
+                      <li>Select <strong>Just the push event</strong> and click Add webhook</li>
+                    </ol>
                   </div>
 
-                  <div className="border border-red-500/20 bg-red-500/5 p-6 rounded-2xl space-y-3 max-w-3xl">
-                    <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">Danger Zone</h4>
-                    <p className="text-[10px] text-zinc-400 leading-relaxed">
-                      Permanently delete this project, all associated deployments, database logs, and stop the running Docker container on the host VPS. This action cannot be undone.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleDeleteProject}
-                      className="h-9 px-4 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-xs transition-all active:scale-95 duration-100 shadow-md shadow-red-500/10"
-                    >
+                  {/* Danger Zone */}
+                  <div style={{ border: '1px solid rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.03)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#ef4444' }}>Danger Zone</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6 }}>Permanently delete this project and stop its running Docker container. This action is irreversible.</div>
+                    <button type="button" onClick={handleDeleteProject}
+                      style={{ height: '34px', padding: '0 16px', borderRadius: '7px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: '12px', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}>
                       Delete Project
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Console / Runtime Logs tab */}
-              {detailsTab === 'console' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-400">Runtime Container Console</h4>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">Live stdout/stderr stream from the running container.</p>
-                    </div>
-                    <button
-                      onClick={fetchRuntimeLogs}
-                      className="h-8 px-2.5 rounded-lg border border-white/5 hover:bg-white/5 text-[10px] font-semibold flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
-                    >
-                      <RefreshCw size={10} />
-                      Refresh
-                    </button>
-                  </div>
-
-                  <div className="font-mono text-[10px] text-zinc-300 bg-black/40 border border-white/5 p-4 rounded-xl max-h-[400px] overflow-y-auto whitespace-pre-wrap select-text leading-relaxed">
-                    {runtimeLogs}
-                  </div>
-                </div>
-              )}
-
-              {/* Terminal tab */}
-              {detailsTab === 'terminal' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-zinc-400">Interactive Shell Container Terminal</h4>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">Execute shell commands inside the container environment.</p>
-                    </div>
-                  </div>
-
-                  <div className="font-mono text-[10px] bg-black/50 border border-white/5 rounded-xl overflow-hidden flex flex-col h-[350px]">
-                    <div className="flex-1 p-4 overflow-y-auto space-y-1.5 select-text">
-                      {terminalHistory.map((line, idx) => (
-                        <div key={idx} className={line.startsWith('$') ? 'text-violet-400 font-bold' : line.startsWith('Error') ? 'text-red-400' : 'text-zinc-300 whitespace-pre-wrap'}>
-                          {line}
-                        </div>
-                      ))}
-                      {terminalRunning && (
-                        <div className="text-zinc-500 flex items-center gap-1.5 animate-pulse">
-                          <Loader2 size={10} className="animate-spin" />
-                          Executing command...
-                        </div>
-                      )}
-                    </div>
-                    
-                    <form onSubmit={handleTerminalSubmit} className="flex border-t border-white/5 bg-black/20 p-2.5">
-                      <span className="text-violet-400 font-bold self-center mr-2 shrink-0 select-none">$</span>
-                      <input
-                        type="text"
-                        value={terminalInput}
-                        onChange={(e) => setTerminalInput(e.target.value)}
-                        placeholder="Type a shell command (e.g. ls -la) and press Enter..."
-                        className="flex-1 bg-transparent border-none outline-none text-white font-mono text-[10px]"
-                        disabled={terminalRunning}
-                      />
-                    </form>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
