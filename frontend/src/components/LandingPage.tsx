@@ -64,15 +64,15 @@ const plans = [
 export default function LandingPage({ onEnterApp }: LandingProps) {
   return (
     <div className="min-h-screen overflow-hidden text-white app-shell">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/45 backdrop-blur-2xl">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 backdrop-blur-2xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 to-emerald-300 text-slate-950 shadow-lg shadow-cyan-400/20">
-              <span className="text-[11px] font-black tracking-[0.22em]">KH</span>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white shadow-[0_16px_40px_rgba(2,6,23,0.3)]">
+              <span className="text-[11px] font-black tracking-[0.22em] text-cyan-200">KH</span>
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">KH Cloud</div>
-              <div className="text-sm font-semibold text-white">Control plane for modern teams</div>
+              <div className="text-sm font-semibold tracking-tight text-white">Control plane for modern teams</div>
             </div>
           </div>
 
@@ -122,7 +122,7 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
                 ['Storage', 'Built-in object workflows'],
                 ['Control', 'Teams and access boundaries'],
               ].map(([label, value]) => (
-                <div key={label} className="glass-card rounded-[1.5rem] p-4">
+                <div key={label} className="app-panel rounded-[1.5rem] p-4">
                   <div className="app-muted-label mb-2">{label}</div>
                   <div className="text-sm font-semibold text-white">{value}</div>
                 </div>
@@ -131,8 +131,8 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
           </div>
 
           <motion.div variants={rise} className="relative">
-            <div className="absolute -inset-6 rounded-[2rem] bg-cyan-400/10 blur-3xl" />
-            <div className="glass-card relative overflow-hidden rounded-[2rem] p-6 md:p-7">
+            <div className="absolute -inset-6 rounded-[2rem] bg-cyan-400/8 blur-3xl" />
+            <div className="app-panel-strong relative overflow-hidden rounded-[2rem] p-6 md:p-7">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="app-muted-label">Live surface</div>
@@ -150,7 +150,7 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
                   ['Storage', '78 GB stored'],
                   ['Edge functions', '22 deployed handlers'],
                 ].map(([label, value], index) => (
-                  <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div key={label} className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</div>
@@ -184,7 +184,7 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
-              <div key={feature.title} className="glass-card rounded-[1.75rem] p-6">
+              <div key={feature.title} className="app-panel rounded-[1.75rem] p-6">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
                   <Icon size={22} />
                 </div>
@@ -196,7 +196,7 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
         </section>
 
         <section id="workflow" className="mt-20 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="glass-card rounded-[1.75rem] p-6 md:p-7">
+          <div className="app-panel rounded-[1.75rem] p-6 md:p-7">
             <div className="app-muted-label">Workflow</div>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">One console, one model, less context switching.</h2>
             <p className="mt-4 text-sm leading-6 text-slate-300">
@@ -212,7 +212,7 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
             </div>
           </div>
 
-          <div className="glass-card rounded-[1.75rem] p-6 md:p-7">
+          <div className="app-panel rounded-[1.75rem] p-6 md:p-7">
             <div className="app-muted-label mb-3">What you get</div>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
@@ -238,8 +238,8 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
 
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {plans.map((plan) => (
-              <div key={plan.name} className={`glass-card rounded-[1.75rem] p-6 ${plan.featured ? 'ring-1 ring-amber-300/25' : ''}`}>
-                <div className={`rounded-[1.5rem] bg-gradient-to-br ${plan.accent} p-4`}>
+              <div key={plan.name} className={`app-panel rounded-[1.75rem] p-6 ${plan.featured ? 'ring-1 ring-amber-300/25' : ''}`}>
+                <div className={`rounded-[1.5rem] bg-gradient-to-br ${plan.accent} p-4 border border-white/10`}>
                   <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">{plan.name}</div>
                   <div className="mt-3 text-4xl font-semibold tracking-tight text-white">{plan.price}</div>
                   <div className="mt-1 text-sm text-slate-300">per month</div>
@@ -261,7 +261,7 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
         </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-slate-950/55 px-6 py-8 backdrop-blur-2xl">
+      <footer className="border-t border-white/10 bg-slate-950/70 px-6 py-8 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
           <div>© 2026 KH Cloud. Built for deployment, storage, and control.</div>
           <div className="flex gap-5">

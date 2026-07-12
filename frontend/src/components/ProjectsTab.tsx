@@ -636,7 +636,7 @@ export default function ProjectsTab() {
         ) : !activeProjectId ? (
           /* PROJECTS GRID LIST */
           projects.length === 0 ? (
-            <div className="glass-card mx-auto flex max-w-xl flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/10 py-20 text-center">
+            <div className="app-panel mx-auto flex max-w-xl flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/10 py-20 text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
                 <Layers size={20} />
               </div>
@@ -658,17 +658,17 @@ export default function ProjectsTab() {
                   <div
                     key={proj.id}
                     onClick={() => setActiveProjectId(proj.id)}
-                    className="glass-card group flex h-52 cursor-pointer flex-col justify-between rounded-[1.75rem] border border-white/10 p-6 transition-all hover:-translate-y-0.5 hover:border-cyan-400/20 active:scale-[0.99]"
+                    className="app-panel group flex h-52 cursor-pointer flex-col justify-between rounded-[1.75rem] border border-white/10 p-6 transition-all hover:-translate-y-0.5 hover:border-cyan-400/20 active:scale-[0.99]"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold text-white truncate max-w-[150px]">{proj.name}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                           proj.status === 'READY'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                             : proj.status === 'BUILDING' || proj.status === 'DEPLOYING'
-                            ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                            : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
+                            ? 'bg-cyan-400/10 text-cyan-200 border border-cyan-400/20'
+                            : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                         }`}>
                           {proj.status}
                         </span>
@@ -696,7 +696,7 @@ export default function ProjectsTab() {
           /* PROJECT DETAILS VIEW */
             <div className="mx-auto max-w-6xl space-y-6">
             {/* Status overview bar */}
-            <div className="app-panel flex flex-col items-start justify-between gap-6 rounded-[1.75rem] p-6 md:flex-row md:items-center">
+            <div className="app-panel-strong flex flex-col items-start justify-between gap-6 rounded-[1.75rem] p-6 md:flex-row md:items-center">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
                   <Server size={20} />
@@ -705,14 +705,14 @@ export default function ProjectsTab() {
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold text-white">{projectDetails?.name}</h3>
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                      projectDetails?.status === 'READY' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-400'
+                      projectDetails?.status === 'READY' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-500/10 text-slate-400'
                     }`}>
                       {projectDetails?.status}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
                     <Globe size={12} />
-                    <a href={`https://${projectDetails?.domains?.[0]?.hostname}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-indigo-400">
+                    <a href={`https://${projectDetails?.domains?.[0]?.hostname}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-cyan-200">
                       {projectDetails?.domains?.[0]?.hostname}
                     </a>
                   </div>
@@ -757,11 +757,11 @@ export default function ProjectsTab() {
               {detailsTab === 'deployments' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-zinc-400">Deployment History</h4>
+                    <h4 className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-500">Deployment history</h4>
                     {activeDeploymentId && (
                       <button
                         onClick={() => setLogsOpen(true)}
-                        className="text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                        className="text-xs text-cyan-200 hover:underline flex items-center gap-1 font-semibold"
                       >
                         <Terminal size={12} />
                         View Live Logs
@@ -769,7 +769,7 @@ export default function ProjectsTab() {
                     )}
                   </div>
 
-                  <div className="divide-y divide-white/5 border border-white/5 rounded-2xl glass-card overflow-hidden">
+                  <div className="divide-y divide-white/10 border border-white/10 rounded-2xl app-panel overflow-hidden">
                     {projectDetails?.deployments?.map((dep: any) => (
                       <div key={dep.id} className="p-4 flex items-center justify-between text-xs hover:bg-white/[0.01] transition-colors">
                         <div>
@@ -777,15 +777,15 @@ export default function ProjectsTab() {
                             <span className="font-bold">{dep.commitMessage || 'Manual Deployment'}</span>
                             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
                               dep.status === 'READY'
-                                ? 'bg-emerald-500/10 text-emerald-400'
+                                ? 'bg-emerald-500/10 text-emerald-300'
                                 : dep.status === 'FAILED'
-                                ? 'bg-red-500/10 text-red-400'
-                                : 'bg-indigo-500/10 text-indigo-400'
+                                ? 'bg-red-500/10 text-red-300'
+                                : 'bg-cyan-400/10 text-cyan-200'
                             }`}>
                               {dep.status}
                             </span>
                           </div>
-                          <div className="text-[10px] text-zinc-500 mt-1 flex items-center gap-2">
+                            <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
                             <span>Branch: {dep.branch}</span>
                             <span>•</span>
                             <span>{new Date(dep.createdAt).toLocaleString()}</span>
@@ -800,7 +800,7 @@ export default function ProjectsTab() {
                               setLogStatus(dep.status);
                               setLogsOpen(true);
                             }}
-                            className="h-8 px-2.5 rounded-lg border border-white/5 hover:bg-white/5 text-[10px] font-semibold flex items-center gap-1 text-zinc-400 hover:text-white transition-colors"
+                            className="app-button-secondary h-8 px-2.5 text-[10px]"
                           >
                             <Terminal size={10} />
                             Logs
@@ -818,16 +818,16 @@ export default function ProjectsTab() {
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-xs font-bold text-zinc-400 mb-1">Environment Variables</h4>
-                      <p className="text-[10px] text-zinc-500">Injected into your container at runtime. Redeploy after changes.</p>
+                      <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 mb-1">Environment variables</h4>
+                      <p className="text-[10px] text-slate-500">Injected into your container at runtime. Redeploy after changes.</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => { setEnvBulkMode(!envBulkMode); setEnvBulkText(''); }}
                         className={`h-7 px-3 rounded-lg text-[10px] font-semibold border transition-all ${
                           envBulkMode
-                            ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-300'
-                            : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
+                            ? 'bg-cyan-400/10 border-cyan-400/20 text-cyan-200'
+                              : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
                         }`}
                       >
                         {envBulkMode ? '✕ Cancel Paste' : '⊞ Bulk Paste .env'}
@@ -853,25 +853,25 @@ export default function ProjectsTab() {
                   {/* Bulk paste mode */}
                   {envBulkMode && (
                     <div className="space-y-2 max-w-2xl">
-                      <div className="text-[9px] text-zinc-500">Paste your <code className="bg-white/5 px-1 rounded text-zinc-300">.env</code> file contents below. Existing keys will be overwritten.</div>
+                      <div className="text-[9px] text-slate-500">Paste your <code className="bg-white/5 px-1 rounded text-slate-200">.env</code> file contents below. Existing keys will be overwritten.</div>
                       <textarea
                         value={envBulkText}
                         onChange={e => setEnvBulkText(e.target.value)}
                         rows={8}
                         placeholder={`DATABASE_URL=postgres://...\nSECRET_KEY=abc123\nNODE_ENV=production`}
-                        className="w-full px-3 py-2.5 rounded-xl bg-black/40 border border-white/8 text-xs font-mono text-zinc-300 placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 resize-none"
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-slate-300 placeholder-slate-700 focus:outline-none focus:border-cyan-400/40 resize-none"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={handleBulkPaste}
                           disabled={!envBulkText.trim()}
-                          className="h-8 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold transition-all"
+                          className="app-button-primary h-8 px-4 text-xs disabled:opacity-40"
                         >
                           Import Variables
                         </button>
                         <button
                           onClick={() => { setEnvBulkMode(false); setEnvBulkText(''); }}
-                          className="h-8 px-4 rounded-lg border border-white/10 text-zinc-400 hover:text-white text-xs font-semibold transition-all"
+                          className="app-button-secondary h-8 px-4 text-xs"
                         >
                           Cancel
                         </button>
@@ -883,23 +883,23 @@ export default function ProjectsTab() {
                   {!envBulkMode && (
                     <div className="flex gap-2 max-w-2xl items-start">
                       <div className="flex-1">
-                        <div className="text-[8px] text-zinc-600 mb-1 ml-1">KEY</div>
+                        <div className="text-[8px] text-slate-600 mb-1 ml-1">KEY</div>
                         <input
                           type="text"
                           placeholder="VARIABLE_NAME"
                           value={newEnvKey}
                           onChange={(e) => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
-                          className="w-full h-9 px-3 rounded-xl bg-black/30 border border-white/8 text-xs font-mono font-bold text-white placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 transition-colors uppercase"
+                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono font-bold text-white placeholder-slate-700 focus:outline-none focus:border-cyan-400/40 transition-colors uppercase"
                         />
                       </div>
                       <div className="flex-[2]">
-                        <div className="text-[8px] text-zinc-600 mb-1 ml-1">VALUE</div>
+                        <div className="text-[8px] text-slate-600 mb-1 ml-1">VALUE</div>
                         <input
                           type={newEnvSecret ? 'password' : 'text'}
                           placeholder="value"
                           value={newEnvVal}
                           onChange={(e) => setNewEnvVal(e.target.value)}
-                          className="w-full h-9 px-3 rounded-xl bg-black/30 border border-white/8 text-xs font-mono text-white placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 transition-colors"
+                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-white placeholder-slate-700 focus:outline-none focus:border-cyan-400/40 transition-colors"
                         />
                       </div>
                       <div className="flex flex-col gap-1 items-center pt-[18px]">
@@ -909,8 +909,8 @@ export default function ProjectsTab() {
                           title={newEnvSecret ? 'Value is hidden' : 'Value is visible'}
                           className={`w-9 h-9 rounded-xl border text-sm transition-all ${
                             newEnvSecret
-                              ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-300'
-                              : 'border-white/10 text-zinc-500 hover:text-white'
+                              ? 'bg-cyan-400/10 border-cyan-400/20 text-cyan-200'
+                              : 'border-white/10 text-slate-500 hover:text-white'
                           }`}
                         >
                           {newEnvSecret ? '🔒' : '👁'}
@@ -920,7 +920,7 @@ export default function ProjectsTab() {
                         <button
                           onClick={handleAddEnv}
                           disabled={!newEnvKey.trim() || !newEnvVal.trim()}
-                          className="h-9 px-4 rounded-xl bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xs transition-all active:scale-95 whitespace-nowrap"
+                          className="app-button-primary h-9 px-4 text-xs disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                         >
                           + Add
                         </button>
@@ -932,22 +932,22 @@ export default function ProjectsTab() {
                   {!envBulkMode && (
                     <div className="space-y-1.5 max-w-2xl">
                       {envVars.length === 0 && (
-                        <div className="text-center py-8 text-[10px] text-zinc-600">
+                        <div className="text-center py-8 text-[10px] text-slate-600">
                           No environment variables configured yet.
                         </div>
                       )}
                       {envVars.map((env) => (
-                        <div key={env.key} className="group rounded-xl border border-white/5 bg-white/[0.015] hover:border-white/10 transition-colors overflow-hidden">
+                        <div key={env.key} className="group rounded-xl border border-white/10 bg-white/[0.015] hover:border-white/15 transition-colors overflow-hidden">
                           <div className="flex items-center h-11 px-3 gap-3">
                             {/* Secret badge */}
                             <span className={`text-[8px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${
-                              env.isSecret ? 'bg-amber-500/10 text-amber-500' : 'bg-zinc-700/50 text-zinc-500'
+                              env.isSecret ? 'bg-amber-500/10 text-amber-300' : 'bg-slate-700/50 text-slate-500'
                             }`}>
                               {env.isSecret ? 'SECRET' : 'PLAIN'}
                             </span>
 
                             {/* Key */}
-                            <span className="font-mono font-bold text-xs text-zinc-200 flex-shrink-0 w-44 truncate">{env.key}</span>
+                            <span className="font-mono font-bold text-xs text-slate-200 flex-shrink-0 w-44 truncate">{env.key}</span>
 
                             {/* Value / edit */}
                             {envEditingKey === env.key ? (
@@ -961,18 +961,18 @@ export default function ProjectsTab() {
                                     if (e.key === 'Enter') handleUpdateEnvValue(env.key, envEditVal);
                                     if (e.key === 'Escape') setEnvEditingKey(null);
                                   }}
-                                  className="flex-1 h-7 px-2 rounded-lg bg-black/50 border border-indigo-500/40 text-xs font-mono text-white focus:outline-none"
+                                  className="flex-1 h-7 px-2 rounded-lg bg-slate-950/70 border border-cyan-400/30 text-xs font-mono text-white focus:outline-none"
                                 />
-                                <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} className="h-7 px-2.5 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold hover:bg-emerald-600/30">
+                                <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} className="h-7 px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold hover:bg-emerald-500/20">
                                   Save
                                 </button>
-                                <button onClick={() => setEnvEditingKey(null)} className="h-7 px-2 rounded-lg border border-white/10 text-zinc-500 text-[10px] hover:text-white">
+                                <button onClick={() => setEnvEditingKey(null)} className="h-7 px-2 rounded-lg border border-white/10 text-slate-500 text-[10px] hover:text-white">
                                   ✕
                                 </button>
                               </div>
                             ) : (
                               <div className="flex-1 flex items-center gap-2 min-w-0">
-                                <span className="font-mono text-xs text-zinc-500 truncate flex-1">
+                                <span className="font-mono text-xs text-slate-500 truncate flex-1">
                                   {envRevealedKeys.has(env.key) ? env.value : (env.isSecret ? '••••••••••••' : env.value)}
                                 </span>
                               </div>
@@ -985,20 +985,20 @@ export default function ProjectsTab() {
                                   <button
                                     onClick={() => toggleReveal(env.key)}
                                     title={envRevealedKeys.has(env.key) ? 'Hide value' : 'Reveal value'}
-                                    className="h-7 w-7 rounded-lg border border-white/10 text-zinc-500 hover:text-white text-sm flex items-center justify-center transition-colors"
+                                    className="h-7 w-7 rounded-lg border border-white/10 text-slate-500 hover:text-white text-sm flex items-center justify-center transition-colors"
                                   >
                                     {envRevealedKeys.has(env.key) ? '🙈' : '👁'}
                                   </button>
                                 )}
                                 <button
                                   onClick={() => { setEnvEditingKey(env.key); setEnvEditVal(env.value); }}
-                                  className="h-7 px-2 rounded-lg border border-white/10 text-zinc-500 hover:text-white text-[9px] font-bold transition-colors"
+                                  className="h-7 px-2 rounded-lg border border-white/10 text-slate-500 hover:text-white text-[9px] font-bold transition-colors"
                                 >
                                   Edit
                                 </button>
                                 <button
                                   onClick={() => handleRemoveEnv(env.key)}
-                                  className="h-7 px-2 rounded-lg border border-white/10 text-zinc-500 hover:text-red-400 hover:border-red-500/20 text-[9px] font-bold transition-colors"
+                                  className="h-7 px-2 rounded-lg border border-white/10 text-slate-500 hover:text-red-300 hover:border-red-500/20 text-[9px] font-bold transition-colors"
                                 >
                                   Remove
                                 </button>
@@ -1012,8 +1012,8 @@ export default function ProjectsTab() {
 
                   {/* Footer hint */}
                   {envVars.length > 0 && !envBulkMode && (
-                    <p className="text-[9px] text-zinc-600 max-w-2xl">
-                      ⚡ Changes are saved automatically per variable. Click <strong className="text-zinc-500">Redeploy</strong> to apply them to your running container.
+                    <p className="text-[9px] text-slate-600 max-w-2xl">
+                      Changes are saved automatically per variable. Click <strong className="text-slate-300">Redeploy</strong> to apply them to your running container.
                     </p>
                   )}
                 </div>
@@ -1023,8 +1023,8 @@ export default function ProjectsTab() {
               {detailsTab === 'domains' && (
                 <div className="space-y-6">
                   <div>
-                    <h4 className="text-xs font-bold text-zinc-400 mb-2">Domains</h4>
-                    <p className="text-[10px] text-zinc-500">Manage domains for your deployment. SSL is automatically provisioned.</p>
+                    <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 mb-2">Domains</h4>
+                    <p className="text-[10px] text-slate-500">Manage domains for your deployment. SSL is automatically provisioned.</p>
                   </div>
 
                   {/* ── Add domain form ── */}
@@ -1037,7 +1037,7 @@ export default function ProjectsTab() {
                           placeholder="yourdomain.com or www.yourdomain.com"
                           value={customDomain}
                           onChange={(e) => { setCustomDomain(e.target.value); setDomainError(''); }}
-                          className="w-full h-10 px-3 pr-10 rounded-xl glass-input text-xs text-white placeholder-zinc-600 border border-white/8 focus:border-indigo-500/50 focus:outline-none transition-colors"
+                          className="w-full h-10 px-3 pr-10 rounded-xl glass-input text-xs text-white placeholder-slate-600 border border-white/10 focus:border-cyan-400/50 focus:outline-none transition-colors"
                         />
                         {customDomain && getDomainType(customDomain) && (
                           <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold px-1.5 py-0.5 rounded ${

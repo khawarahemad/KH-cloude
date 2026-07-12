@@ -112,7 +112,7 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
               ['Security', 'Passkey, OAuth, and email login'],
               ['Speed', 'Launch from a single verified session'],
             ].map(([title, copy]) => (
-              <div key={title} className="glass-card rounded-[1.5rem] p-4">
+              <div key={title} className="app-panel rounded-[1.5rem] p-4">
                 <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">{title}</div>
                 <div className="mt-2 text-sm font-semibold text-white">{copy}</div>
               </div>
@@ -121,8 +121,8 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, delay: 0.05 }} className="relative">
-          <div className="absolute -inset-6 rounded-[2rem] bg-cyan-400/10 blur-3xl" />
-          <div className="glass-card relative rounded-[2rem] p-6 md:p-8">
+          <div className="absolute -inset-6 rounded-[2rem] bg-cyan-400/8 blur-3xl" />
+          <div className="app-panel-strong relative rounded-[2rem] p-6 md:p-8">
             <div className="mb-7 flex items-center justify-between gap-4">
               <div>
                 <div className="app-muted-label">Authentication</div>

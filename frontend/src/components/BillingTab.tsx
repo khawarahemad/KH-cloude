@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
-import { CreditCard, Check, Shield, Zap, DollarSign, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export default function BillingTab() {
   const { activeTeam } = useAppStore();
@@ -80,21 +80,21 @@ export default function BillingTab() {
             
             {/* Usage Summary Grid */}
             <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
                 <span className="app-muted-label block mb-1">Active projects</span>
                 <span className="text-2xl font-black text-white">{billing?.usage?.activeProjects}</span>
               </div>
-              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
                 <span className="app-muted-label block mb-1">Active databases</span>
                 <span className="text-2xl font-black text-white">{billing?.usage?.databasesCount}</span>
               </div>
-              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
                 <span className="app-muted-label block mb-1">Storage assets</span>
                 <span className="text-2xl font-black text-white">{billing?.usage?.storageGB} GB</span>
               </div>
-              <div className="glass-card rounded-[1.5rem] p-5 border border-white/10">
+              <div className="app-panel rounded-[1.5rem] p-5 border border-white/10">
                 <span className="app-muted-label block mb-1">Current month cost</span>
-                <span className="text-2xl font-black text-indigo-400">${billing?.usage?.currentSpend}</span>
+                <span className="text-2xl font-black text-cyan-200">${billing?.usage?.currentSpend}</span>
               </div>
             </div>
 
@@ -110,8 +110,8 @@ export default function BillingTab() {
                   return (
                     <div
                       key={plan.id}
-                      className={`glass-card relative flex h-56 flex-col justify-between rounded-[1.75rem] border p-6 transition-all ${
-                        isCurrent ? 'border-cyan-400/20 bg-cyan-400/[0.03]' : 'border-white/10'
+                      className={`app-panel relative flex h-56 flex-col justify-between rounded-[1.75rem] border p-6 transition-all ${
+                          isCurrent ? 'border-cyan-400/20 bg-cyan-400/[0.03]' : 'border-white/10'
                       }`}
                     >
                       {isCurrent && (
@@ -148,7 +148,7 @@ export default function BillingTab() {
             {/* Invoices */}
             <div>
               <h3 className="app-muted-label mb-4">Invoice history</h3>
-              <div className="glass-card overflow-hidden rounded-[1.75rem] border border-white/10">
+              <div className="app-panel overflow-hidden rounded-[1.75rem] border border-white/10">
                 {billing?.invoices?.length === 0 ? (
                   <div className="p-8 text-center text-slate-500 text-xs font-medium">No invoices found.</div>
                 ) : (
