@@ -626,8 +626,7 @@
   animation: scale-in 0.18s ease-out forwards;
 }
 
-/* ─── Hidden utility ─────────────────────────────────────────────────────── */
-.hidden { display: none !important; }
+
 
 /* ─── Legacy glass / panel compat shims ──────────────────────────────────── */
 .glass-card,

@@ -4,19 +4,19 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight, Server, Database, Layers, Zap, HardDrive, Network,
-  Check, Globe, Github, Terminal
+  Check, Globe, Terminal
 } from 'lucide-react';
 
 interface LandingProps {
   onEnterApp: () => void;
 }
 
-const fadeUp = {
+const fadeUp: any = {
   hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 };
 
-const stagger = {
+const stagger: any = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.08 } },
 };
@@ -133,14 +133,15 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
         <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '9px',
-              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(124,58,237,0.4)',
-            }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#fff', letterSpacing: '0.04em' }}>KH</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="KH Cloud"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '9px',
+              }}
+            />
             <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '-0.02em', color: '#f1f3f6' }}>KH Cloud</span>
           </div>
 

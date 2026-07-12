@@ -2,15 +2,39 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { LogOut, ChevronDown, Plus, Check, Loader2 } from 'lucide-react';
+import { LogOut, ChevronDown, Plus, Check, Loader2, Shield, Layers } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
 export default function Header() {
-  const { user, teams, activeTeam, setActiveTeam, logout } = useAppStore();
+  const { user, teams, activeTeam, setActiveTeam, activeTab, setActiveTab, logout } = useAppStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [newTeamOpen, setNewTeamOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const isAdminWorkspace = activeTab === 'admin' || (typeof window !== 'undefined' && window.location.hostname.startsWith('admin.'));
+
+  const handleSwitchWorkspace = () => {
+    if (typeof window !== 'undefined') {
+      const isLocalhost = window.location.hostname.includes('localhost');
+      if (isLocalhost) {
+        setActiveTab(isAdminWorkspace ? 'projects' : 'admin');
+      } else {
+        if (isAdminWorkspace) {
+          window.location.href = 'https://cloud.khawarahemad.com';
+        } else {
+          window.location.href = 'https://admin.khawarahemad.com';
+        }
+      }
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+      window.location.href = 'https://auth.khawarahemad.com?logout=true';
+    }
+  };
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,21 +78,16 @@ export default function Header() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Logo mark */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div
+            <img
+              src="/logo.png"
+              alt="KH Cloud"
               style={{
                 width: '28px',
                 height: '28px',
                 borderRadius: '8px',
-                background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
                 flexShrink: 0,
               }}
-            >
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#fff', letterSpacing: '0.05em' }}>KH</span>
-            </div>
+            />
             <span
               style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', letterSpacing: '-0.01em' }}
               className="hidden sm:block"
@@ -209,6 +228,41 @@ export default function Header() {
 
         {/* Right: User info + logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {user?.role === 'ADMIN' && (
+            <button
+              onClick={handleSwitchWorkspace}
+              title={isAdminWorkspace ? "Switch to Cloud Dashboard" : "Switch to System Admin"}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '32px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(124,58,237,0.12)',
+                border: '1px solid rgba(124,58,237,0.3)',
+                color: '#c4b5fd',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.backgroundColor = 'rgba(124,58,237,0.2)';
+                el.style.borderColor = 'rgba(124,58,237,0.45)';
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                el.style.backgroundColor = 'rgba(124,58,237,0.12)';
+                el.style.borderColor = 'rgba(124,58,237,0.3)';
+              }}
+            >
+              {isAdminWorkspace ? <Layers size={13} /> : <Shield size={13} />}
+              <span className="hidden md:inline">{isAdminWorkspace ? 'Console' : 'Admin Panel'}</span>
+            </button>
+          )}
+
           {user && (
             <div className="hidden sm:flex" style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
               <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{user.name}</span>
@@ -217,7 +271,7 @@ export default function Header() {
           )}
 
           <button
-            onClick={logout}
+            onClick={handleLogout}
             title="Sign out"
             style={{
               width: '32px',

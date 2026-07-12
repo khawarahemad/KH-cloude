@@ -35,6 +35,13 @@ export default function Home() {
 
       // Check for session_data parameter
       const params = new URLSearchParams(window.location.search);
+      const logoutParam = params.get('logout');
+      if (logoutParam === 'true') {
+        useAppStore.getState().logout();
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+
       const sessionDataParam = params.get('session_data');
       if (sessionDataParam) {
         try {
@@ -133,6 +140,9 @@ export default function Home() {
           <button
             onClick={() => {
               useAppStore.getState().logout();
+              if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+                window.location.href = 'https://auth.khawarahemad.com?logout=true';
+              }
             }}
             className="app-button-primary"
           >

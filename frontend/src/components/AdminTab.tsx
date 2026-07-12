@@ -302,8 +302,8 @@ export default function AdminTab() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
               {[
                 { label: 'Total users', value: users.length, color: '#f1f3f6' },
-                { label: 'Web containers', value: subTab === 'projects' ? projects.length : projects.reduce((acc: number, u: any) => acc + (u.projectsCount || 0), 0), color: '#818cf8' },
-                { label: 'Storage buckets', value: subTab === 'buckets' ? buckets.length : buckets.reduce((acc: number, u: any) => acc + (u.bucketsCount || 0), 0), color: '#a78bfa' },
+                { label: 'Web containers', value: subTab === 'projects' ? projects.length : users.reduce((acc: number, u: any) => acc + (u.projectsCount || 0), 0), color: '#818cf8' },
+                { label: 'Storage buckets', value: subTab === 'buckets' ? buckets.length : users.reduce((acc: number, u: any) => acc + (u.bucketsCount || 0), 0), color: '#a78bfa' },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
                   <div style={{ fontSize: '11px', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: '6px' }}>{label}</div>
@@ -338,7 +338,7 @@ export default function AdminTab() {
           {/* Tab Views */}
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-              <Loader2 className="animate-spin text-cyan-300" size={32} />
+              <Loader2 className="animate-spin text-violet-400" size={32} />
               <span className="text-xs uppercase tracking-[0.18em]">Gathering platform details</span>
             </div>
           ) : (
@@ -374,7 +374,7 @@ export default function AdminTab() {
                                 <div className="flex items-center gap-1 shrink-0">
                                   <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
                                     t.planId === 'pro' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' :
-                                    t.planId === 'enterprise' ? 'bg-cyan-400/10 text-cyan-200 border border-cyan-400/20' :
+                                    t.planId === 'enterprise' ? 'bg-purple-500/10 text-violet-300 border border-purple-500/20' :
                                     'bg-slate-800 text-slate-500'
                                   }`}>
                                     {t.planId}
@@ -410,7 +410,7 @@ export default function AdminTab() {
                             disabled={actingId !== null}
                             className={`h-7 px-3 rounded-lg font-bold text-[10px] transition-all uppercase tracking-wider ${
                               u.role === 'ADMIN' 
-                                ? 'bg-cyan-400/10 hover:bg-cyan-400 text-cyan-200 hover:text-slate-950 border border-cyan-400/20' 
+                                ? 'bg-purple-500/10 hover:bg-purple-600 text-violet-300 hover:text-slate-950 border border-purple-500/20' 
                                 : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'
                             }`}
                           >
@@ -463,7 +463,7 @@ export default function AdminTab() {
                             href={`https://${p.slug}.khcloud.app`} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-cyan-200 hover:underline truncate max-w-[150px] flex items-center gap-1 font-bold"
+                            className="text-violet-300 hover:underline truncate max-w-[150px] flex items-center gap-1 font-bold"
                           >
                             {p.slug}.khcloud.app
                             <ExternalLink size={8} />
@@ -554,7 +554,7 @@ export default function AdminTab() {
                               />
                               <button
                                 onClick={() => handleUpdateBucketLimit(b.id)}
-                                className="h-7 px-2 rounded bg-indigo-500 text-white font-bold"
+                                className="h-7 px-2 rounded bg-purple-600 text-white font-bold"
                               >
                                 Save
                               </button>
@@ -564,7 +564,7 @@ export default function AdminTab() {
                               <span className="font-mono text-zinc-400">{formatBytes(b.sizeLimit)}</span>
                               <button 
                                 onClick={() => { setEditingLimitId(b.id); setNewLimitGB((Number(b.sizeLimit) / (1024*1024*1024)).toString()); }}
-                                className="text-[9px] font-bold text-indigo-400 hover:underline"
+                                className="text-[9px] font-bold text-violet-400 hover:underline"
                               >
                                 Edit
                               </button>
@@ -607,7 +607,7 @@ export default function AdminTab() {
                     <div className="bg-black/30 border border-white/5 rounded-2xl p-5">
                       <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Disk Space Used</span>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xl font-black text-indigo-400">{formatBytes(storageData.disk.used)}</span>
+                        <span className="text-xl font-black text-violet-400">{formatBytes(storageData.disk.used)}</span>
                         <span className="text-[10px] text-zinc-500 font-bold">({storageData.disk.percentUsed}% used)</span>
                       </div>
                     </div>
@@ -657,7 +657,7 @@ export default function AdminTab() {
                                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
                                   item.type.includes('Bucket') 
                                     ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
-                                    : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                    : 'bg-purple-500/10 text-violet-400 border border-purple-600/20'
                                 }`}>
                                   {item.type}
                                 </span>
@@ -726,7 +726,7 @@ export default function AdminTab() {
 
                     {analyzerLoading && (
                       <div className="flex flex-col items-center justify-center py-12 text-zinc-500 gap-2 border border-white/5 rounded-2xl bg-black/20">
-                        <Loader2 className="animate-spin text-indigo-400" size={20} />
+                        <Loader2 className="animate-spin text-violet-400" size={20} />
                         <span className="text-[10px] font-medium">Running disk scans and Docker disk usage audit on VPS...</span>
                       </div>
                     )}
@@ -888,7 +888,7 @@ export default function AdminTab() {
 
                         <button
                           type="submit"
-                          className="w-full h-10 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs transition-colors active:scale-95 duration-100 flex items-center justify-center gap-1.5"
+                          className="w-full h-10 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors active:scale-95 duration-100 flex items-center justify-center gap-1.5"
                         >
                           <Sliders size={12} />
                           Apply Manual Plan Override
@@ -914,7 +914,7 @@ export default function AdminTab() {
                             }}
                             className={`w-full text-left p-2.5 rounded-xl border transition-all flex flex-col gap-1 ${
                               overrideTeamId === t.id 
-                                ? 'bg-indigo-500/10 border-indigo-500/40 text-white' 
+                                ? 'bg-purple-500/10 border-purple-600/40 text-white' 
                                 : 'bg-white/[0.01] border-white/5 text-zinc-400 hover:bg-white/[0.03] hover:border-white/10'
                             }`}
                           >
@@ -922,7 +922,7 @@ export default function AdminTab() {
                               <span className="font-bold text-xs truncate max-w-[120px] text-white">{t.name}</span>
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase shrink-0 ${
                                 t.planId === 'pro' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                t.planId === 'enterprise' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
+                                t.planId === 'enterprise' ? 'bg-purple-500/10 text-violet-400 border border-purple-600/20' :
                                 'bg-zinc-800 text-zinc-500'
                               }`}>
                                 {t.planId}

@@ -312,11 +312,11 @@ export default function DatabasesTab() {
                     onClick={() => { setDbView('table-editor'); handleSelectTable(t); }}
                     className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-2 group text-[11px] font-semibold ${
                       activeTable === t && dbView === 'table-editor'
-                        ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20'
+                        ? 'bg-purple-500/10 text-violet-100 ring-1 ring-purple-500/20'
                         : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <FileText size={11} className={activeTable === t ? 'text-cyan-200' : 'text-slate-600 group-hover:text-cyan-200'} />
+                    <FileText size={11} className={activeTable === t ? 'text-violet-300' : 'text-slate-600 group-hover:text-violet-300'} />
                     <span className="truncate flex-1">{t}</span>
                   </button>
                 ))
@@ -394,7 +394,7 @@ export default function DatabasesTab() {
                     <div className="flex-1 overflow-auto relative">
                       {tableLoading ? (
                         <div className="flex items-center justify-center h-full text-slate-500 gap-2">
-                          <Loader2 className="animate-spin text-cyan-300" size={20} />
+                          <Loader2 className="animate-spin text-violet-400" size={20} />
                           <span className="text-xs">Loading rows...</span>
                         </div>
                       ) : tableColumns.length === 0 ? (
@@ -475,7 +475,7 @@ export default function DatabasesTab() {
                               return (
                                 <tr
                                   key={rIdx}
-                                  className={`transition-colors group ${isEditing ? 'bg-indigo-500/5 border border-indigo-500/20' : 'hover:bg-white/[0.01]'}`}
+                                  className={`transition-colors group ${isEditing ? 'bg-purple-500/5 border border-purple-600/20' : 'hover:bg-white/[0.01]'}`}
                                 >
                                   <td className="px-2 py-1.5 border-r border-white/10 shrink-0">
                                     {isEditing ? (
@@ -483,7 +483,7 @@ export default function DatabasesTab() {
                                         <button
                                           onClick={handleSaveRow}
                                           disabled={saving}
-                                          className="p-1 text-cyan-200 hover:text-white bg-cyan-400/20 rounded"
+                                          className="p-1 text-violet-300 hover:text-white bg-purple-600/20 rounded"
                                           title="Save"
                                         >
                                           {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
@@ -502,7 +502,7 @@ export default function DatabasesTab() {
                                             setEditingRowKey(pkVal);
                                             setEditingRowData({ ...row });
                                           }}
-                                          className="p-1 text-slate-500 hover:text-cyan-300 bg-white/5 hover:bg-cyan-400/10 rounded"
+                                          className="p-1 text-slate-500 hover:text-violet-400 bg-white/5 hover:bg-purple-500/10 rounded"
                                           title="Edit"
                                         >
                                           <Pencil size={10} />
@@ -523,7 +523,7 @@ export default function DatabasesTab() {
                                         <input
                                           value={editingRowData[col] ?? ''}
                                           onChange={(e) => setEditingRowData(p => ({ ...p, [col]: e.target.value }))}
-                                          className="w-full min-w-20 h-6 px-2 rounded border border-cyan-400/30 bg-slate-950/60 text-[10px] font-mono text-slate-200 outline-0 focus:border-cyan-300"
+                                          className="w-full min-w-20 h-6 px-2 rounded border border-purple-500/30 bg-slate-950/60 text-[10px] font-mono text-slate-200 outline-0 focus:border-cyan-300"
                                         />
                                       ) : (
                                         <span className={`px-2 font-mono text-[10px] block truncate ${
@@ -613,7 +613,7 @@ export default function DatabasesTab() {
                   <div className="flex-1 overflow-auto p-4 select-text">
                     {queryExecuting && (
                       <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
-                        <Loader2 className="animate-spin text-cyan-300" size={20} />
+                        <Loader2 className="animate-spin text-violet-400" size={20} />
                         <span className="text-[10px] uppercase tracking-[0.14em]">Executing query</span>
                       </div>
                     )}
@@ -684,7 +684,7 @@ export default function DatabasesTab() {
                       <p className="text-xs text-slate-400">
                         Edge functions receive a pre-authorized <code className="bg-white/5 px-1 rounded text-white font-mono">db</code> client. No credentials required:
                       </p>
-                      <pre className="bg-slate-950/70 border border-white/10 rounded-xl p-3 font-mono text-[10px] text-cyan-200 whitespace-pre-wrap leading-relaxed">
+                      <pre className="bg-slate-950/70 border border-white/10 rounded-xl p-3 font-mono text-[10px] text-violet-300 whitespace-pre-wrap leading-relaxed">
 {`export default async function handler({ db }) {
   // Query primary team database
   const res = await db.query(
@@ -925,7 +925,7 @@ print("Query Data:", data)`}
                       onClick={() => setDbType(type)}
                       className={`h-12 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-1 transition-all ${
                         dbType === type
-                          ? 'border-cyan-400 bg-cyan-400/5 text-cyan-200'
+                          ? 'border-cyan-400 bg-purple-600/5 text-violet-300'
                           : 'border-white/10 bg-white/[0.01] text-slate-400 hover:text-white hover:border-white/20'
                       }`}
                     >
@@ -938,7 +938,7 @@ print("Query Data:", data)`}
                 <button type="button" onClick={() => setProvisionOpen(false)} className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold">
                   Cancel
                 </button>
-                <button type="submit" className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs active:scale-95">
+                <button type="submit" className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs active:scale-95">
                   Provision Instance
                 </button>
               </div>

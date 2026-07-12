@@ -671,7 +671,7 @@ export default function ProjectsTab() {
             {/* Status overview bar */}
             <div className="app-panel-strong flex flex-col items-start justify-between gap-6 rounded-[1.75rem] p-6 md:flex-row md:items-center">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/10 text-violet-300">
                   <Server size={20} />
                 </div>
                 <div>
@@ -685,7 +685,7 @@ export default function ProjectsTab() {
                   </div>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
                     <Globe size={12} />
-                    <a href={`https://${projectDetails?.domains?.[0]?.hostname}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-cyan-200">
+                    <a href={`https://${projectDetails?.domains?.[0]?.hostname}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-violet-300">
                       {projectDetails?.domains?.[0]?.hostname}
                     </a>
                   </div>
@@ -715,7 +715,7 @@ export default function ProjectsTab() {
                   onClick={() => setDetailsTab(tab)}
                   className={`rounded-full px-4 py-2 capitalize transition-all ${
                     detailsTab === tab
-                      ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20'
+                      ? 'bg-purple-500/10 text-violet-100 ring-1 ring-purple-500/20'
                       : 'text-slate-400 hover:bg-white/5 hover:text-white'
                   }`}
                 >
@@ -734,7 +734,7 @@ export default function ProjectsTab() {
                     {activeDeploymentId && (
                       <button
                         onClick={() => setLogsOpen(true)}
-                        className="text-xs text-cyan-200 hover:underline flex items-center gap-1 font-semibold"
+                        className="text-xs text-violet-300 hover:underline flex items-center gap-1 font-semibold"
                       >
                         <Terminal size={12} />
                         View Live Logs
@@ -753,7 +753,7 @@ export default function ProjectsTab() {
                                 ? 'bg-emerald-500/10 text-emerald-300'
                                 : dep.status === 'FAILED'
                                 ? 'bg-red-500/10 text-red-300'
-                                : 'bg-cyan-400/10 text-cyan-200'
+                                : 'bg-purple-500/10 text-violet-300'
                             }`}>
                               {dep.status}
                             </span>
@@ -799,7 +799,7 @@ export default function ProjectsTab() {
                         onClick={() => { setEnvBulkMode(!envBulkMode); setEnvBulkText(''); }}
                         className={`h-7 px-3 rounded-lg text-[10px] font-semibold border transition-all ${
                           envBulkMode
-                            ? 'bg-cyan-400/10 border-cyan-400/20 text-cyan-200'
+                            ? 'bg-purple-500/10 border-purple-500/20 text-violet-300'
                               : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
                         }`}
                       >
@@ -832,7 +832,7 @@ export default function ProjectsTab() {
                         onChange={e => setEnvBulkText(e.target.value)}
                         rows={8}
                         placeholder={`DATABASE_URL=postgres://...\nSECRET_KEY=abc123\nNODE_ENV=production`}
-                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-slate-300 placeholder-slate-700 focus:outline-none focus:border-cyan-400/40 resize-none"
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-slate-300 placeholder-slate-700 focus:outline-none focus:border-purple-500/40 resize-none"
                       />
                       <div className="flex gap-2">
                         <button
@@ -862,7 +862,7 @@ export default function ProjectsTab() {
                           placeholder="VARIABLE_NAME"
                           value={newEnvKey}
                           onChange={(e) => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
-                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono font-bold text-white placeholder-slate-700 focus:outline-none focus:border-cyan-400/40 transition-colors uppercase"
+                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono font-bold text-white placeholder-slate-700 focus:outline-none focus:border-purple-500/40 transition-colors uppercase"
                         />
                       </div>
                       <div className="flex-[2]">
@@ -872,7 +872,7 @@ export default function ProjectsTab() {
                           placeholder="value"
                           value={newEnvVal}
                           onChange={(e) => setNewEnvVal(e.target.value)}
-                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-white placeholder-slate-700 focus:outline-none focus:border-cyan-400/40 transition-colors"
+                          className="w-full h-9 px-3 rounded-xl bg-slate-950/70 border border-white/10 text-xs font-mono text-white placeholder-slate-700 focus:outline-none focus:border-purple-500/40 transition-colors"
                         />
                       </div>
                       <div className="flex flex-col gap-1 items-center pt-[18px]">
@@ -882,7 +882,7 @@ export default function ProjectsTab() {
                           title={newEnvSecret ? 'Value is hidden' : 'Value is visible'}
                           className={`w-9 h-9 rounded-xl border text-sm transition-all ${
                             newEnvSecret
-                              ? 'bg-cyan-400/10 border-cyan-400/20 text-cyan-200'
+                              ? 'bg-purple-500/10 border-purple-500/20 text-violet-300'
                               : 'border-white/10 text-slate-500 hover:text-white'
                           }`}
                         >
@@ -934,7 +934,7 @@ export default function ProjectsTab() {
                                     if (e.key === 'Enter') handleUpdateEnvValue(env.key, envEditVal);
                                     if (e.key === 'Escape') setEnvEditingKey(null);
                                   }}
-                                  className="flex-1 h-7 px-2 rounded-lg bg-slate-950/70 border border-cyan-400/30 text-xs font-mono text-white focus:outline-none"
+                                  className="flex-1 h-7 px-2 rounded-lg bg-slate-950/70 border border-purple-500/30 text-xs font-mono text-white focus:outline-none"
                                 />
                                 <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} className="h-7 px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-bold hover:bg-emerald-500/20">
                                   Save
@@ -1010,13 +1010,13 @@ export default function ProjectsTab() {
                           placeholder="yourdomain.com or www.yourdomain.com"
                           value={customDomain}
                           onChange={(e) => { setCustomDomain(e.target.value); setDomainError(''); }}
-                          className="w-full h-10 px-3 pr-10 rounded-xl glass-input text-xs text-white placeholder-slate-600 border border-white/10 focus:border-cyan-400/50 focus:outline-none transition-colors"
+                          className="w-full h-10 px-3 pr-10 rounded-xl glass-input text-xs text-white placeholder-slate-600 border border-white/10 focus:border-purple-500/50 focus:outline-none transition-colors"
                         />
                         {customDomain && getDomainType(customDomain) && (
                           <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold px-1.5 py-0.5 rounded ${
                             getDomainType(customDomain) === 'apex' ? 'bg-amber-500/20 text-amber-400' :
                             getDomainType(customDomain) === 'www' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-indigo-500/20 text-indigo-400'
+                            'bg-purple-600/20 text-violet-400'
                           }`}>
                             {getDomainType(customDomain) === 'apex' ? 'ROOT' : getDomainType(customDomain) === 'www' ? 'WWW' : 'SUB'}
                           </span>
@@ -1025,7 +1025,7 @@ export default function ProjectsTab() {
                       <button
                         type="submit"
                         disabled={domainAdding || !customDomain.trim()}
-                        className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                        className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
                       >
                         {domainAdding ? (
                           <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Adding...</>
@@ -1054,7 +1054,7 @@ export default function ProjectsTab() {
                               — {dtype === 'apex' ? 'Add an A record for the root domain' : dtype === 'www' ? 'Add a CNAME for the www subdomain' : 'Add a CNAME for this subdomain'}
                             </span>
                           )}
-                          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[9px] text-indigo-400 hover:underline font-bold flex items-center gap-1">
+                          <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="ml-auto text-[9px] text-violet-400 hover:underline font-bold flex items-center gap-1">
                             Cloudflare →
                           </a>
                         </div>
@@ -1093,14 +1093,14 @@ export default function ProjectsTab() {
 
                         {/* CNAME Record - shown for www/subdomain or when no input */}
                         {showCname && (
-                          <div className="rounded-xl border border-indigo-500/10 overflow-hidden bg-black/20">
-                            <div className="px-3 py-1.5 bg-indigo-500/5 border-b border-indigo-500/10 flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-indigo-400">CNAME Record</span>
+                          <div className="rounded-xl border border-purple-600/10 overflow-hidden bg-black/20">
+                            <div className="px-3 py-1.5 bg-purple-500/5 border-b border-purple-600/10 flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-violet-400">CNAME Record</span>
                               <span className="text-[9px] text-zinc-500">Subdomain ({dtype === 'www' ? cleanHost : dtype === 'subdomain' ? cleanHost : 'www.yourdomain.com'})</span>
                             </div>
                             <div className="grid grid-cols-3 divide-x divide-white/5 font-mono text-[9px]">
                               {[
-                                { label: 'Type', val: 'CNAME', color: 'text-indigo-400', key: 'type-c' },
+                                { label: 'Type', val: 'CNAME', color: 'text-violet-400', key: 'type-c' },
                                 { label: 'Name', val: nameLabel, color: 'text-white', key: 'name-c' },
                                 { label: 'Target', val: 'cloud.khawarahemad.com', color: 'text-emerald-400', key: 'target' },
                               ].map(f => (
@@ -1151,12 +1151,12 @@ export default function ProjectsTab() {
                                 href={`https://${dom.hostname}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs font-bold text-white hover:text-indigo-400 transition-colors truncate"
+                                className="text-xs font-bold text-white hover:text-violet-400 transition-colors truncate"
                               >
                                 {dom.hostname}
                               </a>
                               {isSystem && (
-                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold flex-shrink-0">FREE</span>
+                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-purple-500/10 text-violet-400 font-bold flex-shrink-0">FREE</span>
                               )}
                               {dom.isCustom && (
                                 <span className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-700/50 text-zinc-400 font-bold flex-shrink-0">CUSTOM</span>
@@ -1332,7 +1332,7 @@ export default function ProjectsTab() {
                       <button
                         type="submit"
                         disabled={settingsSaving}
-                        className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-md shadow-indigo-500/10 disabled:bg-zinc-700 disabled:text-zinc-400"
+                        className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-md shadow-indigo-500/10 disabled:bg-zinc-700 disabled:text-zinc-400"
                       >
                         {settingsSaving ? (
                           <>
@@ -1358,7 +1358,7 @@ export default function ProjectsTab() {
                       <ol className="list-decimal list-inside text-[9px] text-zinc-400 space-y-1.5 leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5 font-medium">
                         <li>Go to your repository settings on GitHub.</li>
                         <li>Select <strong>Webhooks</strong> in the sidebar, and click <strong>Add webhook</strong>.</li>
-                        <li>Set <strong>Payload URL</strong> to: <code className="text-indigo-400 select-all font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded">https://api.khawarahemad.com/api/github/webhook</code></li>
+                        <li>Set <strong>Payload URL</strong> to: <code className="text-violet-400 select-all font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded">https://api.khawarahemad.com/api/github/webhook</code></li>
                         <li>Set <strong>Content type</strong> to: <code className="text-zinc-300 font-mono">application/json</code></li>
                         <li>Select <strong>Just the push event</strong> and click <strong>Add webhook</strong>.</li>
                       </ol>
@@ -1417,7 +1417,7 @@ export default function ProjectsTab() {
                   <div className="font-mono text-[10px] bg-black/50 border border-white/5 rounded-xl overflow-hidden flex flex-col h-[350px]">
                     <div className="flex-1 p-4 overflow-y-auto space-y-1.5 select-text">
                       {terminalHistory.map((line, idx) => (
-                        <div key={idx} className={line.startsWith('$') ? 'text-indigo-400 font-bold' : line.startsWith('Error') ? 'text-red-400' : 'text-zinc-300 whitespace-pre-wrap'}>
+                        <div key={idx} className={line.startsWith('$') ? 'text-violet-400 font-bold' : line.startsWith('Error') ? 'text-red-400' : 'text-zinc-300 whitespace-pre-wrap'}>
                           {line}
                         </div>
                       ))}
@@ -1430,7 +1430,7 @@ export default function ProjectsTab() {
                     </div>
                     
                     <form onSubmit={handleTerminalSubmit} className="flex border-t border-white/5 bg-black/20 p-2.5">
-                      <span className="text-indigo-400 font-bold self-center mr-2 shrink-0 select-none">$</span>
+                      <span className="text-violet-400 font-bold self-center mr-2 shrink-0 select-none">$</span>
                       <input
                         type="text"
                         value={terminalInput}
@@ -1451,14 +1451,14 @@ export default function ProjectsTab() {
       {/* New Project Wizard Modal */}
       {wizardOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="glass p-6 rounded-2xl max-w-lg w-full border border-white/10 shadow-2xl">
+          <div style={{ backgroundColor: "#111318", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" }} className="p-6 rounded-2xl max-w-lg w-full border border-white/10 shadow-2xl">
             <h3 className="text-base font-bold mb-1">Deploy New Web Application</h3>
             
             {/* Step indicators */}
             <div className="flex gap-2 my-4">
               {[1, 2, 3].map(step => (
                 <div key={step} className={`h-1.5 rounded-full flex-1 transition-all ${
-                  wizardStep >= step ? 'bg-indigo-500' : 'bg-white/10'
+                  wizardStep >= step ? 'bg-purple-600' : 'bg-white/10'
                 }`} />
               ))}
             </div>
@@ -1489,7 +1489,7 @@ export default function ProjectsTab() {
                         <button
                           type="button"
                           onClick={handleConnectGithub}
-                          className="h-9 px-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 duration-100 flex items-center gap-2"
+                          className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md active:scale-95 duration-100 flex items-center gap-2"
                         >
                           <Github size={14} />
                           Connect GitHub
@@ -1504,7 +1504,7 @@ export default function ProjectsTab() {
                           <button
                             type="button"
                             onClick={fetchGithubRepos}
-                            className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                            className="text-[10px] text-violet-400 hover:underline flex items-center gap-1 font-semibold"
                           >
                             <RefreshCw size={10} className={githubLoading ? 'animate-spin' : ''} />
                             Refresh
@@ -1519,7 +1519,7 @@ export default function ProjectsTab() {
                         />
                         {githubLoading ? (
                           <div className="h-32 flex flex-col items-center justify-center text-zinc-500 text-xs">
-                            <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mb-2" />
+                            <Loader2 className="w-6 h-6 animate-spin text-violet-500 mb-2" />
                             Loading repositories...
                           </div>
                         ) : githubRepos.length === 0 ? (
@@ -1546,7 +1546,7 @@ export default function ProjectsTab() {
                                   }}
                                   className={`h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between text-left transition-all ${
                                     selectedRepo === repo.fullName
-                                      ? 'border-indigo-500 bg-indigo-500/5 text-indigo-400 font-bold'
+                                      ? 'border-purple-600 bg-purple-500/5 text-violet-400 font-bold'
                                       : 'border-white/5 bg-white/[0.01] text-zinc-400 hover:text-white hover:border-white/10'
                                   }`}
                                 >
@@ -1628,7 +1628,7 @@ export default function ProjectsTab() {
                       >
                         {detectingProject ? (
                           <>
-                            <Loader2 size={10} className="animate-spin text-indigo-500" />
+                            <Loader2 size={10} className="animate-spin text-violet-500" />
                             Scanning...
                           </>
                         ) : 'Detect Config'}
@@ -1711,7 +1711,7 @@ export default function ProjectsTab() {
                       <div className="max-h-28 overflow-y-auto border border-white/5 rounded-xl p-3 bg-white/[0.01] space-y-1.5 pr-1">
                         {parsedEnvVars.map((ev, idx) => (
                           <div key={idx} className="flex items-center justify-between text-[10px] bg-white/5 px-2.5 py-1 rounded-lg">
-                            <span className="font-mono text-indigo-400 font-bold">{ev.key}</span>
+                            <span className="font-mono text-violet-400 font-bold">{ev.key}</span>
                             <span className="font-mono text-zinc-400 truncate max-w-[200px]">{ev.value}</span>
                           </div>
                         ))}
@@ -1729,7 +1729,7 @@ export default function ProjectsTab() {
                     </button>
                     <button
                       type="submit"
-                      className="h-9 px-5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs active:scale-95 shadow-lg shadow-indigo-500/10"
+                      className="h-9 px-5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs active:scale-95 shadow-lg shadow-indigo-500/10"
                     >
                       Deploy Container
                     </button>
@@ -1744,13 +1744,13 @@ export default function ProjectsTab() {
       {/* Deployment Logs Console Modal */}
       {logsOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="glass rounded-2xl max-w-3xl w-full h-[500px] border border-white/10 shadow-2xl flex flex-col overflow-hidden">
+          <div style={{ backgroundColor: "#111318", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" }} className="rounded-2xl max-w-3xl w-full h-[500px] border border-white/10 shadow-2xl flex flex-col overflow-hidden">
             <div className="h-14 border-b border-white/5 px-6 flex items-center justify-between shrink-0 bg-black/40">
               <div className="flex items-center gap-2">
-                <Terminal size={16} className="text-indigo-400" />
+                <Terminal size={16} className="text-violet-400" />
                 <h3 className="text-xs font-bold font-mono">Deployment Console Logs</h3>
                 <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
-                  logStatus === 'READY' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-indigo-500/10 text-indigo-400'
+                  logStatus === 'READY' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-purple-500/10 text-violet-400'
                 }`}>
                   {logStatus || 'BUILDING'}
                 </span>
@@ -1772,7 +1772,7 @@ export default function ProjectsTab() {
       {/* Delete Project Confirmation Modal */}
       {deleteConfirmOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="glass p-6 rounded-2xl max-w-md w-full border border-white/10 shadow-2xl space-y-4 text-left">
+          <div style={{ backgroundColor: "#111318", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" }} className="p-6 rounded-2xl max-w-md w-full border border-white/10 shadow-2xl space-y-4 text-left">
             <h3 className="text-sm font-bold text-red-400">Delete Project</h3>
             <p className="text-[11px] text-zinc-400 leading-relaxed">
               This action **cannot be undone**. This will permanently delete the project **{projectDetails?.name}**, all associated deployments, database logs, and stop the running Docker container on the host VPS.

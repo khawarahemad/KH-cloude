@@ -147,15 +147,16 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
 
         {/* Logo + Title */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{
-            width: '40px', height: '40px', borderRadius: '11px',
-            background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px',
-            boxShadow: '0 4px 16px rgba(124,58,237,0.4)',
-          }}>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff', letterSpacing: '0.04em' }}>KH</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="KH Cloud"
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '11px',
+              margin: '0 auto 16px',
+            }}
+          />
           <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.025em', color: '#f1f3f6', marginBottom: '6px' }}>
             {isRegister ? 'Create your account' : 'Welcome back'}
           </h1>
