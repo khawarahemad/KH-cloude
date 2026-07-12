@@ -7,6 +7,7 @@ import { ProjectsService } from './projects/projects.service';
 import { DatabasesService } from './databases/databases.service';
 import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
+import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { WebhookController } from './webhook.controller';
 
 @Module({
@@ -19,6 +20,7 @@ import { WebhookController } from './webhook.controller';
     DatabasesService,
     TeamsService,
     BillingService,
+    EdgeFunctionsService,
   ],
 })
 export class AppModule {}

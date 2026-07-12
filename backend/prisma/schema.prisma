@@ -87,6 +87,7 @@ model Team {
   auditLogs          AuditLog[]
   billingSubscription BillingSubscription?
   usageMetrics       UsageMetric[]
+  edgeFunctions      EdgeFunction[]
 }
 
 enum TeamRole {
@@ -326,4 +327,22 @@ model UsageMetric {
   type      MetricType
   quantity  BigInt
   timestamp DateTime   @default(now())
+}
+
+// --- Edge Functions ---
+
+model EdgeFunction {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  code        String   @default("// Edge Function\n// Available globals: fetch, console, env, storage\n\nexport default async function handler(req) {\n  return { status: 200, body: { message: 'Hello from KH Cloud Edge!' } };\n}")
+  envVars     String   @default("{}")
+  lastInvokedAt DateTime?
+  invokeCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([teamId, slug])
 }

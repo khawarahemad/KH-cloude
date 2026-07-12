@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { 
-  HardDrive, Plus, Folder, File, ArrowLeft, Loader2, Upload, Trash, 
-  Copy, Check, Eye, EyeOff, Download, Code, Sparkles, BookOpen, Zap, Link, Calendar
+  HardDrive, Plus, Folder, File as FileIcon, ArrowLeft, Loader2, Upload, Trash, 
+  Copy, Check, Eye, EyeOff, Download, Code, Sparkles, BookOpen, Zap, Link, Calendar, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -186,7 +186,7 @@ export default function StorageTab() {
     try {
       const folderKey = currentPrefix ? `${currentPrefix}${newFolderName}/` : `${newFolderName}/`;
       const blob = new Blob([''], { type: 'application/x-directory' });
-      const file = new File([blob], '.placeholder');
+      const file = new (globalThis.File || Blob)([blob], '.placeholder') as globalThis.File;
       const formData = new FormData();
       formData.append('file', file);
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, BadRequestException, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, BadRequestException, Headers } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import { PrismaService } from './prisma/prisma.service';
@@ -7,6 +7,7 @@ import { ProjectsService } from './projects/projects.service';
 import { DatabasesService } from './databases/databases.service';
 import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
+import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { TeamRole, DatabaseType } from '@prisma/client';
 
 import * as crypto from 'crypto';
@@ -24,6 +25,7 @@ export class AppController {
     private databases: DatabasesService,
     private teams: TeamsService,
     private billing: BillingService,
+    private edgeFunctions: EdgeFunctionsService,
   ) {}
 
   // --- AUTH ENDPOINTS ---
@@ -905,6 +907,100 @@ export class AppController {
     });
 
     return sub;
+  }
+
+  // --- TABLE EDITOR ENDPOINTS ---
+
+  @Get('databases/:id/schema/:table')
+  async getTableSchema(
+    @Param('id') id: string,
+    @Param('table') table: string,
+    @Query('teamId') teamId: string
+  ) {
+    return this.databases.getTableSchema(id, teamId, table);
+  }
+
+  @Get('databases/:id/rows/:table')
+  async getTableRows(
+    @Param('id') id: string,
+    @Param('table') table: string,
+    @Query('teamId') teamId: string,
+    @Query('page') page: string,
+    @Query('pageSize') pageSize: string,
+    @Query('filter') filter: string,
+  ) {
+    return this.databases.getTableRows(
+      id, teamId, table,
+      parseInt(page || '1'),
+      parseInt(pageSize || '50'),
+      filter || ''
+    );
+  }
+
+  @Post('databases/:id/rows/:table')
+  async insertRow(
+    @Param('id') id: string,
+    @Param('table') table: string,
+    @Body() body: { teamId: string; data: Record<string, any> }
+  ) {
+    return this.databases.insertRow(id, body.teamId, table, body.data);
+  }
+
+  @Put('databases/:id/rows/:table/:pk')
+  async updateRow(
+    @Param('id') id: string,
+    @Param('table') table: string,
+    @Param('pk') pk: string,
+    @Body() body: { teamId: string; pkValue: any; data: Record<string, any> }
+  ) {
+    return this.databases.updateRow(id, body.teamId, table, pk, body.pkValue, body.data);
+  }
+
+  @Delete('databases/:id/rows/:table/:pk')
+  async deleteRow(
+    @Param('id') id: string,
+    @Param('table') table: string,
+    @Param('pk') pk: string,
+    @Query('teamId') teamId: string,
+    @Query('pkValue') pkValue: string,
+  ) {
+    return this.databases.deleteRow(id, teamId, table, pk, pkValue);
+  }
+
+  // --- EDGE FUNCTIONS ENDPOINTS ---
+
+  @Get('edge-functions')
+  async getEdgeFunctions(@Query('teamId') teamId: string) {
+    return this.edgeFunctions.getFunctions(teamId);
+  }
+
+  @Post('edge-functions')
+  async createEdgeFunction(@Body() body: { name: string; teamId: string }) {
+    return this.edgeFunctions.createFunction(body);
+  }
+
+  @Put('edge-functions/:id')
+  async updateEdgeFunction(
+    @Param('id') id: string,
+    @Body() body: { teamId: string; code?: string; envVars?: string; name?: string }
+  ) {
+    return this.edgeFunctions.updateFunction(id, body.teamId, body);
+  }
+
+  @Delete('edge-functions/:id')
+  async deleteEdgeFunction(
+    @Param('id') id: string,
+    @Query('teamId') teamId: string
+  ) {
+    return this.edgeFunctions.deleteFunction(id, teamId);
+  }
+
+  @Post('edge-functions/:id/invoke')
+  async invokeEdgeFunction(
+    @Param('id') id: string,
+    @Body() body: { teamId: string; method?: string; path?: string; query?: any; body?: any; headers?: any }
+  ) {
+    return this.edgeFunctions.invokeFunction(id, body.teamId, body);
   }
 }
 

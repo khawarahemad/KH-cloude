@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAppStore } from '@/lib/store';
-import { Layers, Database, HardDrive, Shield, CreditCard, Settings } from 'lucide-react';
+import { Layers, Database, HardDrive, Shield, CreditCard, Settings, Zap } from 'lucide-react';
 
 export default function Sidebar() {
   const { activeTab, setActiveTab, user } = useAppStore();
@@ -10,6 +10,7 @@ export default function Sidebar() {
   const navigation = [
     { id: 'projects', label: 'Projects', icon: Layers },
     { id: 'databases', label: 'Databases', icon: Database },
+    { id: 'edge-functions', label: 'Edge Functions', icon: Zap },
     { id: 'storage', label: 'Object Storage', icon: HardDrive },
     { id: 'teams', label: 'Team settings', icon: Shield },
     { id: 'billing', label: 'Billing & usage', icon: CreditCard },

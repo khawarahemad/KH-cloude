@@ -12,6 +12,7 @@ import StorageTab from '@/components/StorageTab';
 import TeamsTab from '@/components/TeamsTab';
 import BillingTab from '@/components/BillingTab';
 import AdminTab from '@/components/AdminTab';
+import EdgeFunctionsTab from '@/components/EdgeFunctionsTab';
 import { apiRequest } from '@/lib/api';
 import { Shield } from 'lucide-react';
 
@@ -97,6 +98,8 @@ export default function Home() {
         return <ProjectsTab />;
       case 'databases':
         return <DatabasesTab />;
+      case 'edge-functions':
+        return <EdgeFunctionsTab />;
       case 'storage':
         return <StorageTab />;
       case 'teams':
