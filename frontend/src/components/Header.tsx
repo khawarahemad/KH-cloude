@@ -30,6 +30,7 @@ export default function Header() {
   };
 
   const handleLogout = () => {
+    localStorage.setItem('logout_initiated', 'true');
     localStorage.removeItem('kh-cloud-session');
     logout();
     if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {

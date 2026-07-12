@@ -523,7 +523,7 @@ export default function DatabasesTab() {
                                         <input
                                           value={editingRowData[col] ?? ''}
                                           onChange={(e) => setEditingRowData(p => ({ ...p, [col]: e.target.value }))}
-                                          className="w-full min-w-20 h-6 px-2 rounded border border-purple-500/30 bg-slate-950/60 text-[10px] font-mono text-slate-200 outline-0 focus:border-cyan-300"
+                                          className="w-full min-w-20 h-6 px-2 rounded border border-purple-500/30 bg-slate-950/60 text-[10px] font-mono text-slate-200 outline-0 focus:border-purple-400"
                                         />
                                       ) : (
                                         <span className={`px-2 font-mono text-[10px] block truncate ${
@@ -680,7 +680,7 @@ export default function DatabasesTab() {
                   {/* A. Query inside Edge Functions */}
                   <div className="space-y-3">
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Option 1: Query inside Edge Functions</span>
-                    <div className="bg-slate-950/60 border border-cyan-500/10 rounded-2xl p-5 space-y-3">
+                    <div className="bg-slate-950/60 border border-purple-500/10 rounded-2xl p-5 space-y-3">
                       <p className="text-xs text-slate-400">
                         Edge functions receive a pre-authorized <code className="bg-white/5 px-1 rounded text-white font-mono">db</code> client. No credentials required:
                       </p>
@@ -925,7 +925,7 @@ print("Query Data:", data)`}
                       onClick={() => setDbType(type)}
                       className={`h-12 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-1 transition-all ${
                         dbType === type
-                          ? 'border-cyan-400 bg-purple-600/5 text-violet-300'
+                          ? 'border-purple-500 bg-purple-600/5 text-violet-300'
                           : 'border-white/10 bg-white/[0.01] text-slate-400 hover:text-white hover:border-white/20'
                       }`}
                     >

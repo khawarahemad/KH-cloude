@@ -82,7 +82,13 @@ export default function Home() {
           }
         } else {
           const currentOrigin = window.location.origin;
-          window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+          const isLoggingOut = localStorage.getItem('logout_initiated') === 'true';
+          localStorage.removeItem('logout_initiated');
+          if (isLoggingOut) {
+            window.location.href = `https://auth.khawarahemad.com?logout=true&redirect=${encodeURIComponent(currentOrigin)}`;
+          } else {
+            window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+          }
         }
       }
     } else {
@@ -140,6 +146,8 @@ export default function Home() {
           </div>
           <button
             onClick={() => {
+              localStorage.setItem('logout_initiated', 'true');
+              localStorage.removeItem('kh-cloud-session');
               useAppStore.getState().logout();
               if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
                 window.location.href = 'https://auth.khawarahemad.com?logout=true';

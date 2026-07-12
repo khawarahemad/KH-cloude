@@ -625,7 +625,7 @@ export default function AdminTab() {
                     </div>
                     <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
+                        className="h-full bg-gradient-to-r from-purple-600 to-violet-500 transition-all duration-500"
                         style={{ width: `${storageData.disk.percentUsed}%` }}
                       />
                     </div>

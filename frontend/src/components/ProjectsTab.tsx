@@ -708,20 +708,24 @@ export default function ProjectsTab() {
             </div>
 
             {/* Content selector tabs */}
-            <div className="flex flex-wrap gap-2 border-b border-white/10 text-xs font-semibold">
-              {(['deployments', 'env', 'domains', 'metrics', 'console', 'terminal', 'settings'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setDetailsTab(tab)}
-                  className={`rounded-full px-4 py-2 capitalize transition-all ${
-                    detailsTab === tab
-                      ? 'bg-purple-500/10 text-violet-100 ring-1 ring-purple-500/20'
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  {tab === 'env' ? 'Environment Variables' : tab === 'console' ? 'Runtime Logs' : tab === 'terminal' ? 'Interactive Terminal' : tab}
-                </button>
-              ))}
+            <div className="flex gap-6 border-b border-white/5 pb-px mb-6 overflow-x-auto scrollbar-none">
+              {(['deployments', 'env', 'domains', 'metrics', 'console', 'terminal', 'settings'] as const).map(tab => {
+                const isActive = detailsTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setDetailsTab(tab)}
+                    className={`relative pb-3 text-xs font-medium transition-all focus:outline-none whitespace-nowrap ${
+                      isActive ? 'text-violet-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    {tab === 'env' ? 'Variables' : tab === 'console' ? 'Logs' : tab === 'terminal' ? 'Terminal' : tab === 'deployments' ? 'Deployments' : tab === 'domains' ? 'Domains' : tab === 'metrics' ? 'Metrics' : 'Settings'}
+                    {isActive && (
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-purple-500 rounded-full" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* TAB CONTENTS */}
@@ -1025,7 +1029,7 @@ export default function ProjectsTab() {
                       <button
                         type="submit"
                         disabled={domainAdding || !customDomain.trim()}
-                        className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                        className="h-10 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
                       >
                         {domainAdding ? (
                           <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Adding...</>
@@ -1332,7 +1336,7 @@ export default function ProjectsTab() {
                       <button
                         type="submit"
                         disabled={settingsSaving}
-                        className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-md shadow-indigo-500/10 disabled:bg-zinc-700 disabled:text-zinc-400"
+                        className="h-9 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-md shadow-purple-500/10 disabled:bg-zinc-700 disabled:text-zinc-400"
                       >
                         {settingsSaving ? (
                           <>
@@ -1729,7 +1733,7 @@ export default function ProjectsTab() {
                     </button>
                     <button
                       type="submit"
-                      className="h-9 px-5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs active:scale-95 shadow-lg shadow-indigo-500/10"
+                      className="h-9 px-5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs active:scale-95 shadow-lg shadow-purple-500/10"
                     >
                       Deploy Container
                     </button>
