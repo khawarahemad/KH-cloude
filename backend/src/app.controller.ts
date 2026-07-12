@@ -1087,7 +1087,7 @@ export class AppController {
     }
 
     try {
-      const pruneBuilder = execSync('docker builder prune -f', { timeout: 30000, encoding: 'utf8' });
+      const pruneBuilder = execSync('docker builder prune -af', { timeout: 30000, encoding: 'utf8' });
       output += `--- DOCKER BUILDER PRUNE ---\n${pruneBuilder}\n`;
     } catch (e: any) {
       output += `--- DOCKER BUILDER PRUNE ERROR ---\n${e.message}\n`;
