@@ -111,7 +111,7 @@ export default function TeamsTab() {
           <h1 className="rw-page-title">Team Settings</h1>
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
             Manage members, roles, API keys, and audit logs for{' '}
-            <span style={{ color: '#9ba3af', fontWeight: 500 }}>{activeTeam?.name}</span>.
+            <strong style={{ color: '#9ba3af' }}>{activeTeam?.name}</strong>.
           </p>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function TeamsTab() {
             <span style={{ fontSize: '13px' }}>Loading team data...</span>
           </div>
         ) : (
-          <div style={{ maxWidth: '900px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px', alignItems: 'start' }}>
+          <div style={{ maxWidth: '960px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px', alignItems: 'start' }}>
 
             {/* Left column */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -144,15 +144,15 @@ export default function TeamsTab() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{
                           width: '32px', height: '32px', borderRadius: '8px',
-                          backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.08)',
+                          backgroundColor: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.15)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '12px', fontWeight: 600, color: '#9ba3af',
+                          fontSize: '12px', fontWeight: 600, color: '#c4b5fd',
                         }}>
                           {member.user?.name?.substring(0, 2)?.toUpperCase()}
                         </div>
                         <div>
                           <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{member.user?.name}</div>
-                          <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '1px' }}>{member.user?.email}</div>
+                          <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>{member.user?.email}</div>
                         </div>
                       </div>
                       <RoleBadge role={member.role} />
@@ -194,23 +194,12 @@ export default function TeamsTab() {
                           <button
                             onClick={() => handleCancelInvite(invite.id)}
                             style={{
-                              width: '26px', height: '26px', borderRadius: '6px',
-                              backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.07)',
+                              width: '24px', height: '24px', borderRadius: '6px',
+                              backgroundColor: 'transparent', border: 'none',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               color: '#6b7280', cursor: 'pointer', transition: 'all 0.12s', fontSize: '13px',
                             }}
-                            onMouseEnter={e => {
-                              const el = e.currentTarget as HTMLElement;
-                              el.style.backgroundColor = 'rgba(239,68,68,0.1)';
-                              el.style.borderColor = 'rgba(239,68,68,0.25)';
-                              el.style.color = '#ef4444';
-                            }}
-                            onMouseLeave={e => {
-                              const el = e.currentTarget as HTMLElement;
-                              el.style.backgroundColor = 'transparent';
-                              el.style.borderColor = 'rgba(255,255,255,0.07)';
-                              el.style.color = '#6b7280';
-                            }}
+                            className="hover:bg-red-500/10 hover:text-red-400"
                           >
                             ✕
                           </button>
@@ -258,7 +247,7 @@ export default function TeamsTab() {
                             onClick={() => handleCopyText(keyObj.key, keyObj.id)}
                             style={{ width: '24px', height: '24px', borderRadius: '5px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: copiedId === keyObj.id ? '#22c55e' : '#6b7280' }}
                           >
-                            {copiedId === keyObj.id ? <Check size={12} /> : <Copy size={12} />}
+                            {copiedId === keyObj.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                           </button>
                         </div>
                       </div>
@@ -285,7 +274,7 @@ export default function TeamsTab() {
                         borderBottom: i < auditLogs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <code style={{ fontSize: '11px', fontFamily: 'monospace', color: '#c4b5fd', fontWeight: 500 }}>{log.action}</code>
+                          <code style={{ fontSize: '11px', fontFamily: 'monospace', color: '#c4b5fd', fontWeight: 600 }}>{log.action}</code>
                           <span style={{ fontSize: '10px', color: '#4b5563' }}>{new Date(log.createdAt).toLocaleString()}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#6b7280' }}>
@@ -304,38 +293,37 @@ export default function TeamsTab() {
             <div style={{
               backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
               borderRadius: '12px', padding: '18px',
-              position: 'sticky', top: '24px',
+              position: 'sticky', top: '24px', display: 'flex', flexDirection: 'column', gap: '14px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{
                   width: '28px', height: '28px', borderRadius: '7px',
                   backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <UserPlus size={13} style={{ color: '#a78bfa' }} />
+                  <UserPlus size={14} style={{ color: '#a78bfa' }} />
                 </div>
                 <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>Invite member</span>
               </div>
 
               <form onSubmit={handleSendInvite} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                  <label className="rw-label">Email address</label>
+                  <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', display: 'block', marginBottom: '6px' }}>Email Address</label>
                   <input
                     type="email"
                     required
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="dev@company.com"
-                    className="rw-input"
+                    style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div>
-                  <label className="rw-label">Role</label>
+                  <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', display: 'block', marginBottom: '6px' }}>Role</label>
                   <select
                     value={inviteRole}
                     onChange={(e: any) => setInviteRole(e.target.value)}
-                    className="rw-input"
-                    style={{ cursor: 'pointer', backgroundColor: '#181b22' }}
+                    style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
                   >
                     <option value="DEVELOPER">Developer</option>
                     <option value="ADMIN">Administrator</option>
@@ -347,19 +335,18 @@ export default function TeamsTab() {
                   disabled={inviting}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-                    height: '36px', borderRadius: '8px',
-                    backgroundColor: '#7c3aed', border: '1px solid rgba(124,58,237,0.5)',
-                    color: '#fff', fontSize: '13px', fontWeight: 500,
+                    height: '34px', borderRadius: '7px',
+                    backgroundColor: '#7c3aed', border: 'none',
+                    color: '#fff', fontSize: '12px', fontWeight: 600,
                     cursor: inviting ? 'not-allowed' : 'pointer', opacity: inviting ? 0.7 : 1,
-                    transition: 'all 0.15s',
                   }}
                 >
-                  {inviting ? <><Loader2 size={12} className="animate-spin" /> Sending...</> : <><Plus size={12} /> Send invite</>}
+                  {inviting ? <><Loader2 size={12} className="animate-spin" /> Inviting...</> : <><Plus size={12} /> Send Invitation</>}
                 </button>
               </form>
 
-              <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#0e1015', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 500, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+              <div style={{ padding: '12px', backgroundColor: '#0e1015', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '9px', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   Role permissions
                 </div>
                 {[
@@ -367,9 +354,9 @@ export default function TeamsTab() {
                   { role: 'Admin', desc: 'Full workspace access' },
                   { role: 'Viewer', desc: 'Read-only access' },
                 ].map(({ role, desc }) => (
-                  <div key={role} style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
-                    <Shield size={10} style={{ color: '#6b7280' }} />
-                    <span style={{ fontSize: '11px', color: '#6b7280' }}><span style={{ color: '#9ba3af', fontWeight: 500 }}>{role}</span> — {desc}</span>
+                  <div key={role} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                    <Shield size={10} style={{ color: '#6b7280', marginTop: '2px', flexShrink: 0 }} />
+                    <span style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.4 }}><strong style={{ color: '#9ba3af', fontWeight: 600 }}>{role}</strong> — {desc}</span>
                   </div>
                 ))}
               </div>

@@ -243,34 +243,35 @@ export default function StorageTab() {
     <div className="rw-page">
       {/* Header */}
       <div className="rw-page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {activeBucket && (
             <button
               onClick={() => { setActiveBucket(null); setCurrentPrefix(''); }}
               style={{
-                width: '30px', height: '30px', borderRadius: '7px',
-                backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)',
+                width: '32px', height: '32px', borderRadius: '8px',
+                backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#9ba3af', cursor: 'pointer',
+                color: '#9ba3af', cursor: 'pointer', transition: 'all 0.12s',
               }}
-            ><ArrowLeft size={13} /></button>
+              className="hover:bg-white/5 hover:text-white"
+            ><ArrowLeft size={14} /></button>
           )}
           <div>
             <h1 className="rw-page-title">{activeBucket ? activeBucket.name : 'Object Storage'}</h1>
             <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
-              {activeBucket ? `S3-compatible bucket · ${activeBucket.isPublic ? 'Public' : 'Private'}` : 'Managed S3-compatible storage buckets'}
+              {activeBucket ? `S3 Bucket · ${activeBucket.isPublic ? 'Public' : 'Private'}` : 'S3-compatible managed object storage instances.'}
             </p>
           </div>
         </div>
         {!activeBucket && (
-          <button onClick={() => setCreateOpen(true)} className="rw-btn-primary"><Plus size={13} /> Create bucket</button>
+          <button onClick={() => setCreateOpen(true)} className="rw-btn rw-btn-primary"><Plus size={13} /> Create Bucket</button>
         )}
         {activeBucket && (
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={() => setFolderCreateOpen(true)} className="rw-btn-secondary"><Plus size={13} /> New folder</button>
-            <input type="file" multiple ref={fileInputRef} onChange={e => { if (e.target.files) handleUploadFiles(e.target.files); }} className="hidden" style={{ display: 'none' }} />
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rw-btn-primary">
-              <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload'}
+            <button onClick={() => setFolderCreateOpen(true)} className="rw-btn rw-btn-secondary"><Plus size={13} /> New Folder</button>
+            <input type="file" multiple ref={fileInputRef} onChange={e => { if (e.target.files) handleUploadFiles(e.target.files); }} style={{ display: 'none' }} />
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rw-btn rw-btn-primary">
+              <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload File'}
             </button>
           </div>
         )}
@@ -290,51 +291,50 @@ export default function StorageTab() {
               <div className="rw-empty-icon"><HardDrive size={20} style={{ color: '#6b7280' }} /></div>
               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6' }}>No storage buckets</h3>
               <p style={{ fontSize: '13px', color: '#6b7280', maxWidth: '320px' }}>Create S3-compatible object storage buckets for assets, media, and backups.</p>
-              <button onClick={() => setCreateOpen(true)} className="rw-btn-primary rw-btn-lg" style={{ marginTop: '4px' }}><Plus size={14} /> Create first bucket</button>
+              <button onClick={() => setCreateOpen(true)} className="rw-btn rw-btn-primary rw-btn-lg" style={{ marginTop: '4px' }}><Plus size={14} /> Create first bucket</button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', maxWidth: '960px' }}>
               {buckets.map(b => (
-                <div key={b.id} onClick={() => setActiveBucket(b)} className="rw-card-interactive" style={{ padding: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div key={b.id} onClick={() => setActiveBucket(b)} className="rw-card-interactive" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                       <div style={{
                         width: '32px', height: '32px', borderRadius: '8px',
-                        backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.08)',
+                        backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
-                        <HardDrive size={13} style={{ color: '#6b7280' }} />
+                        <HardDrive size={14} style={{ color: '#a78bfa' }} />
                       </div>
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>{b.name}</div>
-                        <div style={{ fontSize: '10px', color: '#4b5563', marginTop: '1px', fontFamily: 'monospace' }}>storage.khawarahemad.com</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</div>
+                        <div style={{ fontSize: '10px', color: '#4b5563', marginTop: '1px', fontFamily: 'monospace' }}>s3.khawarahemad.com</div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                       <span style={{
                         display: 'flex', alignItems: 'center', gap: '4px',
-                        padding: '2px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 500,
+                        padding: '2px 7px', borderRadius: '9999px', fontSize: '9px', fontWeight: 600,
                         backgroundColor: b.isPublic ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.15)',
-                        color: b.isPublic ? '#22c55e' : '#6b7280',
+                        color: b.isPublic ? '#22c55e' : '#8a929e',
                         border: `1px solid ${b.isPublic ? 'rgba(34,197,94,0.2)' : 'rgba(107,114,128,0.2)'}`,
                       }}>
                         {b.isPublic ? <Globe size={9} /> : <Lock size={9} />}
-                        {b.isPublic ? 'Public' : 'Private'}
+                        {b.isPublic ? 'PUBLIC' : 'PRIVATE'}
                       </span>
                       <button
-                        onClick={e => { e.stopPropagation(); handleDeleteBucket(b.id); }}
+                        onClick={() => handleDeleteBucket(b.id)}
                         style={{
-                          width: '24px', height: '24px', borderRadius: '6px',
-                          backgroundColor: 'transparent', border: '1px solid transparent',
+                          width: '26px', height: '26px', borderRadius: '6px',
+                          backgroundColor: 'transparent', border: 'none',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: '#4b5563', cursor: 'pointer', transition: 'all 0.12s',
                         }}
-                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = 'rgba(239,68,68,0.1)'; el.style.borderColor = 'rgba(239,68,68,0.2)'; el.style.color = '#ef4444'; }}
-                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.backgroundColor = 'transparent'; el.style.borderColor = 'transparent'; el.style.color = '#4b5563'; }}
-                      ><Trash size={11} /></button>
+                        className="hover:text-red-400 hover:bg-red-500/10"
+                      ><Trash size={12} /></button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#6b7280' }}>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#6b7280', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                     <span>{formatBytes(b.sizeUsed || 0)} used</span>
                     <span>·</span>
                     <span>{b.fileCount || 0} files</span>
@@ -345,7 +345,7 @@ export default function StorageTab() {
           )
         ) : (
           /* BUCKET EXPLORER */
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px', alignItems: 'start' }}>
             {/* File explorer */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {/* Search + breadcrumbs */}
@@ -357,8 +357,11 @@ export default function StorageTab() {
                     placeholder="Search objects..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="rw-input"
-                    style={{ paddingLeft: '30px' }}
+                    style={{
+                      width: '100%', height: '36px', padding: '0 12px 0 32px', borderRadius: '8px',
+                      backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
+                      color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box'
+                    }}
                   />
                 </div>
               </div>
@@ -366,15 +369,15 @@ export default function StorageTab() {
               {/* Breadcrumbs */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap',
-                padding: '7px 12px', borderRadius: '8px',
+                padding: '8px 14px', borderRadius: '8px',
                 backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
                 fontSize: '12px', fontWeight: 500,
               }}>
-                <button onClick={() => setCurrentPrefix('')} style={{ color: '#9ba3af', background: 'none', border: 'none', cursor: 'pointer', padding: '0' }}>root</button>
+                <button onClick={() => setCurrentPrefix('')} style={{ color: '#9ba3af', background: 'none', border: 'none', cursor: 'pointer', padding: '0', fontWeight: 600 }}>root</button>
                 {getBreadcrumbs().map((bc, idx) => (
                   <React.Fragment key={idx}>
                     <span style={{ color: '#4b5563' }}>/</span>
-                    <button onClick={() => setCurrentPrefix(bc.prefix)} style={{ color: '#a78bfa', background: 'none', border: 'none', cursor: 'pointer', padding: '0' }}>{bc.name}</button>
+                    <button onClick={() => setCurrentPrefix(bc.prefix)} style={{ color: '#a78bfa', background: 'none', border: 'none', cursor: 'pointer', padding: '0', fontWeight: 600 }}>{bc.name}</button>
                   </React.Fragment>
                 ))}
               </div>
@@ -385,9 +388,9 @@ export default function StorageTab() {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files) handleUploadFiles(e.dataTransfer.files); }}
                 style={{
-                  minHeight: '360px', borderRadius: '10px',
+                  minHeight: '360px', borderRadius: '12px',
                   border: dragOver ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.07)',
-                  backgroundColor: dragOver ? 'rgba(124,58,237,0.06)' : '#111318',
+                  backgroundColor: dragOver ? 'rgba(124,58,237,0.04)' : '#111318',
                   overflow: 'hidden', transition: 'all 0.15s',
                 }}
               >
@@ -402,14 +405,20 @@ export default function StorageTab() {
                     <p style={{ fontSize: '11px', marginTop: '4px' }}>or click the Upload button</p>
                   </div>
                 ) : (
-                  <table className="rw-table" style={{ margin: 0 }}>
-                    <thead><tr>
-                      <th>Name</th><th>Size</th><th>Type</th><th>Modified</th><th style={{ textAlign: 'right' }}>Actions</th>
-                    </tr></thead>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <th style={{ padding: '10px 14px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Name</th>
+                        <th style={{ padding: '10px 14px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Size</th>
+                        <th style={{ padding: '10px 14px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Type</th>
+                        <th style={{ padding: '10px 14px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Modified</th>
+                        <th style={{ padding: '10px 14px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563', textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {displayItems.map((item, idx) => (
-                        <tr key={idx}>
-                          <td>
+                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} className="hover:bg-white/[0.01]">
+                          <td style={{ padding: '10px 14px' }}>
                             <button
                               onClick={() => item.isFolder ? setCurrentPrefix(item.key) : handleOpenPreview(item)}
                               style={{
@@ -418,32 +427,33 @@ export default function StorageTab() {
                                 color: '#f1f3f6', fontSize: '13px', fontWeight: 500, padding: '0',
                                 maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}
+                              className="hover:text-violet-400"
                             >
                               {item.isFolder ? <Folder size={14} style={{ color: '#a78bfa', flexShrink: 0 }} /> : <FileIcon size={14} style={{ color: '#6b7280', flexShrink: 0 }} />}
                               {item.name}
                             </button>
                           </td>
-                          <td style={{ fontFamily: 'monospace', fontSize: '11px' }}>{item.isFolder ? '—' : formatBytes(item.size)}</td>
-                          <td>
+                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: '11px', color: '#8a929e' }}>{item.isFolder ? '—' : formatBytes(item.size)}</td>
+                          <td style={{ padding: '10px 14px' }}>
                             <span style={{
-                              padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 500,
-                              backgroundColor: item.isFolder ? 'rgba(124,58,237,0.1)' : '#181b22',
-                              color: item.isFolder ? '#a78bfa' : '#6b7280',
+                              padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600,
+                              backgroundColor: item.isFolder ? 'rgba(124,58,237,0.1)' : 'rgba(255,255,255,0.05)',
+                              color: item.isFolder ? '#a78bfa' : '#8a929e',
                               textTransform: 'uppercase', letterSpacing: '0.04em',
                             }}>{item.isFolder ? 'dir' : (item.contentType?.split('/')[1] || 'file')}</span>
                           </td>
-                          <td style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: '11px', color: '#6b7280' }}>
                             {!item.isFolder && item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : '—'}
                           </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                          <td style={{ padding: '10px 14px' }}>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                               {!item.isFolder && (
                                 <>
-                                  <button onClick={() => handleOpenPreview(item)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }} title="Preview"><Eye size={12} /></button>
-                                  <button onClick={() => handleCopyDirectLink(item)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }} title="Copy URL"><Link size={12} /></button>
+                                  <button onClick={() => handleOpenPreview(item)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }} className="hover:text-white" title="Preview"><Eye size={12} /></button>
+                                  <button onClick={() => handleCopyDirectLink(item)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }} className="hover:text-white" title="Copy URL"><Link size={12} /></button>
                                 </>
                               )}
-                              <button onClick={() => handleDeleteFile(item.key)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563' }} title="Delete"><Trash size={12} /></button>
+                              <button onClick={() => handleDeleteFile(item.key)} style={{ width: '24px', height: '24px', borderRadius: '5px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563' }} className="hover:text-red-400" title="Delete"><Trash size={12} /></button>
                             </div>
                           </td>
                         </tr>
@@ -455,31 +465,31 @@ export default function StorageTab() {
             </div>
 
             {/* Developer panel */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'sticky', top: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '24px' }}>
               {/* S3 Config */}
-              <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '14px', fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>
-                  <Code size={13} style={{ color: '#a78bfa' }} /> S3 Configuration
+              <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>
+                  <Code size={14} style={{ color: '#a78bfa' }} /> S3 Credentials
                 </div>
                 {[
                   { label: 'Endpoint', value: 'https://storage.khawarahemad.com', id: 'endpoint' },
                   { label: 'Access Key', value: `kh_acc_${activeBucket.id.substring(0, 8)}`, id: 'accessKey' },
                 ].map(({ label, value, id }) => (
-                  <div key={id} style={{ marginBottom: '10px' }}>
-                    <div className="rw-label">{label}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '7px', padding: '7px 10px' }}>
-                      <code style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</code>
+                  <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>{label}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <code style={{ flex: 1, fontSize: '11px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</code>
                       <button onClick={() => handleCopy(value, id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedText === id ? '#22c55e' : '#4b5563', display: 'flex' }}>
                         {copiedText === id ? <Check size={11} /> : <Copy size={11} />}
                       </button>
                     </div>
                   </div>
                 ))}
-                <div>
-                  <div className="rw-label">Secret Key</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '7px', padding: '7px 10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Secret Key</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px', padding: '6px 10px' }}>
                     <input type={showSecret ? 'text' : 'password'} readOnly value={`kh_sec_${activeBucket.id.substring(8, 20)}`}
-                      style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', color: '#9ba3af', background: 'none', border: 'none', outline: 'none', minWidth: 0 }} />
+                      style={{ flex: 1, fontSize: '11px', fontFamily: 'monospace', color: '#9ba3af', background: 'none', border: 'none', outline: 'none', minWidth: 0 }} />
                     <button onClick={() => setShowSecret(!showSecret)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', display: 'flex' }}>
                       {showSecret ? <EyeOff size={11} /> : <Eye size={11} />}
                     </button>
@@ -491,36 +501,41 @@ export default function StorageTab() {
               </div>
 
               {/* SDK snippets */}
-              <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6', marginBottom: '10px' }}>SDK Examples</div>
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                  {(['node', 'python', 'go', 'rust'] as const).map(lang => (
-                    <button key={lang} onClick={() => setSdkLanguage(lang)}
-                      style={{
-                        padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', border: 'none',
-                        backgroundColor: sdkLanguage === lang ? 'rgba(124,58,237,0.15)' : 'transparent',
-                        color: sdkLanguage === lang ? '#c4b5fd' : '#6b7280',
-                        textTransform: 'capitalize',
-                      }}>
-                      {lang === 'node' ? 'Node.js' : lang}
-                    </button>
-                  ))}
+              <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>SDK Integration</div>
+                <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  {(['node', 'python', 'go', 'rust'] as const).map(lang => {
+                    const isSelected = sdkLanguage === lang;
+                    return (
+                      <button key={lang} onClick={() => setSdkLanguage(lang)}
+                        style={{
+                          position: 'relative', height: '30px', padding: '0 8px', fontSize: '11px', fontWeight: isSelected ? 600 : 500, cursor: 'pointer', border: 'none', background: 'transparent',
+                          borderBottom: isSelected ? '2px solid #7c3aed' : '2px solid transparent',
+                          color: isSelected ? '#c4b5fd' : '#6b7280',
+                          textTransform: 'capitalize', transition: 'all 0.12s', outline: 'none'
+                        }}>
+                        {lang === 'node' ? 'Node.js' : lang}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div style={{ position: 'relative' }}>
                   <pre style={{
-                    backgroundColor: '#0e1015', borderRadius: '7px', padding: '10px', fontSize: '10px',
-                    fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre', overflow: 'auto',
-                    maxHeight: '200px', margin: 0,
+                    backgroundColor: '#0e1015', borderRadius: '8px', padding: '12px', fontSize: '11px',
+                    fontFamily: '"JetBrains Mono", monospace', color: '#c4b5fd', whiteSpace: 'pre', overflow: 'auto',
+                    maxHeight: '220px', margin: 0, lineHeight: 1.6
                   }}>{getSdkSnippet()}</pre>
                   <button onClick={() => handleCopy(getSdkSnippet(), 'sdk')}
                     style={{
-                      position: 'absolute', top: '6px', right: '6px',
-                      width: '22px', height: '22px', borderRadius: '5px',
-                      backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.07)',
+                      position: 'absolute', top: '8px', right: '8px',
+                      width: '26px', height: '26px', borderRadius: '6px',
+                      backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.08)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: copiedText === 'sdk' ? '#22c55e' : '#6b7280', cursor: 'pointer',
-                    }}>
-                    {copiedText === 'sdk' ? <Check size={10} /> : <Copy size={10} />}
+                    }}
+                    className="hover:text-white"
+                  >
+                    {copiedText === 'sdk' ? <Check size={11} /> : <Copy size={11} />}
                   </button>
                 </div>
               </div>
@@ -531,25 +546,26 @@ export default function StorageTab() {
 
       {/* Create Bucket Modal */}
       {createOpen && (
-        <div className="rw-modal-backdrop">
-          <div className="rw-modal animate-scale-in">
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6', marginBottom: '6px' }}>Create bucket</h3>
-            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Provision S3-compatible object storage.</p>
-            <form onSubmit={handleCreateBucket}>
-              <div style={{ marginBottom: '14px' }}>
-                <label className="rw-label">Bucket name</label>
-                <input type="text" required value={bucketName} onChange={e => setBucketName(e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''))} placeholder="e.g. assets-archive" className="rw-input" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+          <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '24px', maxWidth: '380px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6', marginBottom: '4px' }}>Create Storage Bucket</h3>
+            <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '20px' }}>Provision S3-compatible file storage.</p>
+            <form onSubmit={handleCreateBucket} className="space-y-4">
+              <div>
+                <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', display: 'block', marginBottom: '6px' }}>Bucket Name</label>
+                <input type="text" required value={bucketName} onChange={e => setBucketName(e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''))} placeholder="assets-archive"
+                  style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: '8px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.07)', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '8px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>Public bucket</div>
-                  <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>Allow anonymous HTTP reads</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>Public Bucket</div>
+                  <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>Allow anonymous HTTP file reads</div>
                 </div>
                 <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#7c3aed' }} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button type="button" onClick={() => setCreateOpen(false)} className="rw-btn-secondary">Cancel</button>
-                <button type="submit" className="rw-btn-primary">Create bucket</button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '4px' }}>
+                <button type="button" onClick={() => setCreateOpen(false)} style={{ height: '32px', padding: '0 14px', borderRadius: '7px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#9ba3af', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" style={{ height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Create</button>
               </div>
             </form>
           </div>
@@ -558,19 +574,20 @@ export default function StorageTab() {
 
       {/* Create Folder Modal */}
       {folderCreateOpen && (
-        <div className="rw-modal-backdrop">
-          <div className="rw-modal animate-scale-in">
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6', marginBottom: '6px' }}>Create folder</h3>
-            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>Virtual directory in the current prefix.</p>
-            <form onSubmit={handleCreateFolder}>
-              <div style={{ marginBottom: '20px' }}>
-                <label className="rw-label">Folder name</label>
-                <input type="text" required value={newFolderName} onChange={e => setNewFolderName(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))} placeholder="e.g. photos" className="rw-input" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+          <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '24px', maxWidth: '380px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6', marginBottom: '4px' }}>Create Virtual Folder</h3>
+            <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '20px' }}>Logical subdirectory path.</p>
+            <form onSubmit={handleCreateFolder} className="space-y-4">
+              <div>
+                <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', display: 'block', marginBottom: '6px' }}>Folder Name</label>
+                <input type="text" required value={newFolderName} onChange={e => setNewFolderName(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))} placeholder="e.g. photos"
+                  style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button type="button" onClick={() => setFolderCreateOpen(false)} className="rw-btn-secondary">Cancel</button>
-                <button type="submit" disabled={uploading} className="rw-btn-primary">
-                  {uploading && <Loader2 size={12} className="animate-spin" />} Create folder
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '4px' }}>
+                <button type="button" onClick={() => setFolderCreateOpen(false)} style={{ height: '32px', padding: '0 14px', borderRadius: '7px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#9ba3af', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={uploading} style={{ height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {uploading && <Loader2 size={12} className="animate-spin" />} Create
                 </button>
               </div>
             </form>
@@ -580,32 +597,32 @@ export default function StorageTab() {
 
       {/* File Preview Modal */}
       {previewFile && (
-        <div className="rw-modal-backdrop">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
           <div style={{
-            backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px',
-            width: '100%', maxWidth: '600px', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
+            backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px',
+            width: '100%', maxWidth: '580px', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
           }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden' }}>
-                <FileIcon size={13} style={{ color: '#a78bfa', flexShrink: 0 }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewFile.key}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#f1f3f6', overflow: 'hidden' }}>
+                <FileIcon size={14} style={{ color: '#a78bfa', flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{previewFile.key}</span>
               </div>
-              <button onClick={() => { setPreviewFile(null); setPreviewUrl(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px', lineHeight: 1 }}>✕</button>
+              <button onClick={() => { setPreviewFile(null); setPreviewUrl(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px' }} className="hover:text-white">✕</button>
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '280px', backgroundColor: '#0e1015' }}>
               {previewFile.contentType?.startsWith('image/') ? (
-                <img src={previewUrl} alt={previewFile.key} style={{ maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }} />
+                <img src={previewUrl} alt={previewFile.key} style={{ maxHeight: '360px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px' }} />
               ) : previewFile.contentType?.startsWith('video/') ? (
-                <video src={previewUrl} controls style={{ maxHeight: '400px', width: '100%', borderRadius: '8px' }} />
+                <video src={previewUrl} controls style={{ maxHeight: '360px', width: '100%', borderRadius: '8px' }} />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#6b7280' }}>
                   {previewFile.contentType === 'application/pdf' ? <BookOpen size={40} style={{ opacity: 0.3 }} /> : <FileIcon size={40} style={{ opacity: 0.3 }} />}
-                  <span style={{ fontSize: '13px' }}>{previewFile.contentType}</span>
-                  <a href={previewUrl} download className="rw-btn-primary rw-btn-lg" style={{ textDecoration: 'none' }}><Download size={13} /> Download</a>
+                  <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{previewFile.contentType}</span>
+                  <a href={previewUrl} download style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', color: '#fff', fontSize: '12px', fontWeight: 600 }}><Download size={12} /> Download File</a>
                 </div>
               )}
             </div>

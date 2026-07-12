@@ -776,34 +776,34 @@ export default function ProjectsTab() {
 
               {/* ── Env Variables ── */}
               {detailsTab === 'env' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '760px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Environment Variables</div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Injected at runtime. Redeploy after any changes.</div>
+                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '3px' }}>Environment Variables</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Injected into your app containers at runtime. Redeploy is required to apply updates.</div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => { setEnvBulkMode(!envBulkMode); setEnvBulkText(''); }}
-                        style={{ height: '30px', padding: '0 12px', borderRadius: '7px', border: `1px solid ${envBulkMode ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.1)'}`, backgroundColor: envBulkMode ? 'rgba(124,58,237,0.1)' : 'transparent', color: envBulkMode ? '#c4b5fd' : '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }}>
-                        {envBulkMode ? '✕ Cancel' : '⊞ Bulk Paste'}
+                        style={{ height: '28px', padding: '0 12px', borderRadius: '6px', border: `1px solid ${envBulkMode ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.08)'}`, backgroundColor: envBulkMode ? 'rgba(124,58,237,0.1)' : 'transparent', color: envBulkMode ? '#c4b5fd' : '#9ba3af', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s' }}>
+                        {envBulkMode ? '✕ Cancel' : '⊞ Bulk Import'}
                       </button>
                       {envVars.length > 0 && (
                         <button onClick={() => saveEnvVars(envVars)} disabled={envSaving}
-                          style={{ height: '30px', padding: '0 12px', borderRadius: '7px', backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#22c55e', fontSize: '11px', fontWeight: 600, cursor: 'pointer', opacity: envSaving ? 0.5 : 1 }}>
-                          {envSaving ? 'Saving...' : envSaved ? '✓ Saved' : '↑ Save All'}
+                          style={{ height: '28px', padding: '0 14px', borderRadius: '6px', backgroundColor: '#22c55e12', border: '1px solid #22c55e30', color: '#22c55e', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s', opacity: envSaving ? 0.5 : 1 }}>
+                          {envSaving ? 'Saving...' : envSaved ? '✓ Saved' : '↑ Save Changes'}
                         </button>
                       )}
                     </div>
                   </div>
 
                   {envBulkMode ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '11px', color: '#6b7280' }}>Paste your <code style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '4px', fontFamily: 'monospace' }}>.env</code> file contents below.</div>
-                      <textarea value={envBulkText} onChange={e => setEnvBulkText(e.target.value)} rows={8} placeholder={`DATABASE_URL=postgres://...\nSECRET_KEY=abc123\nNODE_ENV=production`}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>Paste raw env contents directly (e.g. `KEY=VALUE` line-by-line).</div>
+                      <textarea value={envBulkText} onChange={e => setEnvBulkText(e.target.value)} rows={8} placeholder={`DATABASE_URL=postgres://...\nAPI_SECRET=supersecretkey\nPORT=8080`}
                         style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#d1d5db', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.6, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={handleBulkPaste} disabled={!envBulkText.trim()}
-                          style={{ height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 500, cursor: 'pointer', opacity: !envBulkText.trim() ? 0.4 : 1 }}>Import Variables</button>
+                          style={{ height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: !envBulkText.trim() ? 0.4 : 1 }}>Import</button>
                         <button onClick={() => { setEnvBulkMode(false); setEnvBulkText(''); }}
                           style={{ height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#9ba3af', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
                       </div>
@@ -811,54 +811,72 @@ export default function ProjectsTab() {
                   ) : (
                     <>
                       {/* Add new var row */}
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', backgroundColor: '#111318', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Key</div>
+                          <label style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '6px' }}>Variable Key</label>
                           <input type="text" placeholder="VARIABLE_NAME" value={newEnvKey} onChange={e => setNewEnvKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
-                            style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }} />
+                            style={{ width: '100%', height: '34px', padding: '0 10px', borderRadius: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }} />
                         </div>
                         <div style={{ flex: 2 }}>
-                          <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Value</div>
+                          <label style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '6px' }}>Variable Value</label>
                           <input type={newEnvSecret ? 'password' : 'text'} placeholder="value" value={newEnvVal} onChange={e => setNewEnvVal(e.target.value)}
-                            style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
+                            style={{ width: '100%', height: '34px', padding: '0 10px', borderRadius: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
                         </div>
-                        <button type="button" onClick={() => setNewEnvSecret(!newEnvSecret)} title={newEnvSecret ? 'Value is hidden' : 'Value is visible'}
-                          style={{ width: '36px', height: '36px', borderRadius: '7px', border: `1px solid ${newEnvSecret ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.08)'}`, backgroundColor: newEnvSecret ? 'rgba(124,58,237,0.1)' : 'transparent', color: newEnvSecret ? '#c4b5fd' : '#6b7280', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button type="button" onClick={() => setNewEnvSecret(!newEnvSecret)} title={newEnvSecret ? 'Mask value' : 'Reveal value'}
+                          style={{ width: '34px', height: '34px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0e1015', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
                           {newEnvSecret ? '🔒' : '👁'}
                         </button>
                         <button onClick={handleAddEnv} disabled={!newEnvKey.trim() || !newEnvVal.trim()}
-                          style={{ height: '36px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (!newEnvKey.trim() || !newEnvVal.trim()) ? 0.4 : 1 }}>+ Add</button>
+                          style={{ height: '34px', padding: '0 16px', borderRadius: '6px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (!newEnvKey.trim() || !newEnvVal.trim()) ? 0.4 : 1 }}>
+                          Add
+                        </button>
                       </div>
 
                       {/* Variable list */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {envVars.length === 0 && <div style={{ padding: '32px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No environment variables configured yet.</div>}
-                        {envVars.map(env => (
-                          <div key={env.key} className="group" style={{ display: 'flex', alignItems: 'center', height: '44px', padding: '0 12px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', gap: '10px' }}>
-                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', flexShrink: 0, backgroundColor: env.isSecret ? 'rgba(245,158,11,0.1)' : 'rgba(107,114,128,0.15)', color: env.isSecret ? '#f59e0b' : '#9ba3af' }}>{env.isSecret ? 'SECRET' : 'PLAIN'}</span>
-                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '12px', color: '#e2e8f0', width: '160px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{env.key}</span>
-                            {envEditingKey === env.key ? (
-                              <div style={{ flex: 1, display: 'flex', gap: '6px' }}>
-                                <input autoFocus type="text" value={envEditVal} onChange={e => setEnvEditVal(e.target.value)}
-                                  onKeyDown={e => { if (e.key === 'Enter') handleUpdateEnvValue(env.key, envEditVal); if (e.key === 'Escape') setEnvEditingKey(null); }}
-                                  style={{ flex: 1, height: '28px', padding: '0 8px', borderRadius: '5px', backgroundColor: '#0e1015', border: '1px solid rgba(124,58,237,0.4)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', outline: 'none' }} />
-                                <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} style={{ height: '28px', padding: '0 10px', borderRadius: '5px', backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#22c55e', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Save</button>
-                                <button onClick={() => setEnvEditingKey(null)} style={{ height: '28px', width: '28px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#6b7280', cursor: 'pointer', backgroundColor: 'transparent' }}>✕</button>
-                              </div>
-                            ) : (
-                              <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '12px', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {envRevealedKeys.has(env.key) ? env.value : (env.isSecret ? '••••••••••••' : env.value)}
-                              </span>
-                            )}
-                            {envEditingKey !== env.key && (
-                              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                {env.isSecret && <button onClick={() => toggleReveal(env.key)} style={{ height: '26px', width: '26px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', color: '#6b7280', cursor: 'pointer', backgroundColor: 'transparent', fontSize: '12px' }}>{envRevealedKeys.has(env.key) ? '🙈' : '👁'}</button>}
-                                <button onClick={() => { setEnvEditingKey(env.key); setEnvEditVal(env.value); }} style={{ height: '26px', padding: '0 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', backgroundColor: 'transparent' }}>Edit</button>
-                                <button onClick={() => handleRemoveEnv(env.key)} style={{ height: '26px', padding: '0 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', backgroundColor: 'transparent' }} className="hover:text-red-400 hover:border-red-500/30">Remove</button>
-                              </div>
-                            )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {envVars.length === 0 ? (
+                          <div style={{ padding: '32px', textAlign: 'center', color: '#4b5563', fontSize: '12px', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
+                            No environment variables configured yet.
                           </div>
-                        ))}
+                        ) : (
+                          envVars.map(env => (
+                            <div key={env.key} style={{ display: 'flex', alignItems: 'center', minHeight: '44px', padding: '8px 12px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', gap: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: env.isSecret ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', color: env.isSecret ? '#f59e0b' : '#8a929e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  {env.isSecret ? 'secret' : 'plain'}
+                                </span>
+                              </div>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '12px', color: '#f1f3f6', width: '160px', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{env.key}</span>
+                              
+                              {envEditingKey === env.key ? (
+                                <div style={{ flex: 1, display: 'flex', gap: '6px' }}>
+                                  <input autoFocus type="text" value={envEditVal} onChange={e => setEnvEditVal(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleUpdateEnvValue(env.key, envEditVal); if (e.key === 'Escape') setEnvEditingKey(null); }}
+                                    style={{ flex: 1, height: '28px', padding: '0 8px', borderRadius: '5px', backgroundColor: '#0e1015', border: '1px solid rgba(124,58,237,0.4)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', outline: 'none' }} />
+                                  <button onClick={() => handleUpdateEnvValue(env.key, envEditVal)} style={{ height: '28px', padding: '0 10px', borderRadius: '5px', backgroundColor: '#22c55e15', border: '1px solid #22c55e30', color: '#22c55e', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>Save</button>
+                                  <button onClick={() => setEnvEditingKey(null)} style={{ height: '28px', width: '28px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#6b7280', cursor: 'pointer', backgroundColor: 'transparent' }}>✕</button>
+                                </div>
+                              ) : (
+                                <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '12px', color: '#8a929e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {envRevealedKeys.has(env.key) ? env.value : (env.isSecret ? '••••••••••••••••••••••••' : env.value)}
+                                </span>
+                              )}
+                              
+                              {envEditingKey !== env.key && (
+                                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                  {env.isSecret && (
+                                    <button onClick={() => toggleReveal(env.key)} style={{ height: '26px', width: '26px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#8a929e', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      {envRevealedKeys.has(env.key) ? '🙈' : '👁'}
+                                    </button>
+                                  )}
+                                  <button onClick={() => { setEnvEditingKey(env.key); setEnvEditVal(env.value); }} style={{ height: '26px', padding: '0 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '11px', fontWeight: 600, cursor: 'pointer', backgroundColor: 'transparent' }} className="hover:text-white hover:bg-white/5">Edit</button>
+                                  <button onClick={() => handleRemoveEnv(env.key)} style={{ height: '26px', padding: '0 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#6b7280', fontSize: '11px', fontWeight: 600, cursor: 'pointer', backgroundColor: 'transparent' }} className="hover:text-red-400 hover:border-red-500/30">Remove</button>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
                       </div>
                     </>
                   )}
@@ -867,30 +885,31 @@ export default function ProjectsTab() {
 
               {/* ── Domains ── */}
               {detailsTab === 'domains' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '760px' }}>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Custom Domains</div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Add your own domain. SSL is auto-provisioned via Let's Encrypt.</div>
+                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '3px' }}>Custom Domains</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Point your own domain name to this project container. SSL certificate is automatically provisioned.</div>
                   </div>
 
                   <form onSubmit={handleAddDomain} style={{ display: 'flex', gap: '8px' }}>
                     <div style={{ flex: 1, position: 'relative' }}>
-                      <input type="text" required placeholder="yourdomain.com or www.yourdomain.com" value={customDomain}
+                      <input type="text" required placeholder="yourdomain.com or subdomain.yourdomain.com" value={customDomain}
                         onChange={e => { setCustomDomain(e.target.value); setDomainError(''); }}
-                        style={{ width: '100%', height: '38px', padding: '0 12px', borderRadius: '8px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                        style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                       {customDomain && getDomainType(customDomain) && (
-                        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
-                          backgroundColor: getDomainType(customDomain) === 'apex' ? 'rgba(245,158,11,0.2)' : 'rgba(124,58,237,0.15)',
-                          color: getDomainType(customDomain) === 'apex' ? '#f59e0b' : '#c4b5fd'
-                        }}>{getDomainType(customDomain) === 'apex' ? 'ROOT' : getDomainType(customDomain) === 'www' ? 'WWW' : 'SUB'}</span>
+                        <span style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '8px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
+                          backgroundColor: getDomainType(customDomain) === 'apex' ? 'rgba(245,158,11,0.15)' : 'rgba(124,58,237,0.15)',
+                          color: getDomainType(customDomain) === 'apex' ? '#f59e0b' : '#c4b5fd',
+                          textTransform: 'uppercase', letterSpacing: '0.04em'
+                        }}>{getDomainType(customDomain) === 'apex' ? 'root' : getDomainType(customDomain) === 'www' ? 'www' : 'sub'}</span>
                       )}
                     </div>
                     <button type="submit" disabled={domainAdding || !customDomain.trim()}
-                      style={{ height: '38px', padding: '0 18px', borderRadius: '8px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (domainAdding || !customDomain.trim()) ? 0.5 : 1 }}>
+                      style={{ height: '36px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (domainAdding || !customDomain.trim()) ? 0.5 : 1 }}>
                       {domainAdding ? 'Adding...' : 'Add Domain'}
                     </button>
                   </form>
-                  {domainError && <div style={{ fontSize: '12px', color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px' }}>⚠ {domainError}</div>}
+                  {domainError && <div style={{ fontSize: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>⚠ {domainError}</div>}
 
                   {/* DNS Instructions */}
                   {(() => {
@@ -900,72 +919,83 @@ export default function ProjectsTab() {
                     const showCname = !customDomain || dtype === 'www' || dtype === 'subdomain';
                     const nameLabel = dtype === 'www' ? 'www' : dtype === 'subdomain' ? cleanHost.split('.')[0] : '@';
                     return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em' }}>DNS Configuration</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em' }}>DNS Configuration Instructions</div>
+                        
                         {showApex && (
-                          <div style={{ borderRadius: '8px', border: '1px solid rgba(245,158,11,0.15)', overflow: 'hidden' }}>
-                            <div style={{ padding: '8px 12px', backgroundColor: 'rgba(245,158,11,0.05)', borderBottom: '1px solid rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b' }}>A Record</span>
-                              <span style={{ fontSize: '10px', color: '#6b7280' }}>Root/Apex domain</span>
+                          <div style={{ borderRadius: '8px', border: '1px solid rgba(245,158,11,0.15)', backgroundColor: '#111318', overflow: 'hidden' }}>
+                            <div style={{ padding: '8px 12px', backgroundColor: 'rgba(245,158,11,0.04)', borderBottom: '1px solid rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', textTransform: 'uppercase' }}>A Record</span>
+                              <span style={{ fontSize: '11px', color: '#8a929e' }}>Apex / root domain mapping</span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
-                              {[{ l: 'Type', v: 'A', c: '#f59e0b' }, { l: 'Name', v: '@', c: '#f1f3f6' }, { l: 'IPv4', v: '204.168.147.13', c: '#22c55e' }].map(f => (
-                                <div key={f.l} style={{ padding: '10px 12px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
-                                  <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '3px' }}>{f.l}</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
+                              {[{ l: 'Type', v: 'A', c: '#f59e0b' }, { l: 'Name / Host', v: '@', c: '#f1f3f6' }, { l: 'Value / IPv4', v: '204.168.147.13', c: '#22c55e' }].map((f, i) => (
+                                <div key={f.l} style={{ padding: '10px 12px', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                  <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '4px', textTransform: 'uppercase' }}>{f.l}</div>
                                   <span style={{ color: f.c, fontWeight: 700 }}>{f.v}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
+                        
                         {showCname && (
-                          <div style={{ borderRadius: '8px', border: '1px solid rgba(124,58,237,0.15)', overflow: 'hidden' }}>
-                            <div style={{ padding: '8px 12px', backgroundColor: 'rgba(124,58,237,0.05)', borderBottom: '1px solid rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '10px', fontWeight: 700, color: '#c4b5fd' }}>CNAME Record</span>
-                              <span style={{ fontSize: '10px', color: '#6b7280' }}>Subdomain/www</span>
+                          <div style={{ borderRadius: '8px', border: '1px solid rgba(124,58,237,0.15)', backgroundColor: '#111318', overflow: 'hidden' }}>
+                            <div style={{ padding: '8px 12px', backgroundColor: 'rgba(124,58,237,0.04)', borderBottom: '1px solid rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd', textTransform: 'uppercase' }}>CNAME Record</span>
+                              <span style={{ fontSize: '11px', color: '#8a929e' }}>Subdomain mapping</span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
-                              {[{ l: 'Type', v: 'CNAME', c: '#c4b5fd' }, { l: 'Name', v: nameLabel, c: '#f1f3f6' }, { l: 'Target', v: 'cloud.khawarahemad.com', c: '#22c55e' }].map(f => (
-                                <div key={f.l} style={{ padding: '10px 12px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
-                                  <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '3px' }}>{f.l}</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
+                              {[{ l: 'Type', v: 'CNAME', c: '#c4b5fd' }, { l: 'Name / Host', v: nameLabel, c: '#f1f3f6' }, { l: 'Value / Target', v: 'cloud.khawarahemad.com', c: '#22c55e' }].map((f, i) => (
+                                <div key={f.l} style={{ padding: '10px 12px', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                                  <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '4px', textTransform: 'uppercase' }}>{f.l}</div>
                                   <span style={{ color: f.c, fontWeight: 700 }}>{f.v}</span>
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
-                        <div style={{ fontSize: '11px', color: '#4b5563' }}>☁ In Cloudflare, set Proxy to <strong style={{ color: '#6b7280' }}>DNS only</strong> (grey cloud).</div>
+                        <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>☁ In Cloudflare, set Proxy status to <strong style={{ color: '#8a929e' }}>DNS only</strong> (gray cloud) to allow Let's Encrypt to verify.</div>
                       </div>
                     );
                   })()}
 
                   {/* Domain list */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {projectDetails?.domains?.length === 0 && <div style={{ padding: '24px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No domains connected yet.</div>}
-                    {projectDetails?.domains?.map((dom: any) => {
-                      const isSystem = dom.hostname.endsWith('.khawarahemad.com');
-                      const isActive = dom.status === 'ACTIVE' || !dom.status;
-                      const isPending = dom.status === 'PENDING';
-                      return (
-                        <div key={dom.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#6b7280' }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <a href={`https://${dom.hostname}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', textDecoration: 'none' }} className="hover:text-violet-400">{dom.hostname}</a>
-                              {isSystem && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.1)', color: '#c4b5fd' }}>FREE</span>}
-                              {dom.isCustom && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(107,114,128,0.15)', color: '#9ba3af' }}>CUSTOM</span>}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {projectDetails?.domains?.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#4b5563', fontSize: '12px', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '8px' }}>
+                        No domains connected yet.
+                      </div>
+                    ) : (
+                      projectDetails?.domains?.map((dom: any) => {
+                        const isSystem = dom.hostname.endsWith('.khawarahemad.com');
+                        const isActive = dom.status === 'ACTIVE' || !dom.status;
+                        const isPending = dom.status === 'PENDING';
+                        return (
+                          <div key={dom.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#6b7280' }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <a href={`https://${dom.hostname}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', textDecoration: 'none', transition: 'all 0.12s' }} className="hover:text-violet-400">{dom.hostname}</a>
+                                {isSystem && <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.1)', color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.04em' }}>free subdomain</span>}
+                                {dom.isCustom && <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#8a929e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>custom domain</span>}
+                              </div>
+                              <div style={{ fontSize: '11px', color: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#ef4444', marginTop: '3px' }}>
+                                {isPending ? '⟳ Provisioning SSL certificate & routing...' : isActive ? '✓ HTTPS Active' : '⚠ Verification failed'}
+                              </div>
                             </div>
-                            <div style={{ fontSize: '11px', color: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#ef4444', marginTop: '1px' }}>
-                              {isPending ? '⟳ Provisioning SSL & routing...' : isActive ? '✓ HTTPS Active' : '⚠ Verification failed'}
-                            </div>
+                            {!isSystem && (
+                              <button onClick={() => handleRemoveDomain(dom.id)} disabled={removingDomainId === dom.id}
+                                style={{ height: '26px', padding: '0 10px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#8a929e', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s', opacity: removingDomainId === dom.id ? 0.5 : 1 }}
+                                className="hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10"
+                              >
+                                {removingDomainId === dom.id ? '...' : 'Remove'}
+                              </button>
+                            )}
                           </div>
-                          {!isSystem && <button onClick={() => handleRemoveDomain(dom.id)} disabled={removingDomainId === dom.id}
-                            style={{ height: '26px', padding: '0 10px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'transparent', color: '#6b7280', fontSize: '11px', fontWeight: 500, cursor: 'pointer', opacity: removingDomainId === dom.id ? 0.5 : 1 }} className="hover:text-red-400 hover:border-red-500/30">
-                            {removingDomainId === dom.id ? '...' : 'Remove'}
-                          </button>}
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}

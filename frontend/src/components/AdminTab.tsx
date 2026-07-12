@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { 
   Users, Layers, HardDrive, CreditCard, Shield, Trash2, 
-  RefreshCw, Power, Check, Loader2, Search, Sliders, Copy, ExternalLink
+  RefreshCw, Power, Check, Loader2, Search, Sliders, Copy, ExternalLink, Pencil
 } from 'lucide-react';
 
 export default function AdminTab() {
@@ -275,39 +275,49 @@ export default function AdminTab() {
   return (
     <div className="rw-page">
       {/* Header */}
-      <div className="rw-page-header">
+      <div style={{ backgroundColor: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
         <div>
-          <h1 className="rw-page-title">System Admin</h1>
-          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Full infrastructure control, plan overrides, and cleanup tools.</p>
+          <h1 style={{ fontSize: '15px', fontWeight: 600, color: '#f1f3f6', margin: 0 }}>System Admin</h1>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>Infrastructure Control &amp; Overrides</div>
         </div>
-        {/* Sub-tabs */}
-        <div style={{ display: 'flex', gap: '4px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '8px', padding: '3px' }}>
-          {([['users', 'Users', Users], ['projects', 'Containers', Layers], ['buckets', 'Storage', HardDrive], ['vps-storage', 'VPS', HardDrive], ['billing', 'Plans', CreditCard]] as const).map(([id, label, Icon]) => (
-            <button key={id} onClick={() => setSubTab(id as any)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0 10px', height: '26px', borderRadius: '5px', fontSize: '11px', fontWeight: 500, cursor: 'pointer', border: 'none', transition: 'all 0.12s',
-                backgroundColor: subTab === id ? 'rgba(124,58,237,0.15)' : 'transparent',
-                color: subTab === id ? '#c4b5fd' : '#6b7280'
-              }}>
-              <Icon size={11} />{label}
-            </button>
-          ))}
+
+        {/* Sub-tabs line design */}
+        <div style={{ display: 'flex', gap: '16px' }}>
+          {([['users', 'Users', Users], ['projects', 'Containers', Layers], ['buckets', 'Storage', HardDrive], ['vps-storage', 'VPS', HardDrive], ['billing', 'Plans', CreditCard]] as const).map(([id, label, Icon]) => {
+            const isActive = subTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setSubTab(id as any)}
+                style={{
+                  position: 'relative', display: 'flex', alignItems: 'center', gap: '6px', height: '32px', fontSize: '12px', fontWeight: isActive ? 600 : 500,
+                  color: isActive ? '#c4b5fd' : '#6b7280', backgroundColor: 'transparent', border: 'none',
+                  borderBottom: isActive ? '2px solid #7c3aed' : '2px solid transparent',
+                  cursor: 'pointer', transition: 'all 0.12s', outline: 'none', padding: '0 4px'
+                }}
+              >
+                <Icon size={12} />
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="rw-page-content">
-        <div style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="rw-page-content" style={{ padding: '24px' }}>
+        <div style={{ maxWidth: '960px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
           {/* Quick Metrics */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
               {[
-                { label: 'Total users', value: users.length, color: '#f1f3f6' },
-                { label: 'Web containers', value: subTab === 'projects' ? projects.length : users.reduce((acc: number, u: any) => acc + (u.projectsCount || 0), 0), color: '#818cf8' },
-                { label: 'Storage buckets', value: subTab === 'buckets' ? buckets.length : users.reduce((acc: number, u: any) => acc + (u.bucketsCount || 0), 0), color: '#a78bfa' },
+                { label: 'Total Users', value: users.length, color: '#f1f3f6' },
+                { label: 'Web Containers', value: subTab === 'projects' ? projects.length : users.reduce((acc: number, u: any) => acc + (u.projectsCount || 0), 0), color: '#818cf8' },
+                { label: 'Storage Buckets', value: subTab === 'buckets' ? buckets.length : users.reduce((acc: number, u: any) => acc + (u.bucketsCount || 0), 0), color: '#a78bfa' },
               ].map(({ label, value, color }) => (
                 <div key={label} style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '14px 16px' }}>
-                  <div style={{ fontSize: '11px', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: '6px' }}>{label}</div>
-                  <div style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.03em', color }}>{value}</div>
+                  <div style={{ fontSize: '10px', color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '6px' }}>{label}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color }}>{value}</div>
                 </div>
               ))}
             </div>
@@ -315,120 +325,94 @@ export default function AdminTab() {
 
           {/* Search bar & Refresh */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
-            <div className="flex items-center gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={13} />
                 <input
                   type="text"
                   placeholder={`Search ${subTab}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="glass-input h-11 w-full pl-10 pr-4 text-xs text-white"
+                  style={{ width: '100%', height: '36px', padding: '0 12px 0 32px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
               <button
                 onClick={fetchAdminData}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
+                style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ba3af', cursor: 'pointer', transition: 'all 0.12s' }}
+                className="hover:bg-white/5 hover:text-white"
               >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
               </button>
             </div>
           )}
 
           {/* Tab Views */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-              <Loader2 className="animate-spin text-violet-400" size={32} />
-              <span className="text-xs uppercase tracking-[0.18em]">Gathering platform details</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px', gap: '12px', color: '#6b7280' }}>
+              <Loader2 className="animate-spin text-violet-400" size={24} />
+              <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Loading system logs...</span>
             </div>
           ) : (
-              <div className="glass-card overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/60">
-              
-              {/* SUB TAB: USERS LIST */}
+            <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
+                          {/* SUB TAB: USERS LIST */}
               {subTab === 'users' && (
-                <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-4 bg-white/[0.03] p-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    <span>User / Organizations</span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>
+                    <span>User / Email</span>
                     <span>System Role</span>
                     <span>Resources</span>
-                    <span className="text-right">Actions</span>
+                    <span style={{ textAlign: 'right' }}>Actions</span>
                   </div>
                   
                   {users
                     .filter(u => (u.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()))
-                    .map(u => (
-                      <div key={u.id} className="grid grid-cols-4 gap-4 p-4 items-start text-xs text-slate-300 hover:bg-white/[0.01] transition-colors">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-bold text-white text-sm">{u.name}</span>
-                          <span className="mb-2 text-[10px] font-mono text-slate-500">{u.email}</span>
+                    .map((u, uIdx) => (
+                      <div key={u.id} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'start', fontSize: '12px' }} className="hover:bg-white/[0.01]">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span style={{ fontWeight: 600, color: '#f1f3f6' }}>{u.name}</span>
+                          <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#6b7280' }}>{u.email}</span>
                           
                           {/* User Teams/Orgs */}
-                          <div className="space-y-1">
-                            <span className="text-[8px] uppercase tracking-wider text-slate-600 block font-black">Teams owned/joined:</span>
-                            {u.teams && u.teams.map((t: any) => (
-                              <div key={t.id} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-2">
-                                <div className="flex flex-col gap-0.5 truncate">
-                                  <span className="font-bold text-[10px] text-white truncate">{t.name}</span>
-                                  <span className="text-[8px] font-mono text-slate-600 truncate">{t.id}</span>
+                          {u.teams && u.teams.length > 0 && (
+                            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {u.teams.map((t: any) => (
+                                <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '6px', padding: '4px 8px' }}>
+                                  <span style={{ fontSize: '10px', color: '#8a929e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>{t.name}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '8px', fontWeight: 600, color: '#c4b5fd', textTransform: 'uppercase' }}>{t.planId}</span>
+                                    <button onClick={() => { setOverrideTeamId(t.id); setOverridePlanId(t.planId); setOverrideStatus(t.status); setSubTab('billing'); }} style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '0' }} className="hover:text-white" title="Override Plan"><Sliders size={9} /></button>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                                    t.planId === 'pro' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' :
-                                    t.planId === 'enterprise' ? 'bg-purple-500/10 text-violet-300 border border-purple-500/20' :
-                                    'bg-slate-800 text-slate-500'
-                                  }`}>
-                                    {t.planId}
-                                  </span>
-                                  <button
-                                    onClick={() => {
-                                      setOverrideTeamId(t.id);
-                                      setOverridePlanId(t.planId);
-                                      setOverrideStatus(t.status);
-                                      setSubTab('billing');
-                                    }}
-                                    className="p-1 hover:bg-white/5 rounded text-slate-500 hover:text-white"
-                                    title="Override Plan"
-                                  >
-                                    <Sliders size={10} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleCopyText(t.id, 'Team ID')}
-                                    className="p-1 hover:bg-white/5 rounded text-slate-500 hover:text-white"
-                                    title="Copy ID"
-                                  >
-                                    <Copy size={10} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         
                         <div>
                           <button
                             onClick={() => handleToggleRole(u.id, u.role)}
                             disabled={actingId !== null}
-                            className={`h-7 px-3 rounded-lg font-bold text-[10px] transition-all uppercase tracking-wider ${
-                              u.role === 'ADMIN' 
-                                ? 'bg-purple-500/10 hover:bg-purple-600 text-violet-300 hover:text-slate-950 border border-purple-500/20' 
-                                : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'
-                            }`}
+                            style={{
+                              height: '24px', padding: '0 8px', borderRadius: '4px', border: 'none', fontSize: '10px', fontWeight: 600, cursor: 'pointer',
+                              backgroundColor: u.role === 'ADMIN' ? 'rgba(124,58,237,0.15)' : 'rgba(255,255,255,0.05)',
+                              color: u.role === 'ADMIN' ? '#c4b5fd' : '#8a929e'
+                            }}
                           >
                             {actingId === u.id ? <Loader2 size={10} className="animate-spin" /> : u.role}
                           </button>
                         </div>
                         
-                        <div className="space-y-1 text-slate-400 font-medium">
-                          <div>💻 {u.projectsCount} App Containers</div>
+                        <div style={{ color: '#8a929e', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div>💻 {u.projectsCount} containers</div>
                           <div>🗄️ {u.databasesCount} databases</div>
-                          <div>📦 {u.bucketsCount} Storage Buckets</div>
+                          <div>📦 {u.bucketsCount} buckets</div>
                         </div>
                         
-                        <div className="text-right">
+                        <div style={{ textAlign: 'right' }}>
                           <button
                             onClick={() => handleDeleteUser(u.id)}
                             disabled={actingId !== null}
-                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-300 text-[10px] font-bold transition-all uppercase tracking-wider"
+                            style={{ height: '24px', padding: '0 10px', borderRadius: '4px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}
                           >
                             Delete User
                           </button>
@@ -440,338 +424,258 @@ export default function AdminTab() {
               
               {/* SUB TAB: APP CONTAINERS LIST */}
               {subTab === 'projects' && (
-                <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-4 p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-white/[0.03]">
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>
                     <span>Container / Owner</span>
-                    <span>External URL</span>
+                    <span>Domain URL</span>
                     <span>Status</span>
-                    <span className="text-right">Actions</span>
+                    <span style={{ textAlign: 'right' }}>Actions</span>
                   </div>
                   
                   {projects
                     .filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(p => (
-                      <div key={p.id} className="grid grid-cols-4 p-4 items-center text-xs text-slate-300 gap-4 hover:bg-white/[0.01] transition-colors">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-white text-sm">{p.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">Owner team: {p.team.name}</span>
-                          <span className="text-[9px] text-slate-600 font-mono">ID: {p.id}</span>
+                      <div key={p.id} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', fontSize: '12px' }} className="hover:bg-white/[0.01]">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 600, color: '#f1f3f6' }}>{p.name}</span>
+                          <span style={{ fontSize: '10px', color: '#6b7280' }}>Team: {p.team.name}</span>
                         </div>
                         
-                        <div className="flex items-center gap-1.5 font-mono text-[10px]">
-                          <a 
-                            href={`https://${p.slug}.khcloud.app`} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="text-violet-300 hover:underline truncate max-w-[150px] flex items-center gap-1 font-bold"
-                          >
-                            {p.slug}.khcloud.app
-                            <ExternalLink size={8} />
+                        <div style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+                          <a href={`https://${p.slug}.khcloud.app`} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }} className="hover:underline">
+                            {p.slug}.khcloud.app <ExternalLink size={9} />
                           </a>
                         </div>
                         
                         <div>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                            p.status === 'READY' 
-                              ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' 
-                              : p.status === 'SUSPENDED'
-                              ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
-                              : 'bg-slate-500/10 text-slate-500 border border-slate-500/20 animate-pulse'
-                          }`}>
-                            {p.status}
-                          </span>
+                          <span style={{
+                            padding: '2px 7px', borderRadius: '9999px', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em',
+                            backgroundColor: p.status === 'READY' ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)',
+                            color: p.status === 'READY' ? '#22c55e' : '#f59e0b',
+                            border: `1px solid ${p.status === 'READY' ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}`
+                          }}>{p.status}</span>
                         </div>
                         
-                        <div className="flex items-center justify-end gap-2">
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <button
                             onClick={() => handleToggleProjectStatus(p.id, p.status)}
                             disabled={actingId !== null}
-                            className={`h-7 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
-                              p.status === 'SUSPENDED'
-                                ? 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/20'
-                                : 'bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/20'
-                            }`}
+                            style={{ height: '24px', padding: '0 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#8a929e', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}
+                            className="hover:text-white"
                           >
-                            {actingId === p.id && <Loader2 size={10} className="animate-spin" />}
                             {p.status === 'SUSPENDED' ? 'Resume' : 'Suspend'}
                           </button>
-                          
                           <button
                             onClick={() => handleDeleteProject(p.id)}
                             disabled={actingId !== null}
-                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-300 text-[10px] font-bold uppercase tracking-wider"
+                            style={{ height: '24px', padding: '0 8px', borderRadius: '4px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}
                           >
-                            Force Kill
+                            Force Stop
                           </button>
                         </div>
                       </div>
                     ))}
-                    
-                  {projects.length === 0 && (
-                    <div className="p-8 text-center text-zinc-500 italic text-xs font-semibold">No containers registered.</div>
-                  )}
                 </div>
               )}
               
-              {/* SUB TAB: OBJECT STORAGE LIST */}
+              {/* SUB TAB: STORAGE BUCKETS LIST */}
               {subTab === 'buckets' && (
-                <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-5 p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-white/[0.03]">
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>
                     <span>Bucket / Owner</span>
-                    <span>Status</span>
-                    <span>Size Used</span>
-                    <span>Configured Limit</span>
-                    <span className="text-right">Actions</span>
+                    <span>Properties</span>
+                    <span>Size limit</span>
+                    <span style={{ textAlign: 'right' }}>Actions</span>
                   </div>
                   
                   {buckets
                     .filter(b => (b.name || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(b => (
-                      <div key={b.id} className="grid grid-cols-5 p-4 items-center text-xs text-zinc-300 gap-4">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-bold text-white text-sm">{b.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono">Owner Team: {b.team.name}</span>
-                          <span className="text-[9px] text-zinc-600 font-mono">ID: {b.id}</span>
+                      <div key={b.id} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', fontSize: '12px' }} className="hover:bg-white/[0.01]">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 600, color: '#f1f3f6' }}>{b.name}</span>
+                          <span style={{ fontSize: '10px', color: '#6b7280' }}>Team: {b.team.name}</span>
                         </div>
                         
-                        <div>
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            {b.status}
-                          </span>
+                        <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#8a929e' }}>
+                          <span>{b.fileCount} files</span>
+                          <span>·</span>
+                          <span>{formatBytes(b.sizeUsed)} used</span>
                         </div>
-                        
-                        <div className="font-mono text-zinc-300 font-bold">{formatBytes(b.sizeUsed)}</div>
                         
                         <div>
                           {editingLimitId === b.id ? (
-                            <div className="flex items-center gap-1.5">
+                            <div style={{ display: 'flex', gap: '4px' }}>
                               <input
-                                type="text"
+                                type="number"
                                 placeholder="GB"
                                 value={newLimitGB}
-                                onChange={(e) => setNewLimitGB(e.target.value)}
-                                className="w-14 h-7 rounded bg-black border border-white/10 text-xs px-1.5 font-mono text-white text-center"
+                                onChange={e => setNewLimitGB(e.target.value)}
+                                style={{ width: '50px', height: '24px', padding: '0 4px', borderRadius: '4px', backgroundColor: '#0e1015', border: '1px solid rgba(124,58,237,0.3)', color: '#fff', fontSize: '11px', outline: 'none' }}
                               />
-                              <button
-                                onClick={() => handleUpdateBucketLimit(b.id)}
-                                className="h-7 px-2 rounded bg-purple-600 text-white font-bold"
-                              >
-                                Save
-                              </button>
+                              <button onClick={() => handleUpdateBucketLimit(b.id)} style={{ height: '24px', padding: '0 6px', borderRadius: '4px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '10px', cursor: 'pointer' }}>Set</button>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-zinc-400">{formatBytes(b.sizeLimit)}</span>
-                              <button 
-                                onClick={() => { setEditingLimitId(b.id); setNewLimitGB((Number(b.sizeLimit) / (1024*1024*1024)).toString()); }}
-                                className="text-[9px] font-bold text-violet-400 hover:underline"
-                              >
-                                Edit
-                              </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontFamily: 'monospace' }}>{formatBytes(b.sizeLimit)}</span>
+                              <button onClick={() => { setEditingLimitId(b.id); setNewLimitGB(String(parseInt(b.sizeLimit) / 1024 / 1024 / 1024)); }} style={{ background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', padding: '0' }} className="hover:text-white"><Pencil size={10} /></button>
                             </div>
                           )}
                         </div>
                         
-                        <div className="text-right">
+                        <div style={{ textAlign: 'right' }}>
                           <button
                             onClick={() => handleDeleteBucket(b.id)}
                             disabled={actingId !== null}
-                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider"
+                            style={{ height: '24px', padding: '0 10px', borderRadius: '4px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}
                           >
                             Delete
                           </button>
                         </div>
                       </div>
                     ))}
-                    
-                  {buckets.length === 0 && (
-                    <div className="p-8 text-center text-zinc-500 italic text-xs font-semibold">No buckets created.</div>
-                  )}
                 </div>
               )}
-
-              {/* SUB TAB: VPS STORAGE */}
+              
+              {/* SUB TAB: VPS STORAGE METRICS */}
               {subTab === 'vps-storage' && storageData && (
-                <div className="p-6 space-y-6 text-left">
-                  <div>
-                    <h3 className="text-sm font-bold text-white mb-1">VPS Storage Allocation</h3>
-                    <p className="text-[10px] text-zinc-500 font-medium">Real-time disk space usage and resource breakdown on your virtual private server.</p>
-                  </div>
-
+                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  
                   {/* Metrics grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-black/30 border border-white/5 rounded-2xl p-5">
-                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Total Disk Capacity</span>
-                      <span className="text-xl font-black text-white">{formatBytes(storageData.disk.total)}</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563', display: 'block', marginBottom: '4px' }}>Total VPS Disk</span>
+                      <span style={{ fontSize: '18px', fontWeight: 700, color: '#f1f3f6' }}>{formatBytes(storageData.disk.total)}</span>
                     </div>
-                    <div className="bg-black/30 border border-white/5 rounded-2xl p-5">
-                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Disk Space Used</span>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xl font-black text-violet-400">{formatBytes(storageData.disk.used)}</span>
-                        <span className="text-[10px] text-zinc-500 font-bold">({storageData.disk.percentUsed}% used)</span>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563', display: 'block', marginBottom: '4px' }}>Disk space Used</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                        <span style={{ fontSize: '18px', fontWeight: 700, color: '#a78bfa' }}>{formatBytes(storageData.disk.used)}</span>
+                        <span style={{ fontSize: '10px', color: '#6b7280' }}>({storageData.disk.percentUsed}% used)</span>
                       </div>
                     </div>
-                    <div className="bg-black/30 border border-white/5 rounded-2xl p-5">
-                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Disk Space Left (Available)</span>
-                      <span className="text-xl font-black text-emerald-400">{formatBytes(storageData.disk.free)}</span>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563', display: 'block', marginBottom: '4px' }}>Free Space Available</span>
+                      <span style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{formatBytes(storageData.disk.free)}</span>
                     </div>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="bg-black/40 border border-white/5 rounded-2xl p-5">
-                    <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase mb-2">
+                  <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase', marginBottom: '6px' }}>
                       <span>Used Space ({storageData.disk.percentUsed}%)</span>
-                      <span>Available Space ({(100 - parseFloat(storageData.disk.percentUsed)).toFixed(1)}%)</span>
+                      <span>Free Space ({(100 - parseFloat(storageData.disk.percentUsed)).toFixed(1)}%)</span>
                     </div>
-                    <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden">
+                    <div style={{ width: '100%', height: '8px', backgroundColor: '#0e1015', borderRadius: '4px', overflow: 'hidden' }}>
                       <div 
-                        className="h-full bg-gradient-to-r from-purple-600 to-violet-500 transition-all duration-500"
-                        style={{ width: `${storageData.disk.percentUsed}%` }}
+                        style={{ height: '100%', width: `${storageData.disk.percentUsed}%`, backgroundColor: '#7c3aed', borderRadius: '4px', transition: 'all 0.5s' }}
                       />
                     </div>
                   </div>
 
                   {/* Breakdown table */}
-                  <div className="space-y-3">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div>
-                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Storage Consumers</h4>
-                      <p className="text-[10px] text-zinc-500 font-medium">Breakdown of storage resources sorted by size used.</p>
+                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>Storage Consumers</div>
                     </div>
 
-                    <div className="border border-white/5 rounded-2xl overflow-hidden bg-black/40">
-                      <table className="w-full text-left border-collapse text-xs">
+                    <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
                         <thead>
-                          <tr className="border-b border-white/5 bg-black/50 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                            <th className="p-3">Resource Name</th>
-                            <th className="p-3">Type</th>
-                            <th className="p-3">Organization</th>
-                            <th className="p-3">Owner</th>
-                            <th className="p-3 text-right">Size Used</th>
+                          <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <th style={{ padding: '8px 12px', fontSize: '10px', color: '#4b5563' }}>Resource Name</th>
+                            <th style={{ padding: '8px 12px', fontSize: '10px', color: '#4b5563' }}>Type</th>
+                            <th style={{ padding: '8px 12px', fontSize: '10px', color: '#4b5563' }}>Organization</th>
+                            <th style={{ padding: '8px 12px', fontSize: '10px', color: '#4b5563' }}>Owner</th>
+                            <th style={{ padding: '8px 12px', fontSize: '10px', color: '#4b5563', textAlign: 'right' }}>Size Used</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                           {storageData.breakdown.map((item: any) => (
-                            <tr key={item.id} className="hover:bg-white/[0.01] transition-colors">
-                              <td className="p-3 font-semibold text-white font-mono">{item.name}</td>
-                              <td className="p-3">
-                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                                  item.type.includes('Bucket') 
-                                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
-                                    : 'bg-purple-500/10 text-violet-400 border border-purple-600/20'
-                                }`}>
-                                  {item.type}
-                                </span>
+                            <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} className="hover:bg-white/[0.01]">
+                              <td style={{ padding: '8px 12px', fontWeight: 600, fontFamily: 'monospace', color: '#f1f3f6' }}>{item.name}</td>
+                              <td style={{ padding: '8px 12px' }}>
+                                <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, backgroundColor: 'rgba(124,58,237,0.1)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.2)' }}>{item.type}</span>
                               </td>
-                              <td className="p-3 text-zinc-400">{item.teamName}</td>
-                              <td className="p-3">
-                                <div className="flex flex-col">
-                                  <span className="text-zinc-300 font-bold">{item.ownerName}</span>
-                                  <span className="text-[10px] text-zinc-500 font-mono">{item.ownerEmail}</span>
+                              <td style={{ padding: '8px 12px', color: '#8a929e' }}>{item.teamName}</td>
+                              <td style={{ padding: '8px 12px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <span style={{ color: '#f1f3f6' }}>{item.ownerName}</span>
+                                  <span style={{ fontSize: '10px', color: '#4b5563', fontFamily: 'monospace' }}>{item.ownerEmail}</span>
                                 </div>
                               </td>
-                              <td className="p-3 text-right font-mono text-zinc-300 font-bold">
+                              <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'monospace', color: '#f1f3f6', fontWeight: 600 }}>
                                 {formatBytes(item.sizeUsed)}
                               </td>
                             </tr>
                           ))}
-                          {storageData.breakdown.length === 0 && (
-                            <tr>
-                              <td colSpan={5} className="p-8 text-center text-zinc-500 italic">
-                                No buckets or databases found.
-                              </td>
-                            </tr>
-                          )}
                         </tbody>
                       </table>
                     </div>
                   </div>
 
                   {/* Storage Analyzer Section */}
-                  <div className="pt-6 border-t border-white/5 space-y-4">
-                    <div className="flex items-center justify-between">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">VPS System Analyzer</h4>
-                        <p className="text-[10px] text-zinc-500 font-medium">Investigate why disk space is occupied and clean up build cache or dangling Docker images.</p>
+                        <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>VPS System Analyzer &amp; Cleaner</div>
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           onClick={handleRunAnalyzer}
                           disabled={analyzerLoading || pruning}
-                          className="h-8 px-4 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 text-zinc-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95 border border-white/5"
+                          style={{ height: '28px', padding: '0 12px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          className="hover:bg-white/5 hover:text-white"
                         >
-                          {analyzerLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-                          Scan VPS
+                          {analyzerLoading ? <Loader2 size={11} className="animate-spin" /> : <Search size={11} />}
+                          Scan Disk
                         </button>
 
                         <button
                           onClick={() => handlePruneStorage('standard')}
                           disabled={pruning}
-                          className="h-8 px-4 rounded-lg bg-amber-500/90 hover:bg-amber-500 disabled:opacity-50 text-black font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95"
+                          style={{ height: '28px', padding: '0 12px', borderRadius: '6px', backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
-                          {pruning && pruningMode === 'standard' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                          Standard Clean
+                          {pruning && pruningMode === 'standard' ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                          Prune Cache
                         </button>
 
                         <button
                           onClick={() => handlePruneStorage('deep')}
                           disabled={pruning}
-                          className="h-8 px-4 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95"
+                          style={{ height: '28px', padding: '0 12px', borderRadius: '6px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
-                          {pruning && pruningMode === 'deep' ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                          {pruning && pruningMode === 'deep' ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                           Deep Clean
                         </button>
                       </div>
                     </div>
 
                     {analyzerLoading && (
-                      <div className="flex flex-col items-center justify-center py-12 text-zinc-500 gap-2 border border-white/5 rounded-2xl bg-black/20">
-                        <Loader2 className="animate-spin text-violet-400" size={20} />
-                        <span className="text-[10px] font-medium">Running disk scans and Docker disk usage audit on VPS...</span>
+                      <div style={{ padding: '36px', textAlign: 'center', color: '#6b7280', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px' }}>
+                        <Loader2 className="animate-spin text-violet-400" size={16} /> Scanning disk layout on VPS server...
                       </div>
                     )}
 
-                    {/* Legend */}
-                    <div className="flex gap-3 flex-wrap">
-                      <div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/15 rounded-xl px-3 py-2 text-[9px] text-amber-300 font-medium max-w-sm">
-                        <Trash2 size={11} className="shrink-0 mt-0.5 text-amber-400" />
-                        <span><strong>Standard Clean</strong> — removes dangling images, stopped containers &amp; build cache. Safe for running containers.</span>
-                      </div>
-                      <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/15 rounded-xl px-3 py-2 text-[9px] text-red-300 font-medium max-w-sm">
-                        <Trash2 size={11} className="shrink-0 mt-0.5 text-red-400" />
-                        <span><strong>Deep Clean</strong> — also removes ALL unused images (biggest space savings ~2GB+). Base images re-pulled on next deploy.</span>
-                      </div>
-                    </div>
-
                     {pruning && (
-                      <div className="flex flex-col items-center justify-center py-12 text-zinc-500 gap-2 border border-white/5 rounded-2xl bg-black/20">
-                        <Loader2 className={`animate-spin ${pruningMode === 'deep' ? 'text-red-400' : 'text-amber-400'}`} size={20} />
-                        <span className="text-[10px] font-medium">
-                          {pruningMode === 'deep' ? 'Deep cleaning — pruning ALL unused images, build cache & stopped containers...' : 'Standard clean — pruning dangling images, build cache & stopped containers...'}
-                        </span>
+                      <div style={{ padding: '36px', textAlign: 'center', color: '#6b7280', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px' }}>
+                        <Loader2 className="animate-spin text-violet-400" size={16} /> Pruning unused Docker images and build caches...
                       </div>
                     )}
 
                     {pruningResults.length > 0 && (
-                      <div className="space-y-3">
-                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Cleanup Results</span>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cleanup Summary</span>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
                           {pruningResults.map((r, i) => (
-                            <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border text-xs ${
-                              r.success
-                                ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
-                                : 'bg-red-500/5 border-red-500/20 text-red-400'
-                            }`}>
-                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-                                r.success ? 'bg-emerald-500/15' : 'bg-red-500/15'
-                              }`}>
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '8px', backgroundColor: r.success ? 'rgba(34,197,94,0.04)' : 'rgba(239,68,68,0.04)', border: r.success ? '1px solid rgba(34,197,94,0.12)' : '1px solid rgba(239,68,68,0.12)', fontSize: '12px' }}>
+                              <div style={{ width: '22px', height: '22px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: r.success ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: r.success ? '#22c55e' : '#ef4444', flexShrink: 0 }}>
                                 {r.success ? <Check size={11} /> : <Trash2 size={11} />}
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-bold text-[10px] text-white truncate">{r.label}</div>
-                                <div className={`font-mono text-[10px] font-black ${
-                                  r.success ? 'text-emerald-400' : 'text-red-400'
-                                }`}>Reclaimed: {r.reclaimed}</div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: '11px', color: '#f1f3f6', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</div>
+                                <div style={{ fontSize: '10px', color: r.success ? '#22c55e' : '#ef4444', fontFamily: 'monospace', marginTop: '1px' }}>Freed: {r.reclaimed}</div>
                               </div>
                             </div>
                           ))}
@@ -779,52 +683,36 @@ export default function AdminTab() {
                       </div>
                     )}
 
-                    {pruningResult && (
-                      <div className="space-y-3">
-                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Full Docker Cleanup Log</span>
-                        <pre className="bg-[#120708] border border-red-500/10 rounded-2xl p-4 font-mono text-[9px] text-red-300 overflow-auto whitespace-pre-wrap leading-relaxed max-h-[220px]">
-                          {pruningResult}
-                        </pre>
-                      </div>
-                    )}
-
                     {analyzerResult && (
-                      <div className="grid md:grid-cols-2 gap-6 items-start animate-fade-in">
-                        
-                        {/* Top Root Directories sizes */}
-                        <div className="space-y-3">
-                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Top VPS Directories (du -sh)</span>
-                          <div className="border border-white/5 rounded-2xl overflow-hidden bg-black/35 text-[11px]">
-                            <table className="w-full text-left border-collapse">
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top directories</span>
+                          <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px' }}>
                               <thead>
-                                <tr className="border-b border-white/5 bg-black/40 text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
-                                  <th className="p-2.5">Path</th>
-                                  <th className="p-2.5 text-right">Size On Disk</th>
+                                <tr style={{ backgroundColor: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <th style={{ padding: '6px 10px', color: '#4b5563' }}>Path</th>
+                                  <th style={{ padding: '6px 10px', color: '#4b5563', textAlign: 'right' }}>Size</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-white/5 text-zinc-300 font-mono">
+                              <tbody>
                                 {analyzerResult.topDirs.map((dir: any, i: number) => (
-                                  <tr key={i} className="hover:bg-white/[0.01]">
-                                    <td className="p-2.5">{dir.path}</td>
-                                    <td className="p-2.5 text-right font-bold text-white">{dir.size}</td>
+                                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <td style={{ padding: '6px 10px', fontFamily: 'monospace', color: '#8a929e' }}>{dir.path}</td>
+                                    <td style={{ padding: '6px 10px', fontFamily: 'monospace', color: '#f1f3f6', textAlign: 'right', fontWeight: 600 }}>{dir.size}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
-                          <p className="text-[9px] text-zinc-600 leading-relaxed font-medium">
-                            * Note: <strong>/var/lib/docker</strong> holds your container images and container runtimes. Large sizes here indicate docker image layers.
-                          </p>
                         </div>
 
-                        {/* Docker system df */}
-                        <div className="space-y-3">
-                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Docker Storage Report (system df)</span>
-                          <pre className="bg-[#050507] border border-white/5 rounded-2xl p-4 font-mono text-[9px] text-zinc-400 overflow-auto whitespace-pre-wrap leading-relaxed max-h-[300px]">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Docker System DF</span>
+                          <pre style={{ margin: 0, padding: '12px', borderRadius: '8px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.06)', color: '#8a929e', fontFamily: 'monospace', fontSize: '10px', lineHeight: 1.5, overflowX: 'auto', maxHeight: '180px' }}>
                             {analyzerResult.dockerDf}
                           </pre>
                         </div>
-
                       </div>
                     )}
                   </div>
@@ -834,36 +722,35 @@ export default function AdminTab() {
 
               {/* SUB TAB: BILLING OVERRIDES */}
               {subTab === 'billing' && (
-                <div className="p-6 text-left">
-                  <div className="grid md:grid-cols-2 gap-8 items-start">
+                <div style={{ padding: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px' }}>
                     
                     {/* Left: Override Form */}
-                    <div className="space-y-6">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div>
-                        <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider mb-1">Set Manual Override</h4>
-                        <p className="text-[10px] text-zinc-600">Directly upgrade, downgrade, or suspend any team account.</p>
+                        <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>Set Manual Plan Override</div>
                       </div>
 
                       <form onSubmit={handleOverrideSubscription} className="space-y-4">
                         <div>
-                          <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Team ID</label>
+                          <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', display: 'block', marginBottom: '6px' }}>Target Team ID</label>
                           <input
                             type="text"
                             required
                             placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
                             value={overrideTeamId}
                             onChange={(e) => setOverrideTeamId(e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl glass-input text-xs font-mono text-white"
+                            style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '12px', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
                           />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Subscription Plan</label>
+                            <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', display: 'block', marginBottom: '6px' }}>Subscription Plan</label>
                             <select
                               value={overridePlanId}
                               onChange={(e) => setOverridePlanId(e.target.value)}
-                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/5 text-xs text-white"
+                              style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '12px', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
                             >
                               <option value="hobby">Hobby (Free)</option>
                               <option value="pro">Pro ($29/mo)</option>
@@ -872,11 +759,11 @@ export default function AdminTab() {
                           </div>
 
                           <div>
-                            <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Billing Status</label>
+                            <label style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563', display: 'block', marginBottom: '6px' }}>Billing Status</label>
                             <select
                               value={overrideStatus}
                               onChange={(e) => setOverrideStatus(e.target.value)}
-                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/5 text-xs text-white"
+                              style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '7px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '12px', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
                             >
                               <option value="active">Active</option>
                               <option value="past_due">Past Due</option>
@@ -888,53 +775,45 @@ export default function AdminTab() {
 
                         <button
                           type="submit"
-                          className="w-full h-10 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors active:scale-95 duration-100 flex items-center justify-center gap-1.5"
+                          style={{ width: '100%', height: '36px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                         >
-                          <Sliders size={12} />
-                          Apply Manual Plan Override
+                          <Sliders size={12} /> Apply Override
                         </button>
                       </form>
                     </div>
 
                     {/* Right: Quick Select Organizations Sidebar */}
-                    <div className="border-l border-white/5 pl-6 space-y-4">
+                    <div style={{ borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div>
-                        <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider">Quick Select Organization</h4>
-                        <p className="text-[10px] text-zinc-600">Select any system team to pre-fill the form.</p>
+                        <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>Select Organization</div>
                       </div>
 
-                      <div className="space-y-2 overflow-y-auto max-h-[300px] pr-2">
-                        {allSystemTeams.map((t: any) => (
-                          <button
-                            key={t.id}
-                            onClick={() => {
-                              setOverrideTeamId(t.id);
-                              setOverridePlanId(t.planId);
-                              setOverrideStatus(t.status);
-                            }}
-                            className={`w-full text-left p-2.5 rounded-xl border transition-all flex flex-col gap-1 ${
-                              overrideTeamId === t.id 
-                                ? 'bg-purple-500/10 border-purple-600/40 text-white' 
-                                : 'bg-white/[0.01] border-white/5 text-zinc-400 hover:bg-white/[0.03] hover:border-white/10'
-                            }`}
-                          >
-                            <div className="flex justify-between items-center w-full">
-                              <span className="font-bold text-xs truncate max-w-[120px] text-white">{t.name}</span>
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase shrink-0 ${
-                                t.planId === 'pro' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                t.planId === 'enterprise' ? 'bg-purple-500/10 text-violet-400 border border-purple-600/20' :
-                                'bg-zinc-800 text-zinc-500'
-                              }`}>
-                                {t.planId}
-                              </span>
-                            </div>
-                            <span className="text-[8px] font-mono text-zinc-600 truncate w-full">{t.id}</span>
-                            <span className="text-[9px] text-zinc-500 truncate w-full mt-0.5">Owner: {t.owner}</span>
-                          </button>
-                        ))}
-                        {allSystemTeams.length === 0 && (
-                          <div className="text-[11px] text-zinc-600 italic py-4">No organizations found.</div>
-                        )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', maxHeight: '300px' }}>
+                        {allSystemTeams.map((t: any) => {
+                          const isSelected = overrideTeamId === t.id;
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => {
+                                setOverrideTeamId(t.id);
+                                setOverridePlanId(t.planId);
+                                setOverrideStatus(t.status);
+                              }}
+                              style={{
+                                width: '100%', textAlign: 'left', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px', transition: 'all 0.12s',
+                                backgroundColor: isSelected ? 'rgba(124,58,237,0.08)' : 'transparent',
+                                borderColor: isSelected ? '#7c3aed' : 'rgba(255,255,255,0.06)'
+                              }}
+                              className={isSelected ? '' : 'hover:bg-white/5'}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <span style={{ fontWeight: 600, fontSize: '12px', color: '#f1f3f6' }}>{t.name}</span>
+                                <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#8a929e', textTransform: 'uppercase' }}>{t.planId}</span>
+                              </div>
+                              <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{t.id}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 

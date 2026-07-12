@@ -48,7 +48,7 @@ export default function BillingTab() {
         <div>
           <h1 className="rw-page-title">Billing & Usage</h1>
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
-            Manage your subscription, view usage, and download invoices.
+            Manage workspace subscription plan, view resource usage limits, and download invoices.
           </p>
         </div>
       </div>
@@ -61,41 +61,41 @@ export default function BillingTab() {
             <span style={{ fontSize: '13px' }}>Loading billing information...</span>
           </div>
         ) : (
-          <div style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ maxWidth: '960px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
             {/* Current plan banner */}
             <div style={{
               backgroundColor: '#111318',
               border: '1px solid rgba(255,255,255,0.08)',
               borderRadius: '12px',
-              padding: '20px',
+              padding: '16px 20px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
               gap: '16px',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
                   width: '40px', height: '40px', borderRadius: '10px',
                   backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <CreditCard size={17} style={{ color: '#a78bfa' }} />
+                  <CreditCard size={18} style={{ color: '#a78bfa' }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#f1f3f6' }}>
                     {billing?.plans?.find((p: any) => p.id === billing?.subscription?.planId)?.name || 'Hobby'} Plan
                   </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                    Renews on {periodEnd}
+                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px' }}>
+                    Subscription billing cycle renews on {periodEnd}
                   </div>
                 </div>
               </div>
               <span style={{
-                padding: '4px 10px', borderRadius: '9999px',
-                backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)',
-                fontSize: '11px', fontWeight: 500, color: '#c4b5fd',
+                padding: '3px 10px', borderRadius: '9999px',
+                backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)',
+                fontSize: '10px', fontWeight: 600, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.04em'
               }}>
                 Active
               </span>
@@ -104,26 +104,26 @@ export default function BillingTab() {
             {/* Usage stats */}
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>
-                Current usage
+                Current Usage Summary
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                 {[
                   { label: 'Projects',     value: billing?.usage?.activeProjects,   icon: Layers,   color: '#7c3aed' },
                   { label: 'Databases',    value: billing?.usage?.databasesCount,   icon: Database, color: '#3b82f6' },
                   { label: 'Storage',      value: `${billing?.usage?.storageGB} GB`, icon: HardDrive, color: '#22c55e' },
-                  { label: 'Month spend',  value: `$${billing?.usage?.currentSpend}`, icon: DollarSign, color: '#f59e0b' },
+                  { label: 'Month Spend',  value: `$${billing?.usage?.currentSpend}`, icon: DollarSign, color: '#f59e0b' },
                 ].map(({ label, value, icon: Icon, color }) => (
                   <div key={label} style={{
                     backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
-                    borderRadius: '10px', padding: '16px',
+                    borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '11px', color: '#4b5563', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-                      <div style={{ width: '26px', height: '26px', borderRadius: '7px', backgroundColor: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+                      <div style={{ width: '26px', height: '26px', borderRadius: '7px', backgroundColor: `${color}12`, border: `1px solid ${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icon size={12} style={{ color }} />
                       </div>
                     </div>
-                    <div style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f3f6' }}>{value ?? '—'}</div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#f1f3f6' }}>{value ?? '—'}</div>
                   </div>
                 ))}
               </div>
@@ -132,57 +132,50 @@ export default function BillingTab() {
             {/* Plans */}
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '4px' }}>
-                Subscription plan
+                Subscription Plans
               </div>
               <p style={{ fontSize: '12px', color: '#4b5563', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Lock size={11} /> Plan changes are restricted to system administrators.
+                <Lock size={11} /> Workspace plan modifications require administrator privileges.
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                 {billing?.plans?.map((plan: any) => {
                   const isCurrent = billing?.subscription?.planId === plan.id;
                   return (
                     <div key={plan.id} style={{
-                      backgroundColor: isCurrent ? 'rgba(124,58,237,0.06)' : '#111318',
-                      border: isCurrent ? '1px solid rgba(124,58,237,0.3)' : '1px solid rgba(255,255,255,0.07)',
-                      borderRadius: '12px', padding: '18px',
-                      display: 'flex', flexDirection: 'column', gap: '12px',
-                      position: 'relative',
+                      backgroundColor: isCurrent ? 'rgba(124,58,237,0.04)' : '#111318',
+                      border: isCurrent ? '1px solid rgba(124,58,237,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: '12px', padding: '20px',
+                      display: 'flex', flexDirection: 'column', gap: '14px',
                     }}>
-                      {isCurrent && (
-                        <div style={{
-                          position: 'absolute', top: '-1px', left: '15px', right: '15px',
-                          height: '1px', background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.8), transparent)',
-                        }} />
-                      )}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>{plan.name}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: '#f1f3f6' }}>{plan.name}</span>
                           {isCurrent && (
                             <span style={{
-                              padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 500,
+                              padding: '2px 8px', borderRadius: '9999px', fontSize: '9px', fontWeight: 600,
                               backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd',
-                              border: '1px solid rgba(124,58,237,0.3)',
-                            }}>Active</span>
+                              border: '1px solid rgba(124,58,237,0.3)', textTransform: 'uppercase', letterSpacing: '0.05em'
+                            }}>ACTIVE</span>
                           )}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '26px', fontWeight: 700, letterSpacing: '-0.04em', color: '#f1f3f6' }}>${plan.price}</span>
-                          <span style={{ fontSize: '12px', color: '#6b7280' }}>/mo</span>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                          <span style={{ fontSize: '24px', fontWeight: 700, color: '#f1f3f6' }}>${plan.price}</span>
+                          <span style={{ fontSize: '12px', color: '#4b5563' }}>/month</span>
                         </div>
-                        <p style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>{plan.specs}</p>
+                        <p style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5, margin: '4px 0 0 0' }}>{plan.specs}</p>
                       </div>
                       <button
                         disabled
                         style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                          height: '32px', borderRadius: '7px', fontSize: '12px', fontWeight: 500,
-                          cursor: 'not-allowed', opacity: 0.6,
-                          backgroundColor: isCurrent ? 'rgba(124,58,237,0.15)' : '#181b22',
-                          border: isCurrent ? '1px solid rgba(124,58,237,0.25)' : '1px solid rgba(255,255,255,0.08)',
-                          color: isCurrent ? '#a78bfa' : '#6b7280',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                          height: '32px', borderRadius: '7px', fontSize: '11px', fontWeight: 600,
+                          cursor: 'not-allowed', opacity: 0.8,
+                          backgroundColor: isCurrent ? 'rgba(124,58,237,0.12)' : '#181b22',
+                          border: isCurrent ? '1px solid rgba(124,58,237,0.2)' : '1px solid rgba(255,255,255,0.07)',
+                          color: isCurrent ? '#a78bfa' : '#6b7280', width: '100%'
                         }}
                       >
-                        {isCurrent ? <><Check size={11} /> Current plan</> : <><Lock size={11} /> Admin only</>}
+                        {isCurrent ? <><Check size={11} /> Current Plan</> : <><Lock size={11} /> Locked</>}
                       </button>
                     </div>
                   );
@@ -193,7 +186,7 @@ export default function BillingTab() {
             {/* Invoices */}
             <div>
               <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>
-                Invoice history
+                Invoice History
               </div>
               <div style={{
                 backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
@@ -201,7 +194,7 @@ export default function BillingTab() {
               }}>
                 {billing?.invoices?.length === 0 ? (
                   <div style={{ padding: '32px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>
-                    No invoices yet.
+                    No invoices recorded.
                   </div>
                 ) : (
                   billing?.invoices?.map((inv: any, i: number) => (
@@ -215,23 +208,23 @@ export default function BillingTab() {
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
-                          width: '30px', height: '30px', borderRadius: '8px',
-                          backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.07)',
+                          width: '32px', height: '32px', borderRadius: '8px',
+                          backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.08)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          <FileText size={13} style={{ color: '#6b7280' }} />
+                          <FileText size={14} style={{ color: '#6b7280' }} />
                         </div>
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6' }}>{inv.id}</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>{inv.id}</div>
                           <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>{inv.date}</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>{inv.amount}</span>
                         <span style={{
-                          padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 500,
+                          padding: '2px 8px', borderRadius: '9999px', fontSize: '9px', fontWeight: 600,
                           backgroundColor: 'rgba(34,197,94,0.1)', color: '#22c55e',
-                          border: '1px solid rgba(34,197,94,0.2)',
+                          border: '1px solid rgba(34,197,94,0.2)', textTransform: 'uppercase', letterSpacing: '0.04em'
                         }}>
                           {inv.status}
                         </span>
