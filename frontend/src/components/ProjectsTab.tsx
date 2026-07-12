@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
-import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database } from 'lucide-react';
+import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
@@ -776,7 +776,7 @@ export default function ProjectsTab() {
 
               {/* ── Env Variables ── */}
               {detailsTab === 'env' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '760px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1200px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '3px' }}>Environment Variables</div>
@@ -822,10 +822,10 @@ export default function ProjectsTab() {
                           <input type={newEnvSecret ? 'password' : 'text'} placeholder="value" value={newEnvVal} onChange={e => setNewEnvVal(e.target.value)}
                             style={{ width: '100%', height: '34px', padding: '0 10px', borderRadius: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontFamily: 'monospace', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
                         </div>
-                        <button type="button" onClick={() => setNewEnvSecret(!newEnvSecret)} title={newEnvSecret ? 'Mask value' : 'Reveal value'}
-                          style={{ width: '34px', height: '34px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0e1015', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        <button type="button" onClick={() => setNewEnvSecret(!newEnvSecret)} title={newEnvSecret ? 'Secret variable (encrypted)' : 'Plaintext variable'}
+                          style={{ width: '34px', height: '34px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0e1015', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
-                          {newEnvSecret ? '🔒' : '👁'}
+                          {newEnvSecret ? <Lock size={13} style={{ color: '#c4b5fd' }} /> : <Unlock size={13} style={{ color: '#6b7280' }} />}
                         </button>
                         <button onClick={handleAddEnv} disabled={!newEnvKey.trim() || !newEnvVal.trim()}
                           style={{ height: '34px', padding: '0 16px', borderRadius: '6px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (!newEnvKey.trim() || !newEnvVal.trim()) ? 0.4 : 1 }}>
@@ -866,8 +866,8 @@ export default function ProjectsTab() {
                               {envEditingKey !== env.key && (
                                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                   {env.isSecret && (
-                                    <button onClick={() => toggleReveal(env.key)} style={{ height: '26px', width: '26px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#8a929e', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      {envRevealedKeys.has(env.key) ? '🙈' : '👁'}
+                                    <button onClick={() => toggleReveal(env.key)} style={{ height: '26px', width: '26px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#8a929e', cursor: 'pointer', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.12s' }} className="hover:text-white hover:bg-white/5">
+                                      {envRevealedKeys.has(env.key) ? <EyeOff size={12} /> : <Eye size={12} />}
                                     </button>
                                   )}
                                   <button onClick={() => { setEnvEditingKey(env.key); setEnvEditVal(env.value); }} style={{ height: '26px', padding: '0 8px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '11px', fontWeight: 600, cursor: 'pointer', backgroundColor: 'transparent' }} className="hover:text-white hover:bg-white/5">Edit</button>
@@ -885,7 +885,7 @@ export default function ProjectsTab() {
 
               {/* ── Domains ── */}
               {detailsTab === 'domains' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '760px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1200px' }}>
                   <div>
                     <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '3px' }}>Custom Domains</div>
                     <div style={{ fontSize: '12px', color: '#6b7280' }}>Point your own domain name to this project container. SSL certificate is automatically provisioned.</div>
@@ -1092,7 +1092,7 @@ export default function ProjectsTab() {
 
               {/* ── Settings ── */}
               {detailsTab === 'settings' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '760px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1200px' }}>
                   <form onSubmit={handleSaveSettings} style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>Project Configuration</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>

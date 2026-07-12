@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { 
   Users, Layers, HardDrive, CreditCard, Shield, Trash2, 
-  RefreshCw, Power, Check, Loader2, Search, Sliders, Copy, ExternalLink, Pencil
+  RefreshCw, Power, Check, Loader2, Search, Sliders, Copy, ExternalLink, Pencil, Database
 } from 'lucide-react';
 
 export default function AdminTab() {
@@ -305,7 +305,7 @@ export default function AdminTab() {
       </div>
 
       <div className="rw-page-content" style={{ padding: '24px' }}>
-        <div style={{ maxWidth: '960px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ maxWidth: '1200px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
           {/* Quick Metrics */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
@@ -402,10 +402,19 @@ export default function AdminTab() {
                           </button>
                         </div>
                         
-                        <div style={{ color: '#8a929e', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <div>💻 {u.projectsCount} containers</div>
-                          <div>🗄️ {u.databasesCount} databases</div>
-                          <div>📦 {u.bucketsCount} buckets</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8a929e', fontSize: '11px' }}>
+                            <Layers size={11} style={{ color: '#818cf8', flexShrink: 0 }} />
+                            <span>{u.projectsCount} <span style={{ color: '#4b5563' }}>containers</span></span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8a929e', fontSize: '11px' }}>
+                            <Database size={11} style={{ color: '#3b82f6', flexShrink: 0 }} />
+                            <span>{u.databasesCount} <span style={{ color: '#4b5563' }}>databases</span></span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8a929e', fontSize: '11px' }}>
+                            <HardDrive size={11} style={{ color: '#22c55e', flexShrink: 0 }} />
+                            <span>{u.bucketsCount} <span style={{ color: '#4b5563' }}>buckets</span></span>
+                          </div>
                         </div>
                         
                         <div style={{ textAlign: 'right' }}>
