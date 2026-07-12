@@ -385,7 +385,7 @@ export default function DatabasesTab() {
 
                       <div className="flex items-center gap-2">
                         <div className="relative">
-                          <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-600" />
+                          <Search size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" />
                           <input
                             value={tableFilter}
                             onChange={(e) => setTableFilter(e.target.value)}
@@ -425,19 +425,19 @@ export default function DatabasesTab() {
                       ) : (
                         <table className="w-full text-left border-collapse text-[11px]">
                           <thead className="sticky top-0 z-10">
-                            <tr className="bg-[#060608] border-b border-white/5">
+                            <tr className="bg-white/[0.03] border-b border-white/10">
                               {/* Action column */}
-                              <th className="w-16 px-2 py-2 text-[9px] font-bold text-zinc-600 uppercase tracking-wider border-r border-white/5 bg-[#060608]">
+                              <th className="w-16 px-2 py-2 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-r border-white/10 bg-white/[0.03]">
                                 Actions
                               </th>
                               {tableColumns.map(col => (
-                                <th key={col} className="px-3 py-2 font-mono text-[10px] font-bold text-zinc-400 whitespace-nowrap border-r border-white/[0.03] min-w-28">
+                                <th key={col} className="px-3 py-2 font-mono text-[10px] font-bold text-slate-400 whitespace-nowrap border-r border-white/[0.03] min-w-28">
                                   <div className="flex items-center gap-1">
                                     {tableSchema?.columns.find(c => c.name === col)?.pk && (
                                       <span className="text-yellow-500 text-[8px]">🔑</span>
                                     )}
                                     {col}
-                                    <span className="text-zinc-700 text-[8px] font-normal ml-0.5">
+                                    <span className="text-slate-600 text-[8px] font-normal ml-0.5">
                                       {tableSchema?.columns.find(c => c.name === col)?.type}
                                     </span>
                                   </div>
@@ -449,19 +449,19 @@ export default function DatabasesTab() {
                             {/* New row insertion */}
                             {addingRow && (
                               <tr className="bg-emerald-500/5 border border-emerald-500/20">
-                                <td className="px-2 py-1.5 border-r border-white/5">
+                                <td className="px-2 py-1.5 border-r border-white/10">
                                   <div className="flex gap-1">
                                     <button
                                       onClick={handleInsertRow}
                                       disabled={saving}
-                                      className="p-1 text-emerald-400 hover:text-white bg-emerald-500/20 rounded transition-colors"
+                                      className="p-1 text-emerald-300 hover:text-white bg-emerald-500/20 rounded transition-colors"
                                       title="Confirm Insert"
                                     >
                                       {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
                                     </button>
                                     <button
                                       onClick={() => setAddingRow(false)}
-                                      className="p-1 text-zinc-500 hover:text-white bg-white/5 rounded transition-colors"
+                                      className="p-1 text-slate-500 hover:text-white bg-white/5 rounded transition-colors"
                                     >
                                       <X size={10} />
                                     </button>
@@ -473,13 +473,13 @@ export default function DatabasesTab() {
                                   return (
                                     <td key={col} className="px-1 py-1 border-r border-white/[0.03]">
                                       {isPk ? (
-                                        <span className="text-zinc-600 text-[10px] font-mono px-2 italic">auto</span>
+                                        <span className="text-slate-500 text-[10px] font-mono px-2 italic">auto</span>
                                       ) : (
                                         <input
                                           value={newRowData[col] ?? ''}
                                           onChange={(e) => setNewRowData(p => ({ ...p, [col]: e.target.value }))}
                                           placeholder={colDef?.dflt_value ?? '...'}
-                                          className="w-full min-w-20 h-6 px-2 bg-black/30 border border-emerald-500/30 rounded text-[10px] font-mono text-zinc-200 outline-0 focus:border-emerald-400"
+                                          className="w-full min-w-20 h-6 px-2 rounded border border-emerald-500/30 bg-slate-950/60 text-[10px] font-mono text-slate-200 outline-0 focus:border-emerald-400"
                                         />
                                       )}
                                     </td>
@@ -497,20 +497,20 @@ export default function DatabasesTab() {
                                   key={rIdx}
                                   className={`transition-colors group ${isEditing ? 'bg-indigo-500/5 border border-indigo-500/20' : 'hover:bg-white/[0.01]'}`}
                                 >
-                                  <td className="px-2 py-1.5 border-r border-white/5 shrink-0">
+                                  <td className="px-2 py-1.5 border-r border-white/10 shrink-0">
                                     {isEditing ? (
                                       <div className="flex gap-1">
                                         <button
                                           onClick={handleSaveRow}
                                           disabled={saving}
-                                          className="p-1 text-indigo-400 hover:text-white bg-indigo-500/20 rounded"
+                                          className="p-1 text-cyan-200 hover:text-white bg-cyan-400/20 rounded"
                                           title="Save"
                                         >
                                           {saving ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
                                         </button>
                                         <button
                                           onClick={() => { setEditingRowKey(null); setEditingRowData({}); }}
-                                          className="p-1 text-zinc-500 hover:text-white bg-white/5 rounded"
+                                          className="p-1 text-slate-500 hover:text-white bg-white/5 rounded"
                                         >
                                           <X size={10} />
                                         </button>
@@ -522,14 +522,14 @@ export default function DatabasesTab() {
                                             setEditingRowKey(pkVal);
                                             setEditingRowData({ ...row });
                                           }}
-                                          className="p-1 text-zinc-500 hover:text-indigo-400 bg-white/5 hover:bg-indigo-500/10 rounded"
+                                          className="p-1 text-slate-500 hover:text-cyan-300 bg-white/5 hover:bg-cyan-400/10 rounded"
                                           title="Edit"
                                         >
                                           <Pencil size={10} />
                                         </button>
                                         <button
                                           onClick={() => setDeleteConfirm(pkVal)}
-                                          className="p-1 text-zinc-500 hover:text-red-400 bg-white/5 hover:bg-red-500/10 rounded"
+                                          className="p-1 text-slate-500 hover:text-red-300 bg-white/5 hover:bg-red-500/10 rounded"
                                           title="Delete"
                                         >
                                           <Trash size={10} />
@@ -543,11 +543,11 @@ export default function DatabasesTab() {
                                         <input
                                           value={editingRowData[col] ?? ''}
                                           onChange={(e) => setEditingRowData(p => ({ ...p, [col]: e.target.value }))}
-                                          className="w-full min-w-20 h-6 px-2 bg-black/30 border border-indigo-500/30 rounded text-[10px] font-mono text-zinc-200 outline-0 focus:border-indigo-400"
+                                          className="w-full min-w-20 h-6 px-2 rounded border border-cyan-400/30 bg-slate-950/60 text-[10px] font-mono text-slate-200 outline-0 focus:border-cyan-300"
                                         />
                                       ) : (
                                         <span className={`px-2 font-mono text-[10px] block truncate ${
-                                          row[col] === null ? 'text-zinc-600 italic' : 'text-zinc-300'
+                                          row[col] === null ? 'text-slate-600 italic' : 'text-slate-300'
                                         }`}>
                                           {row[col] !== null ? String(row[col]) : 'null'}
                                         </span>
@@ -564,23 +564,23 @@ export default function DatabasesTab() {
 
                     {/* Pagination */}
                     {tableTotal > tablePageSize && (
-                      <div className="h-9 border-t border-white/5 px-4 flex items-center justify-between bg-[#040406] shrink-0">
-                        <span className="text-[9px] text-zinc-600 font-mono">
+                      <div className="h-9 border-t border-white/10 px-4 flex items-center justify-between bg-white/[0.03] shrink-0">
+                        <span className="text-[9px] text-slate-500 font-mono">
                           Showing {(tablePage - 1) * tablePageSize + 1}–{Math.min(tablePage * tablePageSize, tableTotal)} of {tableTotal}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
                             disabled={tablePage <= 1}
                             onClick={() => loadTableData(activeTable!, tablePage - 1, tableFilter)}
-                            className="p-1 rounded hover:bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30"
+                            className="p-1 rounded hover:bg-white/5 text-slate-500 hover:text-white disabled:opacity-30"
                           >
                             <ChevronLeft size={12} />
                           </button>
-                          <span className="text-[9px] text-zinc-500 px-1">Page {tablePage}</span>
+                          <span className="text-[9px] text-slate-500 px-1">Page {tablePage}</span>
                           <button
                             disabled={tablePage * tablePageSize >= tableTotal}
                             onClick={() => loadTableData(activeTable!, tablePage + 1, tableFilter)}
-                            className="p-1 rounded hover:bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30"
+                            className="p-1 rounded hover:bg-white/5 text-slate-500 hover:text-white disabled:opacity-30"
                           >
                             <ChevronRight size={12} />
                           </button>
@@ -596,16 +596,16 @@ export default function DatabasesTab() {
             {dbView === 'sql' && (
               <div className="flex-1 flex flex-col min-h-0">
                 {/* Query Editor */}
-                <div className="flex-1 flex flex-col min-h-0 border-b border-white/5 p-4 relative">
+                <div className="flex-1 flex flex-col min-h-0 border-b border-white/10 p-4 relative">
                   <div className="flex items-center justify-between mb-2 shrink-0">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                       <Terminal size={12} />
                       SQL Editor
                     </div>
                     <button
                       onClick={() => handleExecuteQuery()}
                       disabled={queryExecuting}
-                      className="h-8 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-colors active:scale-95 duration-100"
+                      className="app-button-primary h-10 px-4 text-xs disabled:opacity-50"
                     >
                       {queryExecuting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
                       Run Query
@@ -620,21 +620,21 @@ export default function DatabasesTab() {
                         handleExecuteQuery();
                       }
                     }}
-                    className="flex-1 w-full bg-[#050507] border border-white/5 rounded-xl p-4 font-mono text-xs text-zinc-300 outline-0 focus:border-white/10 resize-none select-text"
+                    className="flex-1 w-full rounded-xl border border-white/10 bg-slate-950/70 p-4 font-mono text-xs text-slate-300 outline-0 focus:border-white/20 resize-none select-text"
                     placeholder="Write SQL here... (Ctrl+Enter to run)"
                   />
                 </div>
 
                 {/* Output Panel */}
-                <div className="h-[280px] flex flex-col min-h-0 bg-[#040406]">
-                  <div className="h-9 border-b border-white/5 px-4 flex items-center text-[10px] font-bold text-zinc-600 uppercase tracking-wider bg-black/20 shrink-0">
+                <div className="h-[280px] flex flex-col min-h-0 bg-white/[0.01]">
+                  <div className="h-9 border-b border-white/10 px-4 flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-white/[0.03] shrink-0">
                     Output Console
                   </div>
                   <div className="flex-1 overflow-auto p-4 select-text">
                     {queryExecuting && (
-                      <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-2">
-                        <Loader2 className="animate-spin text-indigo-400" size={20} />
-                        <span className="text-[10px]">Executing query...</span>
+                      <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
+                        <Loader2 className="animate-spin text-cyan-300" size={20} />
+                        <span className="text-[10px] uppercase tracking-[0.14em]">Executing query</span>
                       </div>
                     )}
                     {queryError && (
@@ -650,21 +650,21 @@ export default function DatabasesTab() {
                       <div className="space-y-4">
                         <div className="text-[11px] font-bold text-emerald-400">✓ {queryResult.message || 'Query completed.'}</div>
                         {queryResult.rows && queryResult.rows.length > 0 && (
-                          <div className="border border-white/5 rounded-xl overflow-hidden bg-black/40">
+                          <div className="border border-white/10 rounded-xl overflow-hidden bg-slate-950/60">
                             <table className="w-full text-left border-collapse text-xs">
                               <thead>
-                                <tr className="border-b border-white/5 bg-black/50 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                                <tr className="border-b border-white/10 bg-white/[0.03] text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                                   {queryResult.columns.map((col: string) => (
                                     <th key={col} className="p-2.5 font-mono">{col}</th>
                                   ))}
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-white/5">
+                              <tbody className="divide-y divide-white/10">
                                 {queryResult.rows.map((row: any, rIdx: number) => (
                                   <tr key={rIdx} className="hover:bg-white/[0.01] transition-colors">
                                     {queryResult.columns.map((col: string) => (
-                                      <td key={col} className="p-2.5 font-mono text-[11px] text-zinc-300">
-                                        {row[col] !== null ? String(row[col]) : <span className="text-zinc-600 italic">null</span>}
+                                      <td key={col} className="p-2.5 font-mono text-[11px] text-slate-300">
+                                        {row[col] !== null ? String(row[col]) : <span className="text-slate-600 italic">null</span>}
                                       </td>
                                     ))}
                                   </tr>
@@ -676,7 +676,7 @@ export default function DatabasesTab() {
                       </div>
                     )}
                     {!queryExecuting && !queryError && !queryResult && (
-                      <div className="flex items-center justify-center h-full text-zinc-700 text-xs italic">
+                      <div className="flex items-center justify-center h-full text-slate-700 text-xs italic">
                         Write SQL and press Ctrl+Enter or click "Run Query" to execute.
                       </div>
                     )}
@@ -687,10 +687,10 @@ export default function DatabasesTab() {
 
             {/* ===== CONNECTION GUIDE VIEW ===== */}
             {dbView === 'guide' && (
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 text-zinc-300 select-text text-left">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 text-slate-300 select-text text-left">
                 <div>
-                  <h3 className="text-sm font-bold text-white mb-1.5">Database Connection & Query Guide</h3>
-                  <p className="text-xs text-zinc-500">
+                  <h3 className="text-sm font-semibold tracking-tight text-white mb-1.5">Database connection and query guide</h3>
+                  <p className="text-xs text-slate-500">
                     Each SQLite database is sandboxed under your workspace tenant. You can query your database instances in real-time inside your edge functions or query them externally from your client apps using HTTP/REST API endpoints securely with your workspace API Keys.
                   </p>
                 </div>
@@ -699,12 +699,12 @@ export default function DatabasesTab() {
                   
                   {/* A. Query inside Edge Functions */}
                   <div className="space-y-3">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 1: Query inside Edge Functions</span>
-                    <div className="bg-[#050507] border border-indigo-500/10 rounded-2xl p-5 space-y-3">
-                      <p className="text-xs text-zinc-400">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Option 1: Query inside Edge Functions</span>
+                    <div className="bg-slate-950/60 border border-cyan-500/10 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-slate-400">
                         Edge functions receive a pre-authorized <code className="bg-white/5 px-1 rounded text-white font-mono">db</code> client. No credentials required:
                       </p>
-                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[10px] text-indigo-300 whitespace-pre-wrap leading-relaxed">
+                      <pre className="bg-slate-950/70 border border-white/10 rounded-xl p-3 font-mono text-[10px] text-cyan-200 whitespace-pre-wrap leading-relaxed">
 {`export default async function handler({ db }) {
   // Query primary team database
   const res = await db.query(
@@ -725,12 +725,12 @@ export default function DatabasesTab() {
 
                   {/* B. cURL External API Request */}
                   <div className="space-y-3">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 2: Query via cURL (HTTP API)</span>
-                    <div className="bg-[#050507] border border-orange-500/10 rounded-2xl p-5 space-y-3">
-                      <p className="text-xs text-zinc-400">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Option 2: Query via cURL (HTTP API)</span>
+                    <div className="bg-slate-950/60 border border-orange-500/10 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-slate-400">
                         Query your database externally from your terminal using standard HTTP POST requests. Provide your team's API keys:
                       </p>
-                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[9px] text-orange-300 whitespace-pre-wrap leading-relaxed">
+                      <pre className="bg-slate-950/70 border border-white/10 rounded-xl p-3 font-mono text-[9px] text-orange-200 whitespace-pre-wrap leading-relaxed">
 {`curl -X POST \\
   -H "Authorization: Bearer YOUR_SERVICE_KEY" \\
   -H "Content-Type: application/json" \\
@@ -742,12 +742,12 @@ export default function DatabasesTab() {
 
                   {/* C. Node.js Integration */}
                   <div className="space-y-3">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 3: External Node.js (fetch)</span>
-                    <div className="bg-[#050507] border border-white/5 rounded-2xl p-5 space-y-3">
-                      <p className="text-xs text-zinc-400">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Option 3: External Node.js (fetch)</span>
+                    <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-slate-400">
                         Query the database programmatically inside a Node.js / Next.js backend app:
                       </p>
-                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                      <pre className="bg-slate-950/70 border border-white/10 rounded-xl p-3 font-mono text-[10px] text-slate-300 whitespace-pre-wrap leading-relaxed">
 {`const runQuery = async () => {
   const res = await fetch(
     "https://api.khawarahemad.com/api/databases/${activeDb?.id}/query",
@@ -771,12 +771,12 @@ export default function DatabasesTab() {
 
                   {/* D. Python Integration */}
                   <div className="space-y-3">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Option 4: External Python (requests)</span>
-                    <div className="bg-[#050507] border border-white/5 rounded-2xl p-5 space-y-3">
-                      <p className="text-xs text-zinc-400">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Option 4: External Python (requests)</span>
+                    <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-5 space-y-3">
+                      <p className="text-xs text-slate-400">
                         Fetch rows from your Python backends, data scripts, or machine learning pipelines:
                       </p>
-                      <pre className="bg-black/40 border border-white/5 rounded-xl p-3 font-mono text-[10px] text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                      <pre className="bg-slate-950/70 border border-white/10 rounded-xl p-3 font-mono text-[10px] text-slate-300 whitespace-pre-wrap leading-relaxed">
 {`import requests
 
 url = "https://api.khawarahemad.com/api/databases/${activeDb?.id}/query"
@@ -804,19 +804,19 @@ print("Query Data:", data)`}
 
         {/* Delete Confirm Dialog */}
         {deleteConfirm !== null && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-            <div className="bg-[#0d0d0e] border border-red-500/20 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-              <div className="text-sm font-bold text-white mb-2">Delete Row?</div>
-              <p className="text-xs text-zinc-400 mb-5">
-                Permanently delete the row with <span className="font-mono text-zinc-300">{tableSchema?.primaryKey} = {deleteConfirm}</span>? This cannot be undone.
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xl p-6">
+            <div className="glass-card max-w-sm w-full rounded-[1.75rem] border border-red-500/20 p-6 shadow-2xl bg-slate-950/80">
+              <div className="text-sm font-semibold tracking-tight text-white mb-2">Delete row?</div>
+              <p className="text-xs text-slate-400 mb-5">
+                Permanently delete the row with <span className="font-mono text-slate-200">{tableSchema?.primaryKey} = {deleteConfirm}</span>? This cannot be undone.
               </p>
               <div className="flex justify-end gap-3">
-                <button onClick={() => setDeleteConfirm(null)} className="h-8 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-300">
+                <button onClick={() => setDeleteConfirm(null)} className="app-button-secondary h-10 px-4 text-xs">
                   Cancel
                 </button>
                 <button
                   onClick={() => handleDeleteRow(deleteConfirm)}
-                  className="h-8 px-4 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-xs active:scale-95"
+                  className="h-10 px-4 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-xs active:scale-95"
                 >
                   Delete
                 </button>
@@ -832,29 +832,32 @@ print("Query Data:", data)`}
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Header */}
-      <div className="h-16 border-b border-white/5 px-6 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+      <div className="app-panel-strong mx-4 mt-4 rounded-[1.75rem] px-5 py-4 shrink-0">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
             <Database size={16} />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-white">Database Instances</h2>
-            <p className="text-[10px] text-zinc-500">Supabase-style table editor & SQL console</p>
+            <div className="app-muted-label mb-1">Database workspace</div>
+            <h2 className="text-xl font-semibold tracking-tight text-white">Database instances</h2>
+            <p className="mt-1 text-sm text-slate-400">Table editor, SQL console, and service connections in one place.</p>
+          </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchDatabases}
-            className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={() => setProvisionOpen(true)}
-            className="h-9 px-3.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors flex items-center gap-1.5 active:scale-95 duration-100"
+            className="app-button-primary h-11 px-5 text-xs"
           >
             <Plus size={14} />
-            Create Database
+            Create database
           </button>
         </div>
       </div>
@@ -862,52 +865,52 @@ print("Query Data:", data)`}
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-            <Loader2 className="animate-spin text-indigo-400" size={32} />
-            <span className="text-xs">Loading databases...</span>
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+            <Loader2 className="animate-spin text-cyan-300" size={32} />
+            <span className="text-xs uppercase tracking-[0.18em]">Loading databases</span>
           </div>
         ) : databases.length === 0 ? (
-          <div className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl py-24 text-center max-w-lg mx-auto bg-white/[0.01]">
+          <div className="glass-card mx-auto flex max-w-lg flex-col items-center justify-center rounded-[2rem] border border-dashed border-white/10 py-24 text-center bg-white/[0.01]">
             <div className="relative mb-6">
-              <div className="absolute inset-0 rounded-3xl bg-indigo-500/20 blur-2xl animate-pulse" />
-              <div className="relative w-16 h-16 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <div className="absolute inset-0 rounded-[1.75rem] bg-cyan-400/20 blur-2xl animate-pulse" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-cyan-400/10 text-cyan-200">
                 <Database size={28} />
               </div>
             </div>
-            <h3 className="font-extrabold text-lg text-white mb-2">No Databases provisioned</h3>
-            <p className="text-xs text-zinc-400 max-w-xs mb-8 leading-relaxed">
+            <h3 className="mb-2 text-2xl font-semibold tracking-tight text-white">No databases provisioned</h3>
+            <p className="mb-8 max-w-xs text-sm leading-6 text-slate-300">
               Launch PostgreSQL, MySQL, or Redis instances with a full Supabase-style Table Editor and SQL Console.
             </p>
             <button
               onClick={() => setProvisionOpen(true)}
-              className="h-10 px-6 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs transition-all active:scale-95"
+              className="app-button-primary h-11 px-6 text-xs"
             >
               Provision first database
             </button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6 max-w-7xl mx-auto">
+          <div className="grid gap-6 md:grid-cols-2 max-w-7xl mx-auto">
             {databases.map((db) => {
               const connStr = getConnectionString(db);
               return (
-                <div key={db.id} className="glass-card p-6 rounded-2xl border border-white/5 flex flex-col justify-between bg-white/[0.01] relative group">
+                <div key={db.id} className="glass-card p-6 rounded-[1.75rem] border border-white/10 flex flex-col justify-between bg-white/[0.01] relative group">
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
                           <Database size={16} />
                         </div>
                         <div>
-                          <span className="text-xs font-bold text-white block">{db.name}</span>
-                          <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">{db.type}</span>
+                          <span className="block text-xs font-semibold text-white">{db.name}</span>
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{db.type}</span>
                         </div>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                         db.status === 'RUNNING'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                           : db.status === 'CREATING'
-                          ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 animate-pulse'
-                          : 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20'
+                          ? 'bg-cyan-400/10 text-cyan-200 border border-cyan-400/20 animate-pulse'
+                          : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                       }`}>
                         {db.status}
                       </span>
@@ -916,10 +919,10 @@ print("Query Data:", data)`}
                     {db.status === 'RUNNING' && (
                       <div className="space-y-2 mt-3">
                         <div>
-                          <label className="text-[9px] text-zinc-500 font-bold tracking-wider uppercase block mb-1">Connection URI</label>
-                          <div className="flex items-center gap-2 bg-[#050507] border border-white/5 rounded-lg px-3 py-1.5 text-[10px] font-mono text-zinc-300">
+                          <label className="text-[9px] text-slate-500 font-bold tracking-wider uppercase block mb-1">Connection URI</label>
+                          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-300">
                             <span className="truncate flex-1 select-all">{connStr}</span>
-                            <button onClick={() => handleCopy(connStr, db.id + '-uri')} className="text-zinc-500 hover:text-white shrink-0">
+                            <button onClick={() => handleCopy(connStr, db.id + '-uri')} className="text-slate-500 hover:text-white shrink-0">
                               {copiedId === db.id + '-uri' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                             </button>
                           </div>
@@ -928,7 +931,7 @@ print("Query Data:", data)`}
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-4">
+                  <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-4">
                     {db.status === 'RUNNING' ? (
                       <button
                         onClick={() => {
@@ -937,7 +940,7 @@ print("Query Data:", data)`}
                           setActiveTable(null);
                           fetchTables(db.id);
                         }}
-                        className="h-8 px-3 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-bold flex items-center gap-1.5 transition-all active:scale-95"
+                        className="app-button-primary h-10 px-3 text-[10px]"
                       >
                         <Table size={11} />
                         Open Database
@@ -946,7 +949,7 @@ print("Query Data:", data)`}
 
                     <button
                       onClick={() => handleDeleteDatabase(db.id)}
-                      className="h-8 px-2.5 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-500 hover:text-red-400 text-[10px] font-bold flex items-center gap-1.5 transition-colors"
+                      className="h-10 px-2.5 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-300 hover:text-red-200 text-[10px] font-bold flex items-center gap-1.5 transition-colors"
                     >
                       <Trash size={12} />
                       Delete
@@ -961,25 +964,25 @@ print("Query Data:", data)`}
 
       {/* Provision Modal */}
       {provisionOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="glass p-6 rounded-2xl max-w-sm w-full border border-white/10 shadow-2xl">
-            <h3 className="text-base font-bold mb-1">Provision Managed Database</h3>
-            <p className="text-xs text-zinc-400 mb-4">Launch a dedicated database with Table Editor & SQL Console.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-xl">
+          <div className="glass-card w-full max-w-sm rounded-[1.75rem] border border-white/10 p-6 shadow-2xl">
+            <h3 className="mb-1 text-xl font-semibold tracking-tight text-white">Provision managed database</h3>
+            <p className="mb-4 text-sm text-slate-400">Launch a dedicated database with table editor and SQL console.</p>
 
             <form onSubmit={handleCreateDatabase} className="space-y-4">
               <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Database Name</label>
+                <label className="app-muted-label block mb-2">Database name</label>
                 <input
                   type="text"
                   required
                   value={dbName}
                   onChange={(e) => setDbName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                   placeholder="e.g. production-db"
-                  className="w-full h-10 px-3 rounded-xl glass-input text-sm text-white"
+                  className="glass-input h-11 w-full text-sm text-white"
                 />
               </div>
               <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Engine</label>
+                <label className="app-muted-label block mb-2">Engine</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['POSTGRESQL', 'REDIS', 'MYSQL'] as const).map((type) => (
                     <button
@@ -988,8 +991,8 @@ print("Query Data:", data)`}
                       onClick={() => setDbType(type)}
                       className={`h-12 rounded-xl border text-[10px] font-bold flex flex-col items-center justify-center gap-1 transition-all ${
                         dbType === type
-                          ? 'border-indigo-500 bg-indigo-500/5 text-indigo-400'
-                          : 'border-white/5 bg-white/[0.01] text-zinc-400 hover:text-white hover:border-white/10'
+                          ? 'border-cyan-400 bg-cyan-400/5 text-cyan-200'
+                          : 'border-white/10 bg-white/[0.01] text-slate-400 hover:text-white hover:border-white/20'
                       }`}
                     >
                       {type === 'POSTGRESQL' ? 'PostgreSQL' : type === 'REDIS' ? 'Redis' : 'MySQL'}

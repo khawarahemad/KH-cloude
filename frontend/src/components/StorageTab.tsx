@@ -499,9 +499,9 @@ client.put_object()
         ) : (
           <>
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-                <Loader2 className="animate-spin text-indigo-400" size={32} />
-                <span className="text-xs">Fetching storage buckets...</span>
+              <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+                <Loader2 className="animate-spin text-cyan-300" size={32} />
+                <span className="text-xs uppercase tracking-[0.18em]">Fetching storage buckets</span>
               </div>
             ) : !activeBucket ? (
               /* BUCKETS GRID LIST */
@@ -531,7 +531,7 @@ client.put_object()
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-semibold text-white truncate max-w-[150px]">{b.name}</span>
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black tracking-wide ${
-                            b.isPublic ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-zinc-800 text-zinc-400'
+                            b.isPublic ? 'bg-cyan-400/10 text-cyan-200 border border-cyan-400/20' : 'bg-slate-800 text-slate-400'
                           }`}>
                             {b.isPublic ? 'PUBLIC' : 'PRIVATE'}
                           </span>
@@ -572,7 +572,7 @@ client.put_object()
                   <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
                     {/* Search */}
                     <div className="relative max-w-sm flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
                       <input
                         type="text"
                         placeholder="Search objects in folder..."
@@ -586,7 +586,7 @@ client.put_object()
                     <div className="flex gap-2">
                       <button
                         onClick={() => setFolderCreateOpen(true)}
-                        className="h-9 px-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/5 text-zinc-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                        className="h-9 px-3 rounded-lg border border-white/10 bg-white/[0.02] hover:bg-white/5 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                       >
                         <Plus size={14} />
                         New Folder
@@ -604,7 +604,7 @@ client.put_object()
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
-                        className="h-9 px-4 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-95"
+                        className="app-button-primary h-11 px-4 text-xs"
                       >
                         <Upload size={14} />
                         {uploading ? 'Uploading...' : 'Upload File'}
@@ -613,7 +613,7 @@ client.put_object()
                   </div>
 
                   {/* Explorer Breadcrumbs */}
-                  <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-bold select-none bg-white/[0.01] border border-white/5 px-4 py-2.5 rounded-xl">
+                  <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.01] px-4 py-2.5 text-xs font-bold select-none text-slate-400">
                     <button
                       onClick={() => setCurrentPrefix('')}
                       className="hover:text-white transition-colors"
@@ -622,10 +622,10 @@ client.put_object()
                     </button>
                     {getBreadcrumbs().map((bc, idx) => (
                       <React.Fragment key={idx}>
-                        <span className="text-zinc-700 font-normal">/</span>
+                        <span className="font-normal text-slate-700">/</span>
                         <button
                           onClick={() => setCurrentPrefix(bc.prefix)}
-                          className="hover:text-white transition-colors text-indigo-400"
+                          className="text-cyan-200 transition-colors hover:text-white"
                         >
                           {bc.name}
                         </button>
@@ -639,24 +639,24 @@ client.put_object()
                     onDragLeave={onDragLeave}
                     onDrop={onDrop}
                     className={`border rounded-2xl min-h-[400px] flex flex-col transition-all relative overflow-hidden bg-white/[0.01] ${
-                      dragOver ? 'border-indigo-500 bg-indigo-500/5' : 'border-white/5'
+                      dragOver ? 'border-cyan-400 bg-cyan-400/5' : 'border-white/10'
                     }`}
                   >
                     {filesLoading ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 gap-3">
-                        <Loader2 className="animate-spin text-indigo-400" size={24} />
-                        <span className="text-xs">Loading items...</span>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-400">
+                        <Loader2 className="animate-spin text-cyan-300" size={24} />
+                        <span className="text-xs uppercase tracking-[0.16em]">Loading items</span>
                       </div>
                     ) : displayItems.length === 0 ? (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center text-zinc-500 py-20">
-                        <Upload size={32} className="opacity-30 mb-3 text-indigo-400" />
-                        <p className="text-xs font-semibold text-zinc-400">Drag & drop files here to upload</p>
-                        <p className="text-[10px] text-zinc-600 mt-1">Or click the Upload button to select files</p>
+                      <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 py-20">
+                        <Upload size={32} className="opacity-30 mb-3 text-cyan-300" />
+                        <p className="text-xs font-semibold text-slate-300">Drag and drop files here to upload</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Or click the Upload button to select files</p>
                       </div>
                     ) : (
-                      <table className="w-full text-left border-collapse text-xs text-zinc-300">
+                      <table className="w-full text-left border-collapse text-xs text-slate-300">
                         <thead>
-                          <tr className="border-b border-white/5 bg-black/25 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                          <tr className="border-b border-white/10 bg-white/[0.03] text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                             <th className="p-3.5 pl-5">Name</th>
                             <th className="p-3.5">Size</th>
                             <th className="p-3.5">Type</th>
@@ -672,7 +672,7 @@ client.put_object()
                             >
                               {/* NAME COLUMN */}
                               <td 
-                                className="p-3.5 pl-5 font-bold text-zinc-200 cursor-pointer max-w-xs truncate flex items-center gap-3"
+                                className="p-3.5 pl-5 font-bold text-slate-200 cursor-pointer max-w-xs truncate flex items-center gap-3"
                                 onClick={() => {
                                   if (item.isFolder) {
                                     setCurrentPrefix(item.key);
@@ -682,9 +682,9 @@ client.put_object()
                                 }}
                               >
                                 {item.isFolder ? (
-                                  <Folder className="text-indigo-400 shrink-0" size={16} />
+                                  <Folder className="text-cyan-300 shrink-0" size={16} />
                                 ) : (
-                                  <FileIcon className="text-zinc-400 shrink-0" size={16} />
+                                  <FileIcon className="text-slate-400 shrink-0" size={16} />
                                 )}
                                 <span className="truncate hover:text-white transition-colors">
                                   {item.name}
@@ -692,21 +692,21 @@ client.put_object()
                               </td>
 
                               {/* SIZE COLUMN */}
-                              <td className="p-3.5 font-mono text-[10px] text-zinc-400">
+                              <td className="p-3.5 font-mono text-[10px] text-slate-400">
                                 {item.isFolder ? '—' : formatBytes(item.size)}
                               </td>
 
                               {/* TYPE COLUMN */}
                               <td className="p-3.5">
                                 <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                                  item.isFolder ? 'bg-indigo-500/10 text-indigo-400' : 'bg-zinc-800 text-zinc-500'
+                                  item.isFolder ? 'bg-cyan-400/10 text-cyan-200' : 'bg-slate-800 text-slate-500'
                                 }`}>
                                   {item.isFolder ? 'Folder' : item.contentType?.split('/')[1] || 'File'}
                                 </span>
                               </td>
 
                               {/* MODIFIED COLUMN */}
-                              <td className="p-3.5 text-zinc-500 font-semibold text-[10px] flex items-center gap-1 mt-1.5">
+                              <td className="p-3.5 text-slate-500 font-semibold text-[10px] flex items-center gap-1 mt-1.5">
                                 {!item.isFolder && (
                                   <>
                                     <Calendar size={10} />
@@ -722,21 +722,21 @@ client.put_object()
                                     <>
                                       <button
                                         onClick={() => handleOpenPreview(item)}
-                                        className="p-1 text-zinc-400 hover:text-white transition-colors"
+                                        className="p-1 text-slate-400 hover:text-white transition-colors"
                                         title="Preview"
                                       >
                                         <Eye size={13} />
                                       </button>
                                       <button
                                         onClick={() => handleCopyDirectLink(item)}
-                                        className="p-1 text-zinc-400 hover:text-indigo-400 transition-colors"
+                                        className="p-1 text-slate-400 hover:text-cyan-300 transition-colors"
                                         title={activeBucket.isPublic ? "Copy Public URL" : "Copy Temporary URL"}
                                       >
                                         <Link size={13} />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteFile(item.key)}
-                                        className="p-1 text-zinc-400 hover:text-red-400 transition-colors"
+                                        className="p-1 text-slate-400 hover:text-red-300 transition-colors"
                                         title="Delete"
                                       >
                                         <Trash size={13} />
@@ -745,7 +745,7 @@ client.put_object()
                                   ) : (
                                     <button
                                       onClick={() => handleDeleteFile(item.key)}
-                                      className="p-1 text-zinc-500 hover:text-red-400 transition-colors"
+                                      className="p-1 text-slate-500 hover:text-red-300 transition-colors"
                                       title="Delete Folder"
                                     >
                                       <Trash size={13} />
@@ -764,46 +764,46 @@ client.put_object()
                 {/* DEVELOPER PANEL / SDK CLIENTS (1 Col) */}
                 <div className="space-y-6">
                   {/* Endpoint configuration card */}
-                  <div className="glass-card p-6 rounded-2xl border border-white/5 space-y-4 bg-white/[0.01]">
+                  <div className="glass-card p-6 rounded-2xl border border-white/10 space-y-4 bg-white/[0.01]">
                     <div className="flex items-center gap-2 text-xs font-bold text-white">
-                      <Code size={16} className="text-indigo-400" />
+                      <Code size={16} className="text-cyan-300" />
                       S3 Endpoint Configuration
                     </div>
 
                     <div className="space-y-3">
                       <div>
-                        <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">S3 Endpoint</label>
-                        <div className="flex items-center gap-2 bg-[#050507] border border-white/5 rounded-lg px-3 py-1.5 text-[10px] font-mono text-zinc-300">
+                        <label className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">S3 Endpoint</label>
+                        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-300">
                           <span className="truncate flex-1">https://storage.khawarahemad.com</span>
-                          <button onClick={() => handleCopy('https://storage.khawarahemad.com', 'endpoint')} className="text-zinc-500 hover:text-white">
+                          <button onClick={() => handleCopy('https://storage.khawarahemad.com', 'endpoint')} className="text-slate-500 hover:text-white">
                             {copiedText === 'endpoint' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                           </button>
                         </div>
                       </div>
 
                       <div>
-                        <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Access Key ID</label>
-                        <div className="flex items-center gap-2 bg-[#050507] border border-white/5 rounded-lg px-3 py-1.5 text-[10px] font-mono text-zinc-300">
+                        <label className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Access Key ID</label>
+                        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-300">
                           <span className="truncate flex-1">{`kh_acc_${activeBucket.id.substring(0, 8)}`}</span>
-                          <button onClick={() => handleCopy(`kh_acc_${activeBucket.id.substring(0, 8)}`, 'accessKey')} className="text-zinc-500 hover:text-white">
+                          <button onClick={() => handleCopy(`kh_acc_${activeBucket.id.substring(0, 8)}`, 'accessKey')} className="text-slate-500 hover:text-white">
                             {copiedText === 'accessKey' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                           </button>
                         </div>
                       </div>
 
                       <div>
-                        <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Secret Access Key</label>
-                        <div className="flex items-center gap-2 bg-[#050507] border border-white/5 rounded-lg px-3 py-1.5 text-[10px] font-mono text-zinc-300">
+                        <label className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Secret Access Key</label>
+                        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-300">
                           <input
                             type={showSecret ? 'text' : 'password'}
                             readOnly
                             value={`kh_sec_${activeBucket.id.substring(8, 20)}`}
-                            className="bg-transparent border-0 outline-0 ring-0 p-0 text-[10px] font-mono text-zinc-300 flex-1 min-w-0"
+                            className="bg-transparent border-0 outline-0 ring-0 p-0 text-[10px] font-mono text-slate-300 flex-1 min-w-0"
                           />
-                          <button onClick={() => setShowSecret(!showSecret)} className="text-zinc-500 hover:text-white">
+                          <button onClick={() => setShowSecret(!showSecret)} className="text-slate-500 hover:text-white">
                             {showSecret ? <EyeOff size={12} /> : <Eye size={12} />}
                           </button>
-                          <button onClick={() => handleCopy(`kh_sec_${activeBucket.id.substring(8, 20)}`, 'secretKey')} className="text-zinc-500 hover:text-white">
+                          <button onClick={() => handleCopy(`kh_sec_${activeBucket.id.substring(8, 20)}`, 'secretKey')} className="text-slate-500 hover:text-white">
                             {copiedText === 'secretKey' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                           </button>
                         </div>
@@ -812,22 +812,22 @@ client.put_object()
                   </div>
 
                   {/* SDK Code Snippets Generator */}
-                  <div className="glass-card p-6 rounded-2xl border border-white/5 flex flex-col h-[270px] bg-white/[0.01]">
+                  <div className="glass-card p-6 rounded-2xl border border-white/10 flex flex-col h-[270px] bg-white/[0.01]">
                     <div className="flex items-center justify-between mb-4 shrink-0">
                       <div className="flex items-center gap-2 text-xs font-bold text-white">
-                        <Sparkles size={16} className="text-purple-400" />
+                        <Sparkles size={16} className="text-cyan-300" />
                         SDK Client Examples
                       </div>
                     </div>
 
                     {/* Language tab selector */}
-                    <div className="flex gap-2 border-b border-white/5 text-[10px] font-bold pb-2 shrink-0">
+                    <div className="flex gap-2 border-b border-white/10 text-[10px] font-bold pb-2 shrink-0">
                       {(['node', 'python', 'go', 'rust'] as const).map(lang => (
                         <button
                           key={lang}
                           onClick={() => setSdkLanguage(lang)}
                           className={`px-2 py-0.5 rounded capitalize ${
-                            sdkLanguage === lang ? 'bg-indigo-500/10 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+                            sdkLanguage === lang ? 'bg-cyan-400/10 text-cyan-200' : 'text-slate-500 hover:text-slate-300'
                           }`}
                         >
                           {lang === 'node' ? 'Node.js' : lang}
@@ -836,10 +836,10 @@ client.put_object()
                     </div>
 
                     {/* Code viewport */}
-                    <div className="flex-1 bg-[#020203] rounded-lg p-4 font-mono text-[9px] text-zinc-300 overflow-auto border border-white/5 mt-3 relative select-text whitespace-pre">
+                    <div className="flex-1 rounded-2xl border border-white/10 bg-slate-950/70 p-4 font-mono text-[9px] text-slate-300 overflow-auto mt-3 relative select-text whitespace-pre">
                       <button
                         onClick={() => handleCopy(getSdkSnippet(), 'sdk')}
-                        className="absolute top-2 right-2 bg-white/5 border border-white/10 p-1.5 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                        className="absolute top-2 right-2 rounded border border-white/10 bg-white/5 p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
                       >
                         {copiedText === 'sdk' ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
                       </button>
@@ -855,34 +855,34 @@ client.put_object()
 
       {/* Bucket Creation Modal */}
       {createOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="glass p-6 rounded-2xl max-w-sm w-full border border-white/10 shadow-2xl">
-            <h3 className="text-base font-bold mb-1">Create Managed Bucket</h3>
-            <p className="text-xs text-zinc-400 mb-4">Provision S3-compatible cloud object storage.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-xl">
+          <div className="glass-card w-full max-w-sm rounded-[1.75rem] border border-white/10 p-6 shadow-2xl">
+            <h3 className="mb-1 text-xl font-semibold tracking-tight text-white">Create managed bucket</h3>
+            <p className="mb-4 text-sm text-slate-400">Provision S3-compatible cloud object storage.</p>
 
             <form onSubmit={handleCreateBucket} className="space-y-4">
               <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Bucket Name</label>
+                <label className="app-muted-label block mb-2">Bucket name</label>
                 <input
                   type="text"
                   required
                   value={bucketName}
                   onChange={(e) => setBucketName(e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''))}
                   placeholder="e.g. assets-archive"
-                  className="w-full h-10 px-3 rounded-xl glass-input text-sm text-white"
+                  className="glass-input h-11 w-full text-sm text-white"
                 />
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/[0.01]">
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.01] p-3">
                 <div>
                   <span className="text-xs font-bold text-white block">Public Bucket</span>
-                  <span className="text-[9px] text-zinc-500">Allow anonymous direct HTTP reads.</span>
+                  <span className="text-[9px] text-slate-500">Allow anonymous direct HTTP reads.</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={isPublic}
                   onChange={(e) => setIsPublic(e.target.checked)}
-                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-cyan-300 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                 />
               </div>
 
@@ -890,13 +890,13 @@ client.put_object()
                 <button
                   type="button"
                   onClick={() => setCreateOpen(false)}
-                  className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold"
+                  className="app-button-secondary h-11 px-4 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs active:scale-95"
+                  className="app-button-primary h-11 px-4 text-xs"
                 >
                   Provision Bucket
                 </button>
@@ -908,21 +908,21 @@ client.put_object()
 
       {/* New Folder Creation Modal */}
       {folderCreateOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
-          <div className="glass p-6 rounded-2xl max-w-sm w-full border border-white/10 shadow-2xl">
-            <h3 className="text-base font-bold mb-1 text-white">Create Virtual Directory</h3>
-            <p className="text-xs text-zinc-400 mb-4">Add a folder inside the current path prefix.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-xl animate-fade-in">
+          <div className="glass-card w-full max-w-sm rounded-[1.75rem] border border-white/10 p-6 shadow-2xl">
+            <h3 className="mb-1 text-xl font-semibold tracking-tight text-white">Create virtual directory</h3>
+            <p className="mb-4 text-sm text-slate-400">Add a folder inside the current path prefix.</p>
 
             <form onSubmit={handleCreateFolder} className="space-y-4">
               <div>
-                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Folder Name</label>
+                <label className="app-muted-label block mb-2">Folder name</label>
                 <input
                   type="text"
                   required
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
                   placeholder="e.g. photos"
-                  className="w-full h-10 px-3 rounded-xl glass-input text-sm text-white"
+                  className="glass-input h-11 w-full text-sm text-white"
                 />
               </div>
 
@@ -930,14 +930,14 @@ client.put_object()
                 <button
                   type="button"
                   onClick={() => setFolderCreateOpen(false)}
-                  className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-300"
+                  className="app-button-secondary h-11 px-4 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs active:scale-95 flex items-center gap-1"
+                  className="app-button-primary h-11 px-4 text-xs flex items-center gap-1"
                 >
                   {uploading ? <Loader2 size={12} className="animate-spin" /> : null}
                   Create Folder
@@ -950,11 +950,11 @@ client.put_object()
 
       {/* Asset File Preview Modal */}
       {previewFile && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
-          <div className="glass rounded-2xl max-w-xl w-full border border-white/10 shadow-2xl flex flex-col overflow-hidden max-h-[600px]">
-            <div className="h-14 border-b border-white/5 px-6 flex items-center justify-between shrink-0 bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur-xl animate-fade-in">
+          <div className="glass-card max-h-[600px] w-full max-w-xl overflow-hidden rounded-[1.75rem] border border-white/10 shadow-2xl flex flex-col">
+            <div className="flex h-14 items-center justify-between border-b border-white/10 bg-white/[0.03] px-6 shrink-0">
               <div className="flex items-center gap-2">
-                <FileIcon size={16} className="text-indigo-400" />
+                <FileIcon size={16} className="text-cyan-300" />
                 <h3 className="text-xs font-bold truncate max-w-sm">{previewFile.key}</h3>
               </div>
               <button
@@ -962,46 +962,46 @@ client.put_object()
                   setPreviewFile(null);
                   setPreviewUrl('');
                 }}
-                className="text-zinc-500 hover:text-white transition-colors"
+                className="text-slate-500 hover:text-white transition-colors"
               >
                 ✕
               </button>
             </div>
             
-            <div className="flex-1 p-6 flex items-center justify-center bg-black/20 overflow-auto min-h-[300px]">
+            <div className="flex-1 overflow-auto bg-slate-950/40 p-6 flex items-center justify-center min-h-[300px]">
               {previewFile.contentType?.startsWith('image/') ? (
                 <img
                   src={previewUrl}
                   alt={previewFile.key}
-                  className="max-h-[350px] object-contain rounded border border-white/5"
+                  className="max-h-[350px] object-contain rounded-2xl border border-white/10"
                 />
               ) : previewFile.contentType?.startsWith('video/') ? (
                 <video
                   src={previewUrl}
                   controls
-                  className="max-h-[350px] w-full rounded border border-white/5"
+                  className="max-h-[350px] w-full rounded-2xl border border-white/10"
                 />
               ) : previewFile.contentType === 'application/pdf' ? (
-                <div className="flex flex-col items-center text-zinc-500 text-xs gap-3">
+                <div className="flex flex-col items-center text-slate-400 text-xs gap-3">
                   <BookOpen size={48} className="opacity-40" />
                   <span>PDF Document Preview is supported on downloads.</span>
                   <a
                     href={previewUrl}
                     download
-                    className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs flex items-center gap-1.5"
+                    className="app-button-primary h-11 px-4 text-xs flex items-center gap-1.5"
                   >
                     <Download size={14} />
                     Download PDF
                   </a>
                 </div>
               ) : (
-                <div className="flex flex-col items-center text-zinc-500 text-xs gap-3">
+                <div className="flex flex-col items-center text-slate-400 text-xs gap-3">
                   <FileIcon size={48} className="opacity-40" />
                   <span>Binary asset ({previewFile.contentType})</span>
                   <a
                     href={previewUrl}
                     download
-                    className="h-9 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs flex items-center gap-1.5"
+                    className="app-button-primary h-11 px-4 text-xs flex items-center gap-1.5"
                   >
                     <Download size={14} />
                     Download File
@@ -1010,7 +1010,7 @@ client.put_object()
               )}
             </div>
 
-            <div className="h-12 border-t border-white/5 px-6 flex items-center justify-between text-[10px] text-zinc-400 bg-black/40 shrink-0 font-semibold font-mono">
+            <div className="flex h-12 items-center justify-between border-t border-white/10 px-6 text-[10px] text-slate-400 bg-white/[0.03] shrink-0 font-semibold font-mono">
               <span>Size: {formatBytes(previewFile.size)}</span>
               <span>Content-Type: {previewFile.contentType}</span>
             </div>

@@ -289,10 +289,10 @@ export default function AdminTab() {
           </div>
 
           {/* Sub-tabs selectors */}
-          <div className="flex flex-wrap gap-2 rounded-full border border-white/10 bg-white/5 p-1 text-[11px] font-bold text-slate-400">
+          <div className="flex flex-wrap gap-2 rounded-full border border-white/10 bg-slate-950/60 p-1 text-[11px] font-bold text-slate-400">
             <button
               onClick={() => setSubTab('users')}
-              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
                 subTab === 'users' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
               }`}
             >
@@ -301,7 +301,7 @@ export default function AdminTab() {
             </button>
             <button
               onClick={() => setSubTab('projects')}
-              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
                 subTab === 'projects' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
               }`}
             >
@@ -310,7 +310,7 @@ export default function AdminTab() {
             </button>
             <button
               onClick={() => setSubTab('buckets')}
-              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
                 subTab === 'buckets' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
               }`}
             >
@@ -319,7 +319,7 @@ export default function AdminTab() {
             </button>
             <button
               onClick={() => setSubTab('vps-storage')}
-              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
                 subTab === 'vps-storage' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
               }`}
             >
@@ -328,7 +328,7 @@ export default function AdminTab() {
             </button>
             <button
               onClick={() => setSubTab('billing')}
-              className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
+                className={`h-9 px-4 rounded-full flex items-center gap-1.5 transition-all ${
                 subTab === 'billing' ? 'bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-400/20' : 'hover:text-white'
               }`}
             >
@@ -346,15 +346,15 @@ export default function AdminTab() {
           {/* Quick Metrics */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
             <div className="grid grid-cols-3 gap-4 shrink-0">
-              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-white/[0.01]">
+              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-slate-950/60">
                 <span className="app-muted-label block mb-1">Total system users</span>
                 <span className="text-2xl font-black text-white">{users.length}</span>
               </div>
-              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-white/[0.01]">
+              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-slate-950/60">
                 <span className="app-muted-label block mb-1">Monitored web containers</span>
                 <span className="text-2xl font-black text-indigo-400">{subTab === 'projects' ? projects.length : projects.reduce((acc, u) => acc + (u.projectsCount || 0), 0)}</span>
               </div>
-              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-white/[0.01]">
+              <div className="glass-card rounded-[1.5rem] border border-white/10 p-5 bg-slate-950/60">
                 <span className="app-muted-label block mb-1">Global storage buckets</span>
                 <span className="text-2xl font-black text-purple-400">{subTab === 'buckets' ? buckets.length : buckets.reduce((acc, u) => acc + (u.bucketsCount || 0), 0)}</span>
               </div>
@@ -390,12 +390,12 @@ export default function AdminTab() {
               <span className="text-xs uppercase tracking-[0.18em]">Gathering platform details</span>
             </div>
           ) : (
-            <div className="glass-card overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.01]">
+              <div className="glass-card overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/60">
               
               {/* SUB TAB: USERS LIST */}
               {subTab === 'users' && (
                 <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-4 bg-slate-950/50 p-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  <div className="grid grid-cols-4 bg-white/[0.03] p-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     <span>User / Organizations</span>
                     <span>System Role</span>
                     <span>Resources</span>
@@ -405,25 +405,25 @@ export default function AdminTab() {
                   {users
                     .filter(u => (u.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.email || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(u => (
-                      <div key={u.id} className="grid grid-cols-4 gap-4 p-4 items-start text-xs text-slate-300">
+                      <div key={u.id} className="grid grid-cols-4 gap-4 p-4 items-start text-xs text-slate-300 hover:bg-white/[0.01] transition-colors">
                         <div className="flex flex-col gap-1">
                           <span className="font-bold text-white text-sm">{u.name}</span>
                           <span className="mb-2 text-[10px] font-mono text-slate-500">{u.email}</span>
                           
                           {/* User Teams/Orgs */}
                           <div className="space-y-1">
-                            <span className="text-[8px] uppercase tracking-wider text-zinc-600 block font-black">Teams Owned/Joined:</span>
+                            <span className="text-[8px] uppercase tracking-wider text-slate-600 block font-black">Teams owned/joined:</span>
                             {u.teams && u.teams.map((t: any) => (
-                              <div key={t.id} className="flex items-center justify-between gap-2 bg-white/[0.02] border border-white/5 rounded-lg p-2">
+                              <div key={t.id} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-2">
                                 <div className="flex flex-col gap-0.5 truncate">
                                   <span className="font-bold text-[10px] text-white truncate">{t.name}</span>
-                                  <span className="text-[8px] font-mono text-zinc-600 truncate">{t.id}</span>
+                                  <span className="text-[8px] font-mono text-slate-600 truncate">{t.id}</span>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                   <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                                    t.planId === 'pro' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                    t.planId === 'enterprise' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
-                                    'bg-zinc-800 text-zinc-500'
+                                    t.planId === 'pro' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' :
+                                    t.planId === 'enterprise' ? 'bg-cyan-400/10 text-cyan-200 border border-cyan-400/20' :
+                                    'bg-slate-800 text-slate-500'
                                   }`}>
                                     {t.planId}
                                   </span>
@@ -434,14 +434,14 @@ export default function AdminTab() {
                                       setOverrideStatus(t.status);
                                       setSubTab('billing');
                                     }}
-                                    className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-white"
+                                    className="p-1 hover:bg-white/5 rounded text-slate-500 hover:text-white"
                                     title="Override Plan"
                                   >
                                     <Sliders size={10} />
                                   </button>
                                   <button
                                     onClick={() => handleCopyText(t.id, 'Team ID')}
-                                    className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-white"
+                                    className="p-1 hover:bg-white/5 rounded text-slate-500 hover:text-white"
                                     title="Copy ID"
                                   >
                                     <Copy size={10} />
@@ -458,15 +458,15 @@ export default function AdminTab() {
                             disabled={actingId !== null}
                             className={`h-7 px-3 rounded-lg font-bold text-[10px] transition-all uppercase tracking-wider ${
                               u.role === 'ADMIN' 
-                                ? 'bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white border border-indigo-500/20' 
-                                : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5'
+                                ? 'bg-cyan-400/10 hover:bg-cyan-400 text-cyan-200 hover:text-slate-950 border border-cyan-400/20' 
+                                : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10'
                             }`}
                           >
                             {actingId === u.id ? <Loader2 size={10} className="animate-spin" /> : u.role}
                           </button>
                         </div>
                         
-                        <div className="space-y-1 text-zinc-400 font-medium">
+                        <div className="space-y-1 text-slate-400 font-medium">
                           <div>💻 {u.projectsCount} App Containers</div>
                           <div>🗄️ {u.databasesCount} databases</div>
                           <div>📦 {u.bucketsCount} Storage Buckets</div>
@@ -476,7 +476,7 @@ export default function AdminTab() {
                           <button
                             onClick={() => handleDeleteUser(u.id)}
                             disabled={actingId !== null}
-                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-500 text-[10px] font-bold transition-all uppercase tracking-wider"
+                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-300 text-[10px] font-bold transition-all uppercase tracking-wider"
                           >
                             Delete User
                           </button>
@@ -489,7 +489,7 @@ export default function AdminTab() {
               {/* SUB TAB: APP CONTAINERS LIST */}
               {subTab === 'projects' && (
                 <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-4 p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-black/40">
+                  <div className="grid grid-cols-4 p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-white/[0.03]">
                     <span>Container / Owner</span>
                     <span>External URL</span>
                     <span>Status</span>
@@ -499,11 +499,11 @@ export default function AdminTab() {
                   {projects
                     .filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(p => (
-                      <div key={p.id} className="grid grid-cols-4 p-4 items-center text-xs text-zinc-300 gap-4">
+                      <div key={p.id} className="grid grid-cols-4 p-4 items-center text-xs text-slate-300 gap-4 hover:bg-white/[0.01] transition-colors">
                         <div className="flex flex-col gap-0.5">
                           <span className="font-bold text-white text-sm">{p.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono">Owner Team: {p.team.name}</span>
-                          <span className="text-[9px] text-zinc-600 font-mono">ID: {p.id}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">Owner team: {p.team.name}</span>
+                          <span className="text-[9px] text-slate-600 font-mono">ID: {p.id}</span>
                         </div>
                         
                         <div className="flex items-center gap-1.5 font-mono text-[10px]">
@@ -511,7 +511,7 @@ export default function AdminTab() {
                             href={`https://${p.slug}.khcloud.app`} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-indigo-400 hover:underline truncate max-w-[150px] flex items-center gap-1 font-bold"
+                            className="text-cyan-200 hover:underline truncate max-w-[150px] flex items-center gap-1 font-bold"
                           >
                             {p.slug}.khcloud.app
                             <ExternalLink size={8} />
@@ -521,10 +521,10 @@ export default function AdminTab() {
                         <div>
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
                             p.status === 'READY' 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                              ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' 
                               : p.status === 'SUSPENDED'
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                              : 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 animate-pulse'
+                              ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                              : 'bg-slate-500/10 text-slate-500 border border-slate-500/20 animate-pulse'
                           }`}>
                             {p.status}
                           </span>
@@ -536,8 +536,8 @@ export default function AdminTab() {
                             disabled={actingId !== null}
                             className={`h-7 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
                               p.status === 'SUSPENDED'
-                                ? 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20'
-                                : 'bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-white border border-amber-500/20'
+                                ? 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/20'
+                                : 'bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/20'
                             }`}
                           >
                             {actingId === p.id && <Loader2 size={10} className="animate-spin" />}
@@ -547,7 +547,7 @@ export default function AdminTab() {
                           <button
                             onClick={() => handleDeleteProject(p.id)}
                             disabled={actingId !== null}
-                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider"
+                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-300 text-[10px] font-bold uppercase tracking-wider"
                           >
                             Force Kill
                           </button>
@@ -564,7 +564,7 @@ export default function AdminTab() {
               {/* SUB TAB: OBJECT STORAGE LIST */}
               {subTab === 'buckets' && (
                 <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-5 p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-black/40">
+                  <div className="grid grid-cols-5 p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-white/[0.03]">
                     <span>Bucket / Owner</span>
                     <span>Status</span>
                     <span>Size Used</span>

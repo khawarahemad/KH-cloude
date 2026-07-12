@@ -155,7 +155,7 @@ export default function TeamsTab() {
                   <div className="glass-card overflow-hidden rounded-[1.75rem] divide-y divide-white/10">
                     {invites.map((invite) => (
                       <div key={invite.id} className="p-4 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 text-zinc-300">
+                        <div className="flex items-center gap-2 text-slate-300">
                           <Mail size={14} className="text-slate-500" />
                           <span>{invite.email}</span>
                           <span className="text-[9px] text-slate-500 uppercase">({invite.role})</span>
