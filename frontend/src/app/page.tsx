@@ -20,32 +20,70 @@ type ViewMode = 'landing' | 'auth' | 'dashboard';
 export default function Home() {
   const { user, setUser, setTeams, activeTab, setActiveTab } = useAppStore();
   const [view, setView] = useState<ViewMode>('landing');
+  const [isAuthSubdomain, setIsAuthSubdomain] = useState(false);
   const [isAdminSubdomain, setIsAdminSubdomain] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(true);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
-      if (hostname.startsWith('admin.')) {
-        setIsAdminSubdomain(true);
+      const isAuth = hostname.startsWith('auth.');
+      const isAdmin = hostname.startsWith('admin.');
+      setIsAuthSubdomain(isAuth);
+      setIsAdminSubdomain(isAdmin);
+
+      // Check for session_data parameter
+      const params = new URLSearchParams(window.location.search);
+      const sessionDataParam = params.get('session_data');
+      if (sessionDataParam) {
+        try {
+          const data = JSON.parse(decodeURIComponent(sessionDataParam));
+          setUser(data.user);
+          setTeams(data.teams);
+          
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+        } catch (e) {
+          console.error("Session parse failed:", e);
+        }
       }
+      setLoadingSession(false);
     }
   }, []);
 
   // Attempt auto-login with query parameters or session simulation
   useEffect(() => {
-    if (user) {
-      setView('dashboard');
-      if (isAdminSubdomain && user.role === 'ADMIN') {
-        setActiveTab('admin');
+    if (loadingSession) return;
+
+    if (!window.location.hostname.includes('localhost')) {
+      if (isAuthSubdomain) {
+        if (user) {
+          const params = new URLSearchParams(window.location.search);
+          const redirectDest = params.get('redirect') || 'https://cloud.khawarahemad.com';
+          const sessionPayload = encodeURIComponent(JSON.stringify({ user, teams: useAppStore.getState().teams }));
+          window.location.href = `${redirectDest}?session_data=${sessionPayload}`;
+        } else {
+          setView('auth');
+        }
+      } else {
+        if (user) {
+          setView('dashboard');
+          if (isAdminSubdomain && user.role === 'ADMIN') {
+            setActiveTab('admin');
+          }
+        } else {
+          const currentOrigin = window.location.origin;
+          window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+        }
       }
     } else {
-      if (isAdminSubdomain) {
-        setView('auth');
+      if (user) {
+        setView('dashboard');
       } else {
         setView('landing');
       }
     }
-  }, [user, isAdminSubdomain]);
+  }, [user, isAuthSubdomain, isAdminSubdomain, loadingSession]);
 
   const handleAuthSuccess = (data: { user: any; teams: any[] }) => {
     setUser(data.user);

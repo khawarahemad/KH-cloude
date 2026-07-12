@@ -86,8 +86,8 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      # API routing (api.khawarahemad.com & auth.khawarahemad.com)
-      - "traefik.http.routers.backend.rule=Host(`api.khawarahemad.com`) || Host(`auth.khawarahemad.com`)"
+      # API routing (api.khawarahemad.com)
+      - "traefik.http.routers.backend.rule=Host(`api.khawarahemad.com`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=5000"
@@ -108,8 +108,8 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      # Dashboard routing (cloud.khawarahemad.com, cdn.khawarahemad.com, and admin.khawarahemad.com)
-      - "traefik.http.routers.frontend.rule=Host(`cloud.khawarahemad.com`) || Host(`cdn.khawarahemad.com`) || Host(`admin.khawarahemad.com`)"
+      # Dashboard routing (cloud.khawarahemad.com, cdn.khawarahemad.com, admin.khawarahemad.com, and auth.khawarahemad.com)
+      - "traefik.http.routers.frontend.rule=Host(`cloud.khawarahemad.com`) || Host(`cdn.khawarahemad.com`) || Host(`admin.khawarahemad.com`) || Host(`auth.khawarahemad.com`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"

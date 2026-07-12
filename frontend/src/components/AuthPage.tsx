@@ -66,14 +66,16 @@ export default function AuthPage({ onBack, onAuthSuccess }: AuthPageProps) {
   const handleOAuthSimulate = (provider: string) => {
     if (provider === 'GitHub') {
       const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || 'Iv23libP2nC0sNq21c8u';
-      const isSubdomain = window.location.hostname.startsWith('admin.');
+      const redirectUri = `${window.location.origin}/auth/callback/github`;
       
-      let redirectUri = `${window.location.origin}/auth/callback/github`;
-      if (isSubdomain && !window.location.hostname.includes('localhost')) {
-        redirectUri = `https://cloud.khawarahemad.com/auth/callback/github`;
+      // Save redirect destination in localStorage so callback page can forward the session
+      const params = new URLSearchParams(window.location.search);
+      const redirectDest = params.get('redirect');
+      if (redirectDest) {
+        localStorage.setItem('auth_redirect_dest', redirectDest);
       }
       
-      const state = Math.random().toString(36).substring(7) + (isSubdomain ? '_admin' : '_cloud');
+      const state = Math.random().toString(36).substring(7);
       localStorage.setItem('github_oauth_state', state);
       window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
       return;

@@ -16,50 +16,19 @@ function GitHubCallbackContent() {
   useEffect(() => {
     const code = searchParams.get('code');
     const state = searchParams.get('state') || '';
-    const sessionDataParam = searchParams.get('session_data');
-
-    // Case 1: We are on the target subdomain receiving session data forwarded from the callback domain
-    if (sessionDataParam) {
-      const savedState = localStorage.getItem('github_oauth_state');
-      const cleanedState = state.replace('_admin', '');
-      const cleanedSavedState = savedState ? savedState.replace('_admin', '').replace('_cloud', '') : '';
-      
-      if (savedState && cleanedState !== cleanedSavedState) {
-        setError('CSRF validation failed on redirect. Security token mismatch.');
-        return;
-      }
-      localStorage.removeItem('github_oauth_state');
-
-      try {
-        const data = JSON.parse(decodeURIComponent(sessionDataParam));
-        setUser(data.user);
-        setTeams(data.teams);
-        setStatus('success');
-        router.push('/');
-        return;
-      } catch (e) {
-        setError('Failed to parse forwarded session.');
-        return;
-      }
-    }
 
     if (!code) {
       setError('Authorization code not found. Please try logging in again.');
       return;
     }
 
-    // Case 2: We are on the callback domain (cloud.khawarahemad.com)
-    const isForwardedToAdmin = state.endsWith('_admin');
-    if (!isForwardedToAdmin) {
-      const savedState = localStorage.getItem('github_oauth_state');
-      const cleanedState = state.replace('_cloud', '');
-      const cleanedSavedState = savedState ? savedState.replace('_cloud', '').replace('_admin', '') : '';
-      if (savedState && cleanedState !== cleanedSavedState) {
-        setError('CSRF validation failed. Security token mismatch. Please try again.');
-        return;
-      }
-      localStorage.removeItem('github_oauth_state');
+    // CSRF verification
+    const savedState = localStorage.getItem('github_oauth_state');
+    if (state && savedState && state !== savedState) {
+      setError('CSRF validation failed. Security token mismatch. Please try again.');
+      return;
     }
+    localStorage.removeItem('github_oauth_state');
 
     const exchangeCode = async () => {
       try {
@@ -71,9 +40,12 @@ function GitHubCallbackContent() {
           body: JSON.stringify({ code }),
         });
 
-        if (isForwardedToAdmin) {
-          // Forward session data to admin subdomain
-          window.location.href = `https://admin.khawarahemad.com/auth/callback/github?session_data=${encodeURIComponent(JSON.stringify(data))}&state=${state}`;
+        // Check if we need to forward this session back to a redirected subdomain
+        const redirectDest = localStorage.getItem('auth_redirect_dest');
+        if (redirectDest) {
+          localStorage.removeItem('auth_redirect_dest');
+          const sessionPayload = encodeURIComponent(JSON.stringify(data));
+          window.location.href = `${redirectDest}?session_data=${sessionPayload}`;
         } else {
           // Save session in Zustand store locally
           setUser(data.user);
