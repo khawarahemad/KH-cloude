@@ -96,11 +96,13 @@ export default function BillingTab() {
 
             {/* Plans Section */}
             <div>
-              <h3 className="text-xs font-bold text-zinc-400 mb-4 uppercase tracking-wider">Select Subscription Plan</h3>
+              <h3 className="text-xs font-bold text-zinc-400 mb-1 uppercase tracking-wider">Select Subscription Plan</h3>
+              <p className="text-[10px] text-zinc-500 mb-4">
+                Plan modifications are restricted. Only system administrators can change a team's plan.
+              </p>
               <div className="grid md:grid-cols-3 gap-6">
                 {billing?.plans?.map((plan: any) => {
                   const isCurrent = billing?.subscription?.planId === plan.id;
-                  const isUpdating = updatingPlanId === plan.id;
                   return (
                     <div
                       key={plan.id}
@@ -124,24 +126,14 @@ export default function BillingTab() {
                       </div>
 
                       <button
-                        onClick={() => handleUpdatePlan(plan.id)}
-                        disabled={isCurrent || !!updatingPlanId}
-                        className={`w-full h-9 mt-6 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors ${
+                        disabled={true}
+                        className={`w-full h-9 mt-6 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-not-allowed ${
                           isCurrent
-                            ? 'bg-zinc-800 text-zinc-400 cursor-default'
-                            : 'bg-white hover:bg-zinc-200 text-black active:scale-95'
+                            ? 'bg-indigo-500/10 text-indigo-400'
+                            : 'bg-zinc-800/40 text-zinc-500'
                         }`}
                       >
-                        {isUpdating ? (
-                          <>
-                            <Loader2 size={12} className="animate-spin" />
-                            Updating...
-                          </>
-                        ) : isCurrent ? (
-                          'Current Plan'
-                        ) : (
-                          'Select Plan'
-                        )}
+                        {isCurrent ? 'Current Plan' : 'Admin Upgrade Only'}
                       </button>
                     </div>
                   );

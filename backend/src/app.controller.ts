@@ -364,7 +364,12 @@ export class AppController {
   }
 
   @Post('billing/plan')
-  async updatePlan(@Query('teamId') teamId: string, @Body() body: { planId: string }) {
+  async updatePlan(
+    @Query('teamId') teamId: string,
+    @Query('adminUserId') adminUserId: string,
+    @Body() body: { planId: string }
+  ) {
+    await this.verifyAdmin(adminUserId);
     return this.billing.updatePlan(teamId, body.planId);
   }
 
