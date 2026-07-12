@@ -10,13 +10,14 @@ import {
 
 export default function AdminTab() {
   const { user } = useAppStore();
-  const [subTab, setSubTab] = useState<'users' | 'projects' | 'buckets' | 'billing'>('users');
+  const [subTab, setSubTab] = useState<'users' | 'projects' | 'buckets' | 'billing' | 'vps-storage'>('users');
   const [loading, setLoading] = useState(true);
   
   // Data lists
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [buckets, setBuckets] = useState<any[]>([]);
+  const [storageData, setStorageData] = useState<any>(null);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,6 +48,9 @@ export default function AdminTab() {
       } else if (subTab === 'buckets') {
         const data = await apiRequest(`/admin/buckets?adminUserId=${user.id}`);
         setBuckets(data);
+      } else if (subTab === 'vps-storage') {
+        const data = await apiRequest(`/admin/system/storage?adminUserId=${user.id}`);
+        setStorageData(data);
       }
     } catch (err) {
       console.error('Failed to load admin data:', err);
@@ -212,7 +216,7 @@ export default function AdminTab() {
     const num = parseInt(bytesStr);
     if (isNaN(num) || num === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(num) / Math.log(k));
     return parseFloat((num / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
@@ -261,6 +265,15 @@ export default function AdminTab() {
             Object Storage
           </button>
           <button
+            onClick={() => setSubTab('vps-storage')}
+            className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
+              subTab === 'vps-storage' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
+            }`}
+          >
+            <HardDrive size={12} />
+            VPS Storage
+          </button>
+          <button
             onClick={() => setSubTab('billing')}
             className={`h-8 px-4 rounded-lg flex items-center gap-1.5 transition-all ${
               subTab === 'billing' ? 'bg-white/5 text-white shadow-sm' : 'hover:text-zinc-300'
@@ -277,7 +290,7 @@ export default function AdminTab() {
         <div className="max-w-6xl mx-auto space-y-6">
 
           {/* Quick Metrics */}
-          {subTab !== 'billing' && (
+          {subTab !== 'billing' && subTab !== 'vps-storage' && (
             <div className="grid grid-cols-3 gap-6 shrink-0">
               <div className="glass-card p-5 rounded-2xl border border-white/5 bg-white/[0.01]">
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Total System Users</span>
@@ -295,7 +308,7 @@ export default function AdminTab() {
           )}
 
           {/* Search bar & Refresh */}
-          {subTab !== 'billing' && (
+          {subTab !== 'billing' && subTab !== 'vps-storage' && (
             <div className="flex gap-4 items-center">
               <div className="flex-1 relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
@@ -348,11 +361,11 @@ export default function AdminTab() {
                             <span className="text-[8px] uppercase tracking-wider text-zinc-600 block font-black">Teams Owned/Joined:</span>
                             {u.teams && u.teams.map((t: any) => (
                               <div key={t.id} className="flex items-center justify-between gap-2 bg-white/[0.02] border border-white/5 rounded-lg p-2">
-                                <div className="flex flex-col gap-0.5 truncate min-w-0">
-                                  <span className="font-bold text-zinc-300 truncate text-[11px]">{t.name}</span>
+                                <div className="flex flex-col gap-0.5 truncate">
+                                  <span className="font-bold text-[10px] text-white truncate">{t.name}</span>
                                   <span className="text-[8px] font-mono text-zinc-600 truncate">{t.id}</span>
                                 </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="flex items-center gap-1 shrink-0">
                                   <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
                                     t.planId === 'pro' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
                                     t.planId === 'enterprise' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
@@ -361,265 +374,337 @@ export default function AdminTab() {
                                     {t.planId}
                                   </span>
                                   <button
-                                    onClick={() => handleCopyText(t.id, 'Team ID')}
-                                    className="p-1 hover:text-white hover:bg-white/5 rounded transition-colors text-zinc-500"
-                                    title="Copy Team ID"
-                                  >
-                                    <Copy size={10} />
-                                  </button>
-                                  <button
                                     onClick={() => {
                                       setOverrideTeamId(t.id);
                                       setOverridePlanId(t.planId);
                                       setOverrideStatus(t.status);
                                       setSubTab('billing');
                                     }}
-                                    className="p-1 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-colors text-zinc-500"
-                                    title="Manage Subscription Plan"
+                                    className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-white"
+                                    title="Override Plan"
                                   >
                                     <Sliders size={10} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleCopyText(t.id, 'Team ID')}
+                                    className="p-1 hover:bg-white/5 rounded text-zinc-500 hover:text-white"
+                                    title="Copy ID"
+                                  >
+                                    <Copy size={10} />
                                   </button>
                                 </div>
                               </div>
                             ))}
-                            {(!u.teams || u.teams.length === 0) && (
-                              <span className="text-[10px] text-zinc-600 italic">No associated teams</span>
-                            )}
                           </div>
                         </div>
-
-                        <div className="pt-2">
-                          <span className={`px-2.5 py-1 rounded-md text-[9px] font-black tracking-wide ${
-                            u.role === 'ADMIN' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-zinc-800 text-zinc-400'
-                          }`}>
-                            {u.role}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-col gap-1.5 pt-2 text-[10px] font-bold text-zinc-400">
-                          <span>{u.projectsCount} Apps Monitored</span>
-                          <span>{u.databasesCount} Databases</span>
-                          <span>{u.bucketsCount} Storage Buckets</span>
-                        </div>
-
-                        <div className="flex justify-end gap-3 pt-2">
+                        
+                        <div>
                           <button
                             onClick={() => handleToggleRole(u.id, u.role)}
-                            disabled={actingId === u.id}
-                            className="h-8 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors text-[10px] font-bold flex items-center gap-1 disabled:opacity-50"
+                            disabled={actingId !== null}
+                            className={`h-7 px-3 rounded-lg font-bold text-[10px] transition-all uppercase tracking-wider ${
+                              u.role === 'ADMIN' 
+                                ? 'bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white border border-indigo-500/20' 
+                                : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5'
+                            }`}
                           >
-                            <Shield size={10} />
-                            Toggle Admin
+                            {actingId === u.id ? <Loader2 size={10} className="animate-spin" /> : u.role}
                           </button>
+                        </div>
+                        
+                        <div className="space-y-1 text-zinc-400 font-medium">
+                          <div>💻 {u.projectsCount} App Containers</div>
+                          <div>🗄️ {u.databasesCount} databases</div>
+                          <div>📦 {u.bucketsCount} Storage Buckets</div>
+                        </div>
+                        
+                        <div className="text-right">
                           <button
                             onClick={() => handleDeleteUser(u.id)}
-                            disabled={actingId === u.id}
-                            className="h-8 w-8 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-colors flex items-center justify-center disabled:opacity-50"
+                            disabled={actingId !== null}
+                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-500 text-[10px] font-bold transition-all uppercase tracking-wider"
                           >
-                            <Trash2 size={12} />
+                            Delete User
                           </button>
                         </div>
                       </div>
                     ))}
-                  {users.length === 0 && (
-                    <div className="p-8 text-center text-zinc-500 text-xs">No registered users found.</div>
-                  )}
                 </div>
               )}
-
-              {/* SUB TAB: APP CONTAINERS */}
+              
+              {/* SUB TAB: APP CONTAINERS LIST */}
               {subTab === 'projects' && (
                 <div className="divide-y divide-white/5 text-left">
                   <div className="grid grid-cols-4 p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-black/40">
-                    <span>Application (Slug)</span>
-                    <span>Default Domain</span>
-                    <span>Container Status</span>
+                    <span>Container / Owner</span>
+                    <span>External URL</span>
+                    <span>Status</span>
                     <span className="text-right">Actions</span>
                   </div>
-
+                  
                   {projects
                     .filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (p.slug || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(p => (
-                      <div key={p.id} className="grid grid-cols-4 p-4 items-center text-xs text-zinc-300">
+                      <div key={p.id} className="grid grid-cols-4 p-4 items-center text-xs text-zinc-300 gap-4">
                         <div className="flex flex-col gap-0.5">
                           <span className="font-bold text-white text-sm">{p.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono mb-1">({p.slug})</span>
-                          
-                          {p.team && (
-                            <div className="flex items-center gap-1.5 text-[9px] text-zinc-500">
-                              <span className="font-semibold">Org: {p.team.name}</span>
-                              <button
-                                onClick={() => handleCopyText(p.team.id, 'Team ID')}
-                                className="hover:text-white"
-                                title="Copy Team ID"
-                              >
-                                <Copy size={8} />
-                              </button>
-                            </div>
-                          )}
+                          <span className="text-[10px] text-zinc-500 font-mono">Owner Team: {p.team.name}</span>
+                          <span className="text-[9px] text-zinc-600 font-mono">ID: {p.id}</span>
                         </div>
-                        <div className="font-mono text-[10px] text-zinc-400 truncate pr-4">
-                          <a href={`https://${p.slug}.khawarahemad.com`} target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline inline-flex items-center gap-1">
-                            {p.slug}.khawarahemad.com
-                            <ExternalLink size={10} />
+                        
+                        <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                          <a 
+                            href={`https://${p.slug}.khcloud.app`} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="text-indigo-400 hover:underline truncate max-w-[150px] flex items-center gap-1 font-bold"
+                          >
+                            {p.slug}.khcloud.app
+                            <ExternalLink size={8} />
                           </a>
                         </div>
+                        
                         <div>
-                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold ${
-                            p.status === 'READY' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                            p.status === 'SUSPENDED' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                            'bg-red-500/10 text-red-400 border border-red-500/20'
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            p.status === 'READY' 
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                              : p.status === 'SUSPENDED'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              : 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 animate-pulse'
                           }`}>
                             {p.status}
                           </span>
                         </div>
-                        <div className="flex justify-end gap-3">
+                        
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleToggleProjectStatus(p.id, p.status)}
-                            disabled={actingId === p.id}
-                            className={`h-8 px-3 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 ${
-                              p.status === 'SUSPENDED' 
-                                ? 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white' 
-                                : 'bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-white'
+                            disabled={actingId !== null}
+                            className={`h-7 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                              p.status === 'SUSPENDED'
+                                ? 'bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20'
+                                : 'bg-amber-500/10 hover:bg-amber-500 text-amber-400 hover:text-white border border-amber-500/20'
                             }`}
                           >
-                            <Power size={10} />
-                            {p.status === 'SUSPENDED' ? 'Resume Container' : 'Suspend / Stop'}
+                            {actingId === p.id && <Loader2 size={10} className="animate-spin" />}
+                            {p.status === 'SUSPENDED' ? 'Resume' : 'Suspend'}
                           </button>
+                          
                           <button
                             onClick={() => handleDeleteProject(p.id)}
-                            disabled={actingId === p.id}
-                            className="h-8 w-8 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-colors flex items-center justify-center disabled:opacity-50"
+                            disabled={actingId !== null}
+                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider"
                           >
-                            <Trash2 size={12} />
+                            Force Kill
                           </button>
                         </div>
                       </div>
                     ))}
+                    
                   {projects.length === 0 && (
-                    <div className="p-8 text-center text-zinc-500 text-xs">No user projects found.</div>
+                    <div className="p-8 text-center text-zinc-500 italic text-xs font-semibold">No containers registered.</div>
                   )}
                 </div>
               )}
-
-              {/* SUB TAB: OBJECT STORAGE */}
+              
+              {/* SUB TAB: OBJECT STORAGE LIST */}
               {subTab === 'buckets' && (
                 <div className="divide-y divide-white/5 text-left">
-                  <div className="grid grid-cols-4 p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-black/40">
-                    <span>Bucket (MinIO Key)</span>
-                    <span>Storage Quota</span>
-                    <span>Capacity Used</span>
+                  <div className="grid grid-cols-5 p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-black/40">
+                    <span>Bucket / Owner</span>
+                    <span>Status</span>
+                    <span>Size Used</span>
+                    <span>Configured Limit</span>
                     <span className="text-right">Actions</span>
                   </div>
-
+                  
                   {buckets
                     .filter(b => (b.name || '').toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(b => (
-                      <div key={b.id} className="grid grid-cols-4 p-4 items-center text-xs text-zinc-300">
+                      <div key={b.id} className="grid grid-cols-5 p-4 items-center text-xs text-zinc-300 gap-4">
                         <div className="flex flex-col gap-0.5">
                           <span className="font-bold text-white text-sm">{b.name}</span>
-                          <span className="text-[10px] text-zinc-500 uppercase font-semibold mb-1">
-                            {b.isPublic ? '🌐 PUBLIC' : '🔒 PRIVATE'}
-                          </span>
-                          
-                          {b.team && (
-                            <div className="flex items-center gap-1.5 text-[9px] text-zinc-500">
-                              <span className="font-semibold">Org: {b.team.name}</span>
-                              <button
-                                onClick={() => handleCopyText(b.team.id, 'Team ID')}
-                                className="hover:text-white"
-                                title="Copy Team ID"
-                              >
-                                <Copy size={8} />
-                              </button>
-                            </div>
-                          )}
+                          <span className="text-[10px] text-zinc-500 font-mono">Owner Team: {b.team.name}</span>
+                          <span className="text-[9px] text-zinc-600 font-mono">ID: {b.id}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        
+                        <div>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {b.status}
+                          </span>
+                        </div>
+                        
+                        <div className="font-mono text-zinc-300 font-bold">{formatBytes(b.sizeUsed)}</div>
+                        
+                        <div>
                           {editingLimitId === b.id ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <input
-                                type="number"
+                                type="text"
                                 placeholder="GB"
                                 value={newLimitGB}
                                 onChange={(e) => setNewLimitGB(e.target.value)}
-                                className="w-16 h-8 px-2 rounded-lg bg-black text-xs text-white border border-white/10"
+                                className="w-14 h-7 rounded bg-black border border-white/10 text-xs px-1.5 font-mono text-white text-center"
                               />
                               <button
                                 onClick={() => handleUpdateBucketLimit(b.id)}
-                                className="p-1 rounded bg-emerald-500 text-white"
+                                className="h-7 px-2 rounded bg-indigo-500 text-white font-bold"
                               >
-                                <Check size={12} />
+                                Save
                               </button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <span>{(Number(b.sizeLimit) / (1024 * 1024 * 1024)).toFixed(1)} GB</span>
-                              <button
-                                onClick={() => {
-                                  setEditingLimitId(b.id);
-                                  setNewLimitGB((Number(b.sizeLimit) / (1024 * 1024 * 1024)).toString());
-                                }}
-                                className="text-[10px] text-indigo-400 hover:underline"
+                              <span className="font-mono text-zinc-400">{formatBytes(b.sizeLimit)}</span>
+                              <button 
+                                onClick={() => { setEditingLimitId(b.id); setNewLimitGB((Number(b.sizeLimit) / (1024*1024*1024)).toString()); }}
+                                className="text-[9px] font-bold text-indigo-400 hover:underline"
                               >
-                                (Edit Quota)
+                                Edit
                               </button>
                             </div>
                           )}
                         </div>
-                        <div>
-                          <div className="flex flex-col gap-1 w-2/3">
-                            <span className="font-mono text-[10px]">{formatBytes(b.sizeUsed)}</span>
-                            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-indigo-500" 
-                                style={{ width: `${Math.min(100, (Number(b.sizeUsed) / Number(b.sizeLimit)) * 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex justify-end gap-3">
+                        
+                        <div className="text-right">
                           <button
                             onClick={() => handleDeleteBucket(b.id)}
-                            disabled={actingId === b.id}
-                            className="h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-colors text-[10px] font-bold flex items-center gap-1 disabled:opacity-50"
+                            disabled={actingId !== null}
+                            className="h-7 px-3 rounded-lg border border-red-500/10 hover:bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider"
                           >
-                            <Trash2 size={12} />
-                            Force Delete Bucket
+                            Delete
                           </button>
                         </div>
                       </div>
                     ))}
+                    
                   {buckets.length === 0 && (
-                    <div className="p-8 text-center text-zinc-500 text-xs">No storage buckets provisioned.</div>
+                    <div className="p-8 text-center text-zinc-500 italic text-xs font-semibold">No buckets created.</div>
                   )}
                 </div>
               )}
 
-              {/* SUB TAB: PLANS OVERRIDE */}
+              {/* SUB TAB: VPS STORAGE */}
+              {subTab === 'vps-storage' && storageData && (
+                <div className="p-6 space-y-6 text-left">
+                  <div>
+                    <h3 className="text-sm font-bold text-white mb-1">VPS Storage Allocation</h3>
+                    <p className="text-[10px] text-zinc-500 font-medium">Real-time disk space usage and resource breakdown on your virtual private server.</p>
+                  </div>
+
+                  {/* Metrics grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-black/30 border border-white/5 rounded-2xl p-5">
+                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Total Disk Capacity</span>
+                      <span className="text-xl font-black text-white">{formatBytes(storageData.disk.total)}</span>
+                    </div>
+                    <div className="bg-black/30 border border-white/5 rounded-2xl p-5">
+                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Disk Space Used</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xl font-black text-indigo-400">{formatBytes(storageData.disk.used)}</span>
+                        <span className="text-[10px] text-zinc-500 font-bold">({storageData.disk.percentUsed}% used)</span>
+                      </div>
+                    </div>
+                    <div className="bg-black/30 border border-white/5 rounded-2xl p-5">
+                      <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Disk Space Left (Available)</span>
+                      <span className="text-xl font-black text-emerald-400">{formatBytes(storageData.disk.free)}</span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="bg-black/40 border border-white/5 rounded-2xl p-5">
+                    <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase mb-2">
+                      <span>Used Space ({storageData.disk.percentUsed}%)</span>
+                      <span>Available Space ({(100 - parseFloat(storageData.disk.percentUsed)).toFixed(1)}%)</span>
+                    </div>
+                    <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
+                        style={{ width: `${storageData.disk.percentUsed}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Breakdown table */}
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Storage Consumers</h4>
+                      <p className="text-[10px] text-zinc-500 font-medium">Breakdown of storage resources sorted by size used.</p>
+                    </div>
+
+                    <div className="border border-white/5 rounded-2xl overflow-hidden bg-black/40">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-black/50 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                            <th className="p-3">Resource Name</th>
+                            <th className="p-3">Type</th>
+                            <th className="p-3">Organization</th>
+                            <th className="p-3">Owner</th>
+                            <th className="p-3 text-right">Size Used</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {storageData.breakdown.map((item: any) => (
+                            <tr key={item.id} className="hover:bg-white/[0.01] transition-colors">
+                              <td className="p-3 font-semibold text-white font-mono">{item.name}</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+                                  item.type.includes('Bucket') 
+                                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                                    : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                }`}>
+                                  {item.type}
+                                </span>
+                              </td>
+                              <td className="p-3 text-zinc-400">{item.teamName}</td>
+                              <td className="p-3">
+                                <div className="flex flex-col">
+                                  <span className="text-zinc-300 font-bold">{item.ownerName}</span>
+                                  <span className="text-[10px] text-zinc-500 font-mono">{item.ownerEmail}</span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right font-mono text-zinc-300 font-bold">
+                                {formatBytes(item.sizeUsed)}
+                              </td>
+                            </tr>
+                          ))}
+                          {storageData.breakdown.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-8 text-center text-zinc-500 italic">
+                                No buckets or databases found.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB TAB: BILLING OVERRIDES */}
               {subTab === 'billing' && (
-                <div className="p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="p-6 text-left">
+                  <div className="grid md:grid-cols-2 gap-8 items-start">
                     
                     {/* Left: Override Form */}
-                    <div className="md:col-span-2 space-y-6">
+                    <div className="space-y-6">
                       <div>
-                        <h3 className="font-bold text-sm text-white">Manual Subscription Quota Override</h3>
-                        <p className="text-xs text-zinc-400">Instantly upgrade or modify a team's resource access tier without Stripe gateway hooks.</p>
+                        <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider mb-1">Set Manual Override</h4>
+                        <p className="text-[10px] text-zinc-600">Directly upgrade, downgrade, or suspend any team account.</p>
                       </div>
 
-                      <form onSubmit={handleOverrideSubscription} className="space-y-4 text-left">
+                      <form onSubmit={handleOverrideSubscription} className="space-y-4">
                         <div>
                           <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Team ID</label>
                           <input
                             type="text"
                             required
-                            placeholder="e.g. b8f498c1-849c-..."
+                            placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
                             value={overrideTeamId}
                             onChange={(e) => setOverrideTeamId(e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl glass-input text-xs text-white"
+                            className="w-full h-10 px-3 rounded-xl glass-input text-xs font-mono text-white"
                           />
-                          <span className="text-[9px] text-zinc-600 block mt-1">Select an organization from the panel on the right or enter a Team ID manually.</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -628,7 +713,7 @@ export default function AdminTab() {
                             <select
                               value={overridePlanId}
                               onChange={(e) => setOverridePlanId(e.target.value)}
-                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/10 text-xs text-white"
+                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/5 text-xs text-white"
                             >
                               <option value="hobby">Hobby (Free)</option>
                               <option value="pro">Pro ($29/mo)</option>
@@ -641,11 +726,12 @@ export default function AdminTab() {
                             <select
                               value={overrideStatus}
                               onChange={(e) => setOverrideStatus(e.target.value)}
-                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/10 text-xs text-white"
+                              className="w-full h-10 px-3 rounded-xl bg-black border border-white/5 text-xs text-white"
                             >
                               <option value="active">Active</option>
-                              <option value="canceled">Canceled</option>
                               <option value="past_due">Past Due</option>
+                              <option value="canceled">Canceled</option>
+                              <option value="unpaid">Unpaid</option>
                             </select>
                           </div>
                         </div>

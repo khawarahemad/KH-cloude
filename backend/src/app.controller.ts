@@ -914,6 +914,101 @@ export class AppController {
     return sub;
   }
 
+  @Get('admin/system/storage')
+  async adminGetSystemStorage(@Query('adminUserId') adminUserId: string) {
+    await this.verifyAdmin(adminUserId);
+
+    const fs = require('fs');
+    const path = require('path');
+
+    let totalDiskBytes = 0;
+    let freeDiskBytes = 0;
+    let usedDiskBytes = 0;
+    try {
+      const stats = fs.statfsSync('.');
+      totalDiskBytes = stats.blocks * stats.bsize;
+      freeDiskBytes = stats.bavail * stats.bsize;
+      usedDiskBytes = totalDiskBytes - freeDiskBytes;
+    } catch (err) {
+      totalDiskBytes = 100 * 1024 * 1024 * 1024;
+      freeDiskBytes = 60 * 1024 * 1024 * 1024;
+      usedDiskBytes = totalDiskBytes - freeDiskBytes;
+    }
+
+    const buckets = await this.prisma.bucket.findMany({
+      include: {
+        team: {
+          include: {
+            members: {
+              where: { role: 'OWNER' },
+              include: { user: true }
+            }
+          }
+        }
+      }
+    });
+
+    const bucketsBreakdown = buckets.map(b => {
+      const owner = b.team.members[0]?.user;
+      return {
+        id: b.id,
+        name: b.name,
+        type: 'S3 Bucket',
+        teamName: b.team.name,
+        ownerName: owner ? owner.name : 'N/A',
+        ownerEmail: owner ? owner.email : 'N/A',
+        sizeUsed: b.sizeUsed.toString(),
+      };
+    });
+
+    const databases = await this.prisma.databaseInstance.findMany({
+      include: {
+        team: {
+          include: {
+            members: {
+              where: { role: 'OWNER' },
+              include: { user: true }
+            }
+          }
+        }
+      }
+    });
+
+    const dbBreakdown = [];
+    const dbDir = './data';
+    
+    for (const db of databases) {
+      let sizeBytes = 0;
+      try {
+        const dbPath = path.join(dbDir, `virtual_db_${db.id}.db`);
+        if (fs.existsSync(dbPath)) {
+          sizeBytes = fs.statSync(dbPath).size;
+        }
+      } catch {}
+
+      const owner = db.team.members[0]?.user;
+      dbBreakdown.push({
+        id: db.id,
+        name: db.name,
+        type: db.type + ' Database',
+        teamName: db.team.name,
+        ownerName: owner ? owner.name : 'N/A',
+        ownerEmail: owner ? owner.email : 'N/A',
+        sizeUsed: sizeBytes.toString(),
+      });
+    }
+
+    return {
+      disk: {
+        total: totalDiskBytes.toString(),
+        free: freeDiskBytes.toString(),
+        used: usedDiskBytes.toString(),
+        percentUsed: totalDiskBytes > 0 ? ((usedDiskBytes / totalDiskBytes) * 100).toFixed(1) : '0',
+      },
+      breakdown: [...bucketsBreakdown, ...dbBreakdown].sort((a, b) => Number(b.sizeUsed) - Number(a.sizeUsed)),
+    };
+  }
+
   // --- TABLE EDITOR ENDPOINTS ---
 
   @Get('databases/:id/schema/:table')
