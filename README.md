@@ -88,7 +88,17 @@ To enable user sign-in and git-based deployments, you must configure Google OAut
    - Authorized JavaScript origins: `https://auth.yourdomain.com`
    - Authorized redirect URIs: `https://auth.yourdomain.com`
 
-### 2. GitHub App (Vercel-style Import & Deployment)
+### 2. GitHub OAuth Application (Optional User Login)
+To enable users to sign up and log in using their GitHub account, configure a GitHub OAuth Application:
+1. Navigate to your GitHub profile settings > **Developer settings** > **OAuth Apps** > **New OAuth App**.
+2. Configure settings:
+   - **Application name**: `KH Cloud Sign-In`
+   - **Homepage URL**: `https://cloud.yourdomain.com`
+   - **Authorization callback URL**: `https://auth.yourdomain.com/auth/callback/github`
+3. Click **Register application**.
+4. Generate a **Client Secret** and note down both the **Client ID** and **Client Secret**.
+
+### 3. GitHub App (Vercel-style Import & Deployment)
 1. Navigate to your GitHub profile settings > **Developer settings** > **GitHub Apps** > **New GitHub App**.
 2. Configure settings:
    - **GitHub App name**: `KH Cloud App` (or any custom name)
