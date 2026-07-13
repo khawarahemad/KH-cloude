@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class StorageService implements OnModuleInit {
@@ -118,7 +119,11 @@ export class StorageService implements OnModuleInit {
       },
     });
 
-    return bucket;
+    return {
+      ...bucket,
+      sizeLimit: bucket.sizeLimit.toString(),
+      sizeUsed: bucket.sizeUsed.toString(),
+    };
   }
 
   async getBuckets(teamId: string) {
@@ -427,15 +432,26 @@ export class StorageService implements OnModuleInit {
 
     if (this.useMock) {
       // Mock signed URL
-      return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}&token=mock-signed-${Math.random().toString(36).substring(2)}`;
+      const token = this.generateMockToken(bucketId, key);
+      return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}&token=${token}`;
     } else {
       try {
         const command = new GetObjectCommand({ Bucket: bucket.name, Key: key });
         return await getSignedUrl(this.s3Client!, command, { expiresIn });
       } catch (err) {
-        return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}`;
+        const token = this.generateMockToken(bucketId, key);
+        return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}&token=${token}`;
       }
     }
+  }
+
+  generateMockToken(bucketId: string, key: string): string {
+    const secret = process.env.JWT_SECRET || 'khcloud-storage-super-secret-key-123';
+    return 'mock-signed-' + crypto
+      .createHmac('sha256', secret)
+      .update(`${bucketId}:${key}`)
+      .digest('hex')
+      .substring(0, 16);
   }
 
   private getParentKey(key: string): string | null {

@@ -324,9 +324,37 @@ export class AppController {
   async downloadFile(
     @Param('id') id: string,
     @Query('key') key: string,
+    @Query('token') token: string,
+    @Query('apikey') queryApiKey: string,
+    @Headers() headers: any,
     @Res() res: express.Response
   ) {
     if (!key) throw new BadRequestException('File key required.');
+
+    const bucket = await this.prisma.bucket.findUnique({ where: { id } });
+    if (!bucket) throw new NotFoundException('Bucket not found.');
+
+    if (!bucket.isPublic) {
+      const passedKey = queryApiKey || headers?.['apikey'] || headers?.['x-api-key'] || (headers?.['authorization']?.startsWith('Bearer ') ? headers['authorization'].substring(7) : null);
+      let isAuthorized = false;
+
+      if (passedKey) {
+        const keyMatch = await this.prisma.apiKey.findFirst({
+          where: { teamId: bucket.teamId, key: passedKey },
+        });
+        if (keyMatch) isAuthorized = true;
+      }
+
+      if (!isAuthorized && token) {
+        const expectedToken = this.storage.generateMockToken(id, key);
+        if (token === expectedToken) isAuthorized = true;
+      }
+
+      if (!isAuthorized) {
+        throw new BadRequestException('Unauthorized access. Private buckets require a valid API Key or presigned token.');
+      }
+    }
+
     const fileBuffer = await this.storage.getFile(id, key);
     
     // Attempt to guess Content-Type from metadata
