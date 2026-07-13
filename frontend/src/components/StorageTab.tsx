@@ -10,13 +10,11 @@ import {
 import { useDialog } from './CustomDialogProvider';
 
 export default function StorageTab() {
-  const { activeTeam, setActiveTab } = useAppStore();
+  const { activeTeam, setActiveTab, bucketsCache: buckets, setBucketsCache: setBuckets, billingCache: billing, setBillingCache: setBilling } = useAppStore();
   const { confirm, alert } = useDialog();
 
-  const [buckets, setBuckets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [billing, setBilling] = useState<any | null>(null);
-  const [billingLoading, setBillingLoading] = useState(true);
+  const [loading, setLoading] = useState(buckets === null);
+  const [billingLoading, setBillingLoading] = useState(billing === null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [folderCreateOpen, setFolderCreateOpen] = useState(false);
@@ -42,7 +40,7 @@ export default function StorageTab() {
 
   const fetchBuckets = async () => {
     if (!activeTeam) return;
-    setLoading(true);
+    if (!buckets) setLoading(true);
     try { setBuckets(await apiRequest(`/storage/buckets?teamId=${activeTeam.id}`)); }
     catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -57,7 +55,7 @@ export default function StorageTab() {
 
   const fetchBillingInfo = async () => {
     if (!activeTeam) return;
-    setBillingLoading(true);
+    if (!billing) setBillingLoading(true);
     try { setBilling(await apiRequest(`/billing?teamId=${activeTeam.id}`)); }
     catch { setBilling({ subscription: { planId: 'hobby' } }); }
     finally { setBillingLoading(false); }
@@ -312,7 +310,7 @@ export default function StorageTab() {
           </div>
         ) : !activeBucket ? (
           /* BUCKETS LIST */
-          buckets.length === 0 ? (
+          (buckets || []).length === 0 ? (
             <div className="rw-empty">
               <div className="rw-empty-icon"><HardDrive size={20} style={{ color: '#6b7280' }} /></div>
               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6' }}>No storage buckets</h3>
@@ -321,7 +319,7 @@ export default function StorageTab() {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', maxWidth: '960px' }}>
-              {buckets.map(b => (
+              {(buckets || []).map(b => (
                 <div key={b.id} onClick={() => setActiveBucket(b)} className="rw-card-interactive" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>

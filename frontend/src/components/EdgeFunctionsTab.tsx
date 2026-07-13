@@ -39,10 +39,9 @@ export default async function handler({ req, env, storage }) {
 }`;
 
 export default function EdgeFunctionsTab() {
-  const { activeTeam } = useAppStore();
+  const { activeTeam, edgeFunctionsCache: functions, setEdgeFunctionsCache: setFunctions } = useAppStore();
   const { confirm, alert } = useDialog();
-  const [functions, setFunctions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(functions === null);
   const [activeFn, setActiveFn] = useState<any | null>(null);
   const [code, setCode] = useState(DEFAULT_CODE);
   const [envVarsRaw, setEnvVarsRaw] = useState('{}');
@@ -59,7 +58,7 @@ export default function EdgeFunctionsTab() {
 
   const fetchFunctions = async () => {
     if (!activeTeam) return;
-    setLoading(true);
+    if (!functions) setLoading(true);
     try {
       const [fns, keys] = await Promise.all([
         apiRequest(`/edge-functions?teamId=${activeTeam.id}`),
@@ -113,7 +112,7 @@ export default function EdgeFunctionsTab() {
         body: JSON.stringify({ teamId: activeTeam.id, code, envVars: envVarsRaw }),
       });
       setActiveFn(updated);
-      setFunctions(prev => prev.map(f => f.id === updated.id ? updated : f));
+      setFunctions((functions || []).map((f: any) => f.id === updated.id ? updated : f));
     } catch (err: any) {
       alert({ title: 'Error', message: err.message || 'Failed to save function.', type: 'error' });
     } finally {
@@ -454,7 +453,7 @@ export default function EdgeFunctionsTab() {
             <Loader2 size={18} className="animate-spin" style={{ color: '#7c3aed' }} />
             <span style={{ fontSize: '13px' }}>Loading edge functions...</span>
           </div>
-        ) : functions.length === 0 ? (
+        ) : (functions || []).length === 0 ? (
           <div className="rw-empty">
             <div className="rw-empty-icon">
               <Zap size={20} style={{ color: '#f59e0b' }} />
@@ -469,7 +468,7 @@ export default function EdgeFunctionsTab() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
-            {functions.map((fn) => (
+            {(functions || []).map((fn) => (
               <div
                 key={fn.id}
                 onClick={() => setActiveFn(fn)}

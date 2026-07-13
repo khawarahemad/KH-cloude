@@ -13,10 +13,9 @@ import { useDialog } from './CustomDialogProvider';
 type DbView = 'sql' | 'table-editor' | 'guide';
 
 export default function DatabasesTab() {
-  const { activeTeam } = useAppStore();
+  const { activeTeam, databasesCache: databases, setDatabasesCache: setDatabases } = useAppStore();
   const { confirm, alert } = useDialog();
-  const [databases, setDatabases] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(databases === null);
   const [provisionOpen, setProvisionOpen] = useState(false);
   const [dbName, setDbName] = useState('');
   const [dbType, setDbType] = useState<'POSTGRESQL' | 'REDIS' | 'MYSQL'>('POSTGRESQL');
@@ -53,7 +52,7 @@ export default function DatabasesTab() {
 
   const fetchDatabases = async () => {
     if (!activeTeam) return;
-    setLoading(true);
+    if (!databases) setLoading(true);
     try {
       const data = await apiRequest(`/databases?teamId=${activeTeam.id}`);
       setDatabases(data);
@@ -83,7 +82,7 @@ export default function DatabasesTab() {
 
   // Poll database status if they are creating
   useEffect(() => {
-    if (databases.some(d => d.status === 'CREATING')) {
+    if (databases?.some(d => d.status === 'CREATING')) {
       const interval = setInterval(() => {
         fetchDatabases();
       }, 3000);
@@ -630,7 +629,7 @@ export default function DatabasesTab() {
             <Loader2 size={18} className="animate-spin" style={{ color: '#7c3aed' }} />
             <span style={{ fontSize: '13px' }}>Loading databases...</span>
           </div>
-        ) : databases.length === 0 ? (
+        ) : (databases || []).length === 0 ? (
           <div className="rw-empty">
             <div className="rw-empty-icon"><Database size={20} style={{ color: '#6b7280' }} /></div>
             <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6' }}>No databases provisioned</h3>
@@ -639,7 +638,7 @@ export default function DatabasesTab() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxWidth: '960px' }}>
-            {databases.map((db) => {
+            {(databases || []).map((db) => {
               const connStr = getConnectionString(db);
               const isRunning = db.status === 'RUNNING';
               const isCreating = db.status === 'CREATING';

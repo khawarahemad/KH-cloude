@@ -6,13 +6,12 @@ import { apiRequest } from '@/lib/api';
 import { Loader2, CreditCard, FileText, Layers, Database, HardDrive, DollarSign, Check, Lock } from 'lucide-react';
 
 export default function BillingTab() {
-  const { activeTeam } = useAppStore();
-  const [billing, setBilling] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { activeTeam, billingCache: billing, setBillingCache: setBilling } = useAppStore();
+  const [loading, setLoading] = useState(billing === null);
 
   const fetchBillingInfo = async () => {
     if (!activeTeam) return;
-    setLoading(true);
+    if (!billing) setLoading(true);
     try {
       const data = await apiRequest(`/billing?teamId=${activeTeam.id}`);
       setBilling(data);

@@ -42,10 +42,9 @@ const parseEnvText = (text: string) => {
 };
 
 export default function ProjectsTab() {
-  const { activeTeam, user } = useAppStore();
+  const { activeTeam, user, projectsCache: projects, setProjectsCache: setProjects } = useAppStore();
   const { alert } = useDialog();
-  const [projects, setProjects] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(projects === null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [projectDetails, setProjectDetails] = useState<any | null>(null);
   
@@ -210,7 +209,7 @@ export default function ProjectsTab() {
 
   const fetchProjects = async () => {
     if (!activeTeam) return;
-    setLoading(true);
+    if (!projects) setLoading(true);
     try {
       const data = await apiRequest(`/projects?teamId=${activeTeam.id}`);
       setProjects(data);
@@ -628,7 +627,7 @@ export default function ProjectsTab() {
             <span style={{ fontSize: '13px' }}>Loading projects...</span>
           </div>
         ) : !activeProjectId ? (
-          projects.length === 0 ? (
+          (projects || []).length === 0 ? (
             <div className="rw-empty">
               <div className="rw-empty-icon"><Layers size={20} style={{ color: '#6b7280' }} /></div>
               <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f3f6' }}>No projects yet</h3>
@@ -637,7 +636,7 @@ export default function ProjectsTab() {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
-              {projects.map((proj) => {
+              {(projects || []).map((proj) => {
                 const latestDep = proj.deployments?.[0];
                 const statusColors = proj.status === 'READY'
                   ? { bg: 'rgba(34,197,94,0.1)', color: '#22c55e', border: 'rgba(34,197,94,0.2)' }
