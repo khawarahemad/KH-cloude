@@ -1374,14 +1374,37 @@ export default function ProjectsTab() {
                                     </div>
                                     <button
                                       type="button"
-                                      disabled={!newProjectName.trim() || detectingProject}
+                                      disabled={detectingProject}
                                       onClick={() => {
+                                        if (!activeTeam) return;
+                                        // Set project name from repo name first if empty
+                                        const finalName = newProjectName.trim() || repo.name;
+                                        setNewProjectName(finalName);
                                         setSelectedRepo(repo.fullName);
                                         setSelectedBranch(repo.defaultBranch);
-                                        if (!newProjectName.trim()) {
-                                          setNewProjectName(repo.name);
-                                        }
-                                        handleConfigureSettings();
+                                        
+                                        // Trigger detection
+                                        // Since state updates are async, we pass values directly or let handleConfigureSettings read from ref
+                                        // Let's pass the repo/branch directly in apiRequest or trigger detection manually
+                                        setDetectingProject(true);
+                                        apiRequest(`/github-app/repos/detect?teamId=${activeTeam.id}&repo=${repo.fullName}&branch=${repo.defaultBranch}&rootDir=${rootDir}`)
+                                          .then(res => {
+                                            setPort(res.port);
+                                            setBuildCommand(res.buildCommand);
+                                            setStartCommand(res.startCommand);
+                                            setInstallCommand(res.installCommand);
+                                            setWizardStep(2);
+                                          })
+                                          .catch(() => {
+                                            setPort(3000);
+                                            setBuildCommand('npm run build');
+                                            setStartCommand('npm run start');
+                                            setInstallCommand('npm install');
+                                            setWizardStep(2);
+                                          })
+                                          .finally(() => {
+                                            setDetectingProject(false);
+                                          });
                                       }}
                                       className="h-8 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 font-bold text-[10px] transition-all flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                                     >
