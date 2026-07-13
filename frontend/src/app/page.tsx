@@ -81,13 +81,17 @@ export default function Home() {
             setActiveTab('admin');
           }
         } else {
-          const currentOrigin = window.location.origin;
-          const isLoggingOut = localStorage.getItem('logout_initiated') === 'true';
-          localStorage.removeItem('logout_initiated');
-          if (isLoggingOut) {
-            window.location.href = `https://auth.khawarahemad.com?logout=true&redirect=${encodeURIComponent(currentOrigin)}`;
+          if (isAdminSubdomain) {
+            const currentOrigin = window.location.origin;
+            const isLoggingOut = localStorage.getItem('logout_initiated') === 'true';
+            localStorage.removeItem('logout_initiated');
+            if (isLoggingOut) {
+              window.location.href = `https://auth.khawarahemad.com?logout=true&redirect=${encodeURIComponent(currentOrigin)}`;
+            } else {
+              window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+            }
           } else {
-            window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+            setView('landing');
           }
         }
       }
@@ -163,7 +167,18 @@ export default function Home() {
   }
 
   if (view === 'landing') {
-    return <LandingPage onEnterApp={() => setView('auth')} />;
+    return (
+      <LandingPage
+        onEnterApp={() => {
+          if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+            const currentOrigin = window.location.origin;
+            window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+          } else {
+            setView('auth');
+          }
+        }}
+      />
+    );
   }
 
   if (view === 'auth') {
