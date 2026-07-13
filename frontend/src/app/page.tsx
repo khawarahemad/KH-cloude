@@ -43,8 +43,38 @@ export default function Home() {
         window.history.replaceState({}, '', newUrl);
       }
 
+      // Check for GitHub App installation callback
+      // GitHub redirects here after install/update with ?installation_id=XXX&setup_action=install
+      const installationId = params.get('installation_id');
+      const setupAction = params.get('setup_action');
+      if (installationId && (setupAction === 'install' || setupAction === 'update')) {
+        // Read teamId from state param
+        const state = params.get('state');
+        let teamId: string | null = null;
+        if (state) {
+          try {
+            const decoded = JSON.parse(atob(state.replace(/-/g, '+').replace(/_/g, '/')));
+            teamId = decoded.teamId || null;
+          } catch {}
+        }
+        // Call backend callback
+        if (teamId) {
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com'}/api/github-app/callback?installation_id=${installationId}&state=${state || ''}`)
+            .catch(() => {});
+        }
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+        // If opened as popup, notify parent and close
+        if (window.opener) {
+          window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId }, '*');
+          window.close();
+        }
+      }
+
+
       const sessionDataParam = params.get('session_data');
       if (sessionDataParam) {
+
         try {
           const data = JSON.parse(decodeURIComponent(sessionDataParam));
           setUser(data.user);

@@ -701,6 +701,21 @@ export class AppController {
     return installation ? { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin } : { connected: false };
   }
 
+  @Get('github-app/manage-url')
+  async getGithubAppManageUrl(@Query('teamId') teamId: string) {
+    if (!teamId) throw new BadRequestException('teamId is required.');
+    const appSlug = process.env.GITHUB_APP_SLUG || 'kh-cloud-app';
+    const installation = await this.prisma.githubInstallation.findUnique({
+      where: { teamId },
+    });
+    if (installation) {
+      // Direct link to manage this specific installation (add/remove repos, uninstall)
+      return { url: `https://github.com/apps/${appSlug}/installations/${installation.installationId}` };
+    }
+    // Not installed yet — send to install page
+    return { url: this.githubApp.getInstallUrl(teamId) };
+  }
+
   // --- GITHUB REPOS (LEGACY — OAuth access token, fallback only) ---
 
   @Get('github/repos')

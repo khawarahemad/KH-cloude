@@ -189,23 +189,36 @@ export default function ProjectsTab() {
   const openGithubAppInstall = async () => {
     if (!activeTeam) return;
     try {
-      const data = await apiRequest(`/github-app/install-url?teamId=${activeTeam.id}`);
-      const installUrl = data.url;
-      // Open in popup (Vercel-style)
+      // Use manage-url: returns manage link for existing installs, install link for new ones
+      const data = await apiRequest(`/github-app/manage-url?teamId=${activeTeam.id}`);
+      const targetUrl = data.url;
+
       const popup = window.open(
-        installUrl,
+        targetUrl,
         'github-app-install',
         'width=1000,height=700,scrollbars=yes,resizable=yes'
       );
-      // Poll for popup close then refresh repos
+
+      // Listen for postMessage from popup (sent by page.tsx after GitHub redirects back)
+      const onMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'GITHUB_APP_INSTALLED') {
+          window.removeEventListener('message', onMessage);
+          clearInterval(poll);
+          fetchGithubRepos();
+        }
+      };
+      window.addEventListener('message', onMessage);
+
+      // Fallback: also poll for popup close (covers cases where postMessage doesn't fire)
       const poll = setInterval(() => {
         if (!popup || popup.closed) {
           clearInterval(poll);
+          window.removeEventListener('message', onMessage);
           fetchGithubRepos();
         }
       }, 800);
     } catch (err) {
-      console.error('Failed to get GitHub App install URL:', err);
+      console.error('Failed to get GitHub App URL:', err);
     }
   };
 
