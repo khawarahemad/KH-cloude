@@ -24,6 +24,7 @@ export default function Home() {
   const [isAuthSubdomain, setIsAuthSubdomain] = useState(false);
   const [isAdminSubdomain, setIsAdminSubdomain] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [isInstallingGithub, setIsInstallingGithub] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -48,6 +49,7 @@ export default function Home() {
       const installationId = params.get('installation_id');
       const setupAction = params.get('setup_action');
       if (installationId && (setupAction === 'install' || setupAction === 'update')) {
+        setIsInstallingGithub(true);
         // Read teamId from localStorage (set before popup was opened)
         // GitHub does NOT send state back via Setup URL, so we use localStorage
         const teamId = localStorage.getItem('github_app_pending_teamId');
@@ -57,16 +59,30 @@ export default function Home() {
         if (teamId) {
           const state = btoa(JSON.stringify({ teamId }));
           fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com'}/api/github-app/callback?installation_id=${installationId}&state=${encodeURIComponent(state)}`)
-            .catch(() => {});
+            .then(() => {
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId }, '*');
+              }
+              window.close();
+            })
+            .catch(() => {
+              if (window.opener) {
+                window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId }, '*');
+              }
+              window.close();
+            });
+        } else {
+          // If no teamId, just clean up and close popup
+          setTimeout(() => {
+            if (window.opener) {
+              window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId: null }, '*');
+            }
+            window.close();
+          }, 500);
         }
-        // Clean URL
-        window.history.replaceState({}, '', window.location.pathname);
-        // If opened as popup, notify parent and close
-        if (window.opener) {
-          window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId }, '*');
-          window.close();
-        }
+        return;
       }
+
 
 
       const sessionDataParam = params.get('session_data');
@@ -157,6 +173,25 @@ export default function Home() {
         return <ProjectsTab />;
     }
   };
+
+  if (isInstallingGithub) {
+    return (
+      <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-[#09090b] text-white">
+        <div className="flex flex-col items-center space-y-4 max-w-sm text-center px-6">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full border-2 border-violet-500/10 border-t-2 border-t-violet-500 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-zinc-500">⚡</span>
+            </div>
+          </div>
+          <h2 className="text-sm font-semibold text-zinc-200">Connecting GitHub App...</h2>
+          <p className="text-xs text-zinc-500 leading-relaxed">
+            Linking your installations with KH Cloud. This window will close automatically once the authorization is saved.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'dashboard' && isAdminSubdomain && user?.role !== 'ADMIN') {
     return (
