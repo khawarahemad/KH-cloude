@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { Plus, Loader2, Mail, Clock, Key, Copy, Check, Eye, EyeOff, User, UserPlus, Shield } from 'lucide-react';
+import { useDialog } from './CustomDialogProvider';
 
 const ROLE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   OWNER:        { bg: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: 'rgba(124,58,237,0.25)' },
@@ -29,6 +30,7 @@ function RoleBadge({ role }: { role: string }) {
 
 export default function TeamsTab() {
   const { activeTeam, user } = useAppStore();
+  const { alert } = useDialog();
 
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
@@ -89,7 +91,7 @@ export default function TeamsTab() {
       setInviteEmail('');
       fetchData();
     } catch (err: any) {
-      alert(err.message || 'Failed to send invite.');
+      alert({ title: 'Invite Failed', message: err.message || 'Failed to send invite.', type: 'error' });
     } finally {
       setInviting(false);
     }

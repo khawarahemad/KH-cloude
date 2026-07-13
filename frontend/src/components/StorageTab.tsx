@@ -7,9 +7,11 @@ import {
   HardDrive, Plus, Folder, File as FileIcon, ArrowLeft, Loader2, Upload, Trash,
   Copy, Check, Eye, EyeOff, Download, Code, BookOpen, Zap, Link, Calendar, Search, Lock, Globe
 } from 'lucide-react';
+import { useDialog } from './CustomDialogProvider';
 
 export default function StorageTab() {
   const { activeTeam, setActiveTab } = useAppStore();
+  const { confirm, alert } = useDialog();
 
   const [buckets, setBuckets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,13 +73,26 @@ export default function StorageTab() {
       await apiRequest('/storage/buckets', { method: 'POST', body: JSON.stringify({ name: bucketName, isPublic, teamId: activeTeam.id }) });
       setBucketName(''); setIsPublic(false); setCreateOpen(false);
       fetchBuckets();
-    } catch (err: any) { alert(err.message || 'Failed to create bucket.'); }
+    } catch (err: any) {
+      alert({ title: 'Error', message: err.message || 'Failed to create bucket.', type: 'error' });
+    }
   };
 
   const handleDeleteBucket = async (id: string) => {
-    if (!activeTeam || !confirm('Delete this bucket permanently?')) return;
-    try { await apiRequest(`/storage/buckets/${id}?teamId=${activeTeam.id}`, { method: 'DELETE' }); fetchBuckets(); }
-    catch (err: any) { alert(err.message || 'Failed to delete bucket. It must be empty first.'); }
+    if (!activeTeam) return;
+    const confirmed = await confirm({
+      title: 'Delete Bucket',
+      message: 'Delete this bucket permanently?',
+      confirmText: 'Delete Bucket',
+      isDanger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await apiRequest(`/storage/buckets/${id}?teamId=${activeTeam.id}`, { method: 'DELETE' });
+      fetchBuckets();
+    } catch (err: any) {
+      alert({ title: 'Error', message: err.message || 'Failed to delete bucket. It must be empty first.', type: 'error' });
+    }
   };
 
   const getUploadApiBase = () => {
@@ -100,7 +115,9 @@ export default function StorageTab() {
       }
       fetchFiles(activeBucket.id, currentPrefix);
       fetchBuckets();
-    } catch (err) { alert('Failed to upload some files.'); }
+    } catch (err) {
+      alert({ title: 'Upload Failed', message: 'Failed to upload some files.', type: 'error' });
+    }
     finally { setUploading(false); }
   };
 
@@ -123,7 +140,14 @@ export default function StorageTab() {
   };
 
   const handleDeleteFile = async (key: string) => {
-    if (!activeBucket || !activeTeam || !confirm(`Delete "${key}" permanently?`)) return;
+    if (!activeBucket || !activeTeam) return;
+    const confirmed = await confirm({
+      title: 'Delete File',
+      message: `Delete "${key}" permanently?`,
+      confirmText: 'Delete File',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       await apiRequest(`/storage/buckets/${activeBucket.id}/files?key=${encodeURIComponent(key)}&teamId=${activeTeam.id}`, { method: 'DELETE' });
       fetchFiles(activeBucket.id, currentPrefix);
@@ -153,7 +177,9 @@ export default function StorageTab() {
         const res = await apiRequest(`/storage/buckets/${activeBucket.id}/presigned?key=${encodeURIComponent(item.key)}&expiresIn=86400`);
         const fullUrl = res.url.startsWith('/api') ? `${getUploadApiBase().replace('/api', '')}${res.url}` : res.url;
         handleCopy(fullUrl, item.key);
-      } catch { alert('Failed to generate presigned URL.'); }
+      } catch {
+        alert({ title: 'Error', message: 'Failed to generate presigned URL.', type: 'error' });
+      }
     }
   };
 

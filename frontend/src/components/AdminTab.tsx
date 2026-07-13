@@ -7,9 +7,11 @@ import {
   Users, Layers, HardDrive, CreditCard, Shield, Trash2, 
   RefreshCw, Power, Check, Loader2, Search, Sliders, Copy, ExternalLink, Pencil, Database
 } from 'lucide-react';
+import { useDialog } from './CustomDialogProvider';
 
 export default function AdminTab() {
   const { user } = useAppStore();
+  const { confirm, alert } = useDialog();
   const [subTab, setSubTab] = useState<'users' | 'projects' | 'buckets' | 'billing' | 'vps-storage'>('users');
   const [loading, setLoading] = useState(true);
   
@@ -46,7 +48,7 @@ export default function AdminTab() {
       const data = await apiRequest(`/admin/system/storage-analyzer?adminUserId=${user.id}`);
       setAnalyzerResult(data);
     } catch (err: any) {
-      alert(err.message || 'Failed to run disk scan.');
+      alert({ title: 'Error', message: err.message || 'Failed to run disk scan.', type: 'error' });
     } finally {
       setAnalyzerLoading(false);
     }
@@ -61,9 +63,15 @@ export default function AdminTab() {
   const handlePruneStorage = async (mode: 'standard' | 'deep') => {
     if (!user) return;
     const msg = mode === 'deep'
-      ? '⚠️ DEEP CLEAN will remove ALL unused Docker images (including those not used in 72h). Running containers are safe, but you may need to re-pull base images on next deploy. Continue?'
+      ? 'DEEP CLEAN will remove ALL unused Docker images (including those not used in 72h). Running containers are safe, but you may need to re-pull base images on next deploy. Continue?'
       : 'Standard clean will remove dangling images, stopped containers, and build cache. Running containers are not affected. Continue?';
-    if (!confirm(msg)) return;
+    const confirmed = await confirm({
+      title: mode === 'deep' ? 'Deep System Prune' : 'Standard System Prune',
+      message: msg,
+      confirmText: mode === 'deep' ? 'Prune Deeply' : 'Prune Standard',
+      isDanger: mode === 'deep',
+    });
+    if (!confirmed) return;
 
     setPruning(true);
     setPruningMode(mode);
@@ -78,7 +86,7 @@ export default function AdminTab() {
       // Re-fetch storage data
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Pruning failed.');
+      alert({ title: 'Prune Failed', message: err.message || 'Pruning failed.', type: 'error' });
     } finally {
       setPruning(false);
       setPruningMode(null);
@@ -130,7 +138,7 @@ export default function AdminTab() {
   // Copy to clipboard helper
   const handleCopyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    alert(`Copied ${label} to clipboard!`);
+    alert({ title: 'Copied', message: `Copied ${label} to clipboard!`, type: 'success' });
   };
 
   // Action Handlers
@@ -145,7 +153,7 @@ export default function AdminTab() {
       });
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Failed to update role.');
+      alert({ title: 'Error', message: err.message || 'Failed to update role.', type: 'error' });
     } finally {
       setActingId(null);
     }
@@ -153,7 +161,13 @@ export default function AdminTab() {
 
   const handleDeleteUser = async (targetUserId: string) => {
     if (!user) return;
-    if (!confirm('Are you sure you want to permanently delete this user? All their projects, teams, databases, and buckets will be destroyed!')) return;
+    const confirmed = await confirm({
+      title: 'Delete User Account',
+      message: 'Are you sure you want to permanently delete this user? All their projects, teams, databases, and buckets will be destroyed!',
+      confirmText: 'Delete User & Data',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     setActingId(targetUserId);
     try {
       await apiRequest(`/admin/users/${targetUserId}?adminUserId=${user.id}`, {
@@ -161,7 +175,7 @@ export default function AdminTab() {
       });
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete user.');
+      alert({ title: 'Error', message: err.message || 'Failed to delete user.', type: 'error' });
     } finally {
       setActingId(null);
     }
@@ -178,7 +192,7 @@ export default function AdminTab() {
       });
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Failed to update container state.');
+      alert({ title: 'Error', message: err.message || 'Failed to update container state.', type: 'error' });
     } finally {
       setActingId(null);
     }
@@ -186,7 +200,13 @@ export default function AdminTab() {
 
   const handleDeleteProject = async (projectId: string) => {
     if (!user) return;
-    if (!confirm('Are you sure you want to force-delete this project and stop its container?')) return;
+    const confirmed = await confirm({
+      title: 'Force Delete Project',
+      message: 'Are you sure you want to force-delete this project and stop its container?',
+      confirmText: 'Force Delete',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     setActingId(projectId);
     try {
       await apiRequest(`/admin/projects/${projectId}?adminUserId=${user.id}`, {
@@ -194,7 +214,7 @@ export default function AdminTab() {
       });
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete project.');
+      alert({ title: 'Error', message: err.message || 'Failed to delete project.', type: 'error' });
     } finally {
       setActingId(null);
     }
@@ -204,7 +224,7 @@ export default function AdminTab() {
     if (!user || !newLimitGB) return;
     const sizeBytes = parseFloat(newLimitGB) * 1024 * 1024 * 1024;
     if (isNaN(sizeBytes) || sizeBytes <= 0) {
-      alert('Please enter a valid positive number for storage limit.');
+      alert({ title: 'Invalid Limit', message: 'Please enter a valid positive number for storage limit.', type: 'warning' });
       return;
     }
     setActingId(bucketId);
@@ -217,7 +237,7 @@ export default function AdminTab() {
       setNewLimitGB('');
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Failed to update bucket limit.');
+      alert({ title: 'Error', message: err.message || 'Failed to update bucket limit.', type: 'error' });
     } finally {
       setActingId(null);
     }
@@ -225,7 +245,13 @@ export default function AdminTab() {
 
   const handleDeleteBucket = async (bucketId: string) => {
     if (!user) return;
-    if (!confirm('Are you sure you want to force delete this bucket? ALL stored objects will be permanently lost.')) return;
+    const confirmed = await confirm({
+      title: 'Force Delete Bucket',
+      message: 'Are you sure you want to force delete this bucket? ALL stored objects will be permanently lost.',
+      confirmText: 'Force Delete',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     setActingId(bucketId);
     try {
       await apiRequest(`/admin/buckets/${bucketId}?adminUserId=${user.id}`, {
@@ -233,7 +259,7 @@ export default function AdminTab() {
       });
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Failed to force delete bucket.');
+      alert({ title: 'Error', message: err.message || 'Failed to force delete bucket.', type: 'error' });
     } finally {
       setActingId(null);
     }
@@ -252,11 +278,11 @@ export default function AdminTab() {
           status: overrideStatus,
         }),
       });
-      alert('Subscription manually updated successfully!');
+      alert({ title: 'Subscription Updated', message: 'Subscription manually updated successfully!', type: 'success' });
       setOverrideTeamId('');
       fetchAdminData();
     } catch (err: any) {
-      alert(err.message || 'Failed to override subscription.');
+      alert({ title: 'Error', message: err.message || 'Failed to override subscription.', type: 'error' });
     } finally {
       setLoading(false);
     }

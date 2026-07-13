@@ -7,6 +7,7 @@ import {
   Zap, Plus, RefreshCw, Trash, Play, Loader2, ArrowLeft,
   Check, AlertCircle, Settings, Copy, Clock, Hash
 } from 'lucide-react';
+import { useDialog } from './CustomDialogProvider';
 
 const DEFAULT_CODE = `// KH Cloud Edge Function
 // Available context: { req, env, storage }
@@ -39,6 +40,7 @@ export default async function handler({ req, env, storage }) {
 
 export default function EdgeFunctionsTab() {
   const { activeTeam } = useAppStore();
+  const { confirm, alert } = useDialog();
   const [functions, setFunctions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFn, setActiveFn] = useState<any | null>(null);
@@ -95,7 +97,7 @@ export default function EdgeFunctionsTab() {
       await fetchFunctions();
       setActiveFn(fn);
     } catch (err: any) {
-      alert(err.message || 'Failed to create function.');
+      alert({ title: 'Error', message: err.message || 'Failed to create function.', type: 'error' });
     }
   };
 
@@ -113,7 +115,7 @@ export default function EdgeFunctionsTab() {
       setActiveFn(updated);
       setFunctions(prev => prev.map(f => f.id === updated.id ? updated : f));
     } catch (err: any) {
-      alert(err.message || 'Failed to save function.');
+      alert({ title: 'Error', message: err.message || 'Failed to save function.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -121,13 +123,19 @@ export default function EdgeFunctionsTab() {
 
   const handleDelete = async (id: string) => {
     if (!activeTeam) return;
-    if (!confirm('Delete this edge function permanently?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Edge Function',
+      message: 'Delete this edge function permanently?',
+      confirmText: 'Delete Function',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       await apiRequest(`/edge-functions/${id}?teamId=${activeTeam.id}`, { method: 'DELETE' });
       if (activeFn?.id === id) setActiveFn(null);
       fetchFunctions();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete.');
+      alert({ title: 'Error', message: err.message || 'Failed to delete.', type: 'error' });
     }
   };
 
@@ -135,7 +143,10 @@ export default function EdgeFunctionsTab() {
     if (!activeFn || !activeTeam) return;
     let payloadData: any = {};
     try { payloadData = JSON.parse(invokePayload); }
-    catch { alert('Invalid JSON in test payload.'); return; }
+    catch {
+      alert({ title: 'Validation Error', message: 'Invalid JSON in test payload.', type: 'warning' });
+      return;
+    }
 
     const serviceKeyObj = apiKeys.find(k => k.role === 'SERVICE_ROLE');
     setInvoking(true);

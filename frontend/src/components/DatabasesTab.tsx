@@ -8,11 +8,13 @@ import {
   Play, Terminal, ArrowLeft, AlertCircle, FileText, LayoutGrid,
   Table, Pencil, Save, X, ChevronLeft, ChevronRight, Search
 } from 'lucide-react';
+import { useDialog } from './CustomDialogProvider';
 
 type DbView = 'sql' | 'table-editor' | 'guide';
 
 export default function DatabasesTab() {
   const { activeTeam } = useAppStore();
+  const { confirm, alert } = useDialog();
   const [databases, setDatabases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [provisionOpen, setProvisionOpen] = useState(false);
@@ -137,7 +139,7 @@ export default function DatabasesTab() {
       setEditingRowData({});
       await loadTableData(activeTable, tablePage, tableFilter);
     } catch (err: any) {
-      alert(err.message || 'Failed to save row.');
+      alert({ title: 'Error', message: err.message || 'Failed to save row.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -158,7 +160,7 @@ export default function DatabasesTab() {
       setNewRowData({});
       await loadTableData(activeTable, tablePage, tableFilter);
     } catch (err: any) {
-      alert(err.message || 'Failed to insert row.');
+      alert({ title: 'Error', message: err.message || 'Failed to insert row.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -174,7 +176,7 @@ export default function DatabasesTab() {
       setDeleteConfirm(null);
       await loadTableData(activeTable, tablePage, tableFilter);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete row.');
+      alert({ title: 'Error', message: err.message || 'Failed to delete row.', type: 'error' });
     }
   };
 
@@ -198,7 +200,13 @@ export default function DatabasesTab() {
 
   const handleDeleteDatabase = async (id: string) => {
     if (!activeTeam) return;
-    if (!confirm('Permanently delete this database? All tables and data will be destroyed.')) return;
+    const confirmed = await confirm({
+      title: 'Delete Database',
+      message: 'Permanently delete this database? All tables and data will be destroyed.',
+      confirmText: 'Delete Database',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       await apiRequest(`/databases/${id}?teamId=${activeTeam.id}`, { method: 'DELETE' });
       if (activeDb?.id === id) setActiveDb(null);

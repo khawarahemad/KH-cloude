@@ -5,6 +5,7 @@ import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDialog } from './CustomDialogProvider';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
@@ -42,6 +43,7 @@ const parseEnvText = (text: string) => {
 
 export default function ProjectsTab() {
   const { activeTeam, user } = useAppStore();
+  const { alert } = useDialog();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -457,7 +459,7 @@ export default function ProjectsTab() {
       fetchProjects();
     } catch (err) {
       console.error(err);
-      alert('Failed to delete project.');
+      alert({ title: 'Error', message: 'Failed to delete project.', type: 'error' });
     }
   };
 
@@ -480,11 +482,11 @@ export default function ProjectsTab() {
         }),
       });
       setProjectDetails(updated);
-      alert('Project settings saved successfully! Click Redeploy to rebuild with the new commands.');
+      alert({ title: 'Settings Saved', message: 'Project settings saved successfully! Click Redeploy to rebuild with the new commands.', type: 'success' });
       fetchProjects();
     } catch (err) {
       console.error(err);
-      alert('Failed to update project settings.');
+      alert({ title: 'Error', message: 'Failed to update project settings.', type: 'error' });
     } finally {
       setSettingsSaving(false);
     }
