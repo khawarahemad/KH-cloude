@@ -100,6 +100,7 @@ export default function ProjectsTab() {
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   const [detectingProject, setDetectingProject] = useState(false);
+  const [buildSettingsOpen, setBuildSettingsOpen] = useState(false);
 
   // Env vars UI state
   const [envSaving, setEnvSaving] = useState(false);
@@ -1204,314 +1205,390 @@ export default function ProjectsTab() {
         )}
       </div>
 
-      {/* New Project Wizard Modal */}
+      {/* New Project Wizard Modal (Vercel/Railway Style) */}
       {wizardOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div style={{ backgroundColor: "#111318", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px" }} className="p-6 rounded-2xl max-w-lg w-full border border-white/10 shadow-2xl">
-            <h3 className="text-base font-bold mb-1">Deploy New Web Application</h3>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-300">
+          <div className="bg-[#0b0c10] border border-white/10 rounded-2xl max-w-xl w-full shadow-2xl flex flex-col max-h-[85vh] overflow-hidden transform scale-100 transition-transform">
             
-            {/* Step indicators */}
-            <div className="flex gap-2 my-4">
-              {[1, 2, 3].map(step => (
-                <div key={step} className={`h-1.5 rounded-full flex-1 transition-all ${
-                  wizardStep >= step ? 'bg-purple-600' : 'bg-white/10'
-                }`} />
-              ))}
+            {/* Modal Header */}
+            <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0 bg-black/20">
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide">Create a New Project</h3>
+                <p className="text-[10px] text-zinc-500 mt-0.5">Deploy your web application to production in seconds.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWizardOpen(false)}
+                className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-all text-xs"
+              >
+                ✕
+              </button>
             </div>
 
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              {wizardStep === 1 && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Project Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={newProjectName}
-                      onChange={(e) => setNewProjectName(e.target.value)}
-                      placeholder="e.g. acme-landing-page"
-                      className="w-full h-10 px-3 rounded-xl glass-input text-sm text-white"
-                    />
-                  </div>
+            {/* Stepper indicator (Railway Style) */}
+            <div className="px-6 py-4 bg-[#0d0e12] border-b border-white/5 flex items-center justify-between shrink-0 text-[10px] font-bold tracking-wider uppercase">
+              <div className="flex items-center gap-6 w-full justify-around">
+                <span className={`flex items-center gap-1.5 ${wizardStep === 1 ? 'text-violet-400 font-extrabold' : 'text-zinc-500'}`}>
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${wizardStep === 1 ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30' : 'bg-zinc-800 text-zinc-600'}`}>1</span>
+                  Import Repo
+                </span>
+                <span className="h-px bg-white/5 flex-1 max-w-[40px]" />
+                <span className={`flex items-center gap-1.5 ${wizardStep === 2 ? 'text-violet-400 font-extrabold' : 'text-zinc-500'}`}>
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${wizardStep === 2 ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30' : 'bg-zinc-800 text-zinc-600'}`}>2</span>
+                  Configure
+                </span>
+                <span className="h-px bg-white/5 flex-1 max-w-[40px]" />
+                <span className={`flex items-center gap-1.5 ${wizardStep === 3 ? 'text-violet-400 font-extrabold' : 'text-zinc-500'}`}>
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${wizardStep === 3 ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30' : 'bg-zinc-800 text-zinc-600'}`}>3</span>
+                  Environment
+                </span>
+              </div>
+            </div>
 
-                  <div>
-                    {!githubConnected ? (
-                      <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01] my-2">
-                        <Github size={28} className="text-zinc-400 mb-3 animate-pulse" />
-                        <h4 className="text-xs font-bold text-white mb-1">GitHub App Not Installed</h4>
-                        <p className="text-[10px] text-zinc-500 max-w-xs mb-4 leading-relaxed">
-                          Install the KH Cloud GitHub App to selectively grant access to specific repositories — just like Vercel and Railway.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={openGithubAppInstall}
-                          className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md active:scale-95 duration-100 flex items-center gap-2"
-                        >
-                          <Github size={14} />
-                          Install GitHub App
-                        </button>
-                        {githubLoading && (
-                          <p className="text-[10px] text-zinc-500 mt-3 flex items-center gap-1">
-                            <Loader2 size={10} className="animate-spin" /> Checking connection...
+            {/* Modal Scrollable Container */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <form onSubmit={handleCreateProject} className="space-y-6">
+                
+                {/* STEP 1: SELECT REPOSITORY */}
+                {wizardStep === 1 && (
+                  <div className="space-y-5">
+                    
+                    {/* Project Name input */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Project Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={newProjectName}
+                        onChange={(e) => setNewProjectName(e.target.value)}
+                        placeholder="e.g. acme-landing-page"
+                        className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 focus:border-purple-500/50 text-xs text-white placeholder-zinc-600 focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* GitHub Connection Box */}
+                    <div className="space-y-3">
+                      {!githubConnected ? (
+                        <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01] transition-all">
+                          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                            <Github size={24} className="text-zinc-300" />
+                          </div>
+                          <h4 className="text-xs font-bold text-white mb-1.5">Connect GitHub Account</h4>
+                          <p className="text-[10px] text-zinc-500 max-w-sm mb-4 leading-relaxed">
+                            Link the KH Cloud GitHub App to selectively authorize repositories for automatic trigger deployments.
                           </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">
-                            Select Repository {githubAccount && <span className="text-violet-400 normal-case font-semibold">· @{githubAccount}</span>}
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={openGithubAppInstall}
-                              className="text-[10px] text-zinc-500 hover:text-zinc-300 hover:underline flex items-center gap-1"
-                            >
-                              <Github size={9} />
-                              Manage repos
-                            </button>
-                            <button
-                              type="button"
-                              onClick={fetchGithubRepos}
-                              className="text-[10px] text-violet-400 hover:underline flex items-center gap-1 font-semibold"
-                            >
-                              <RefreshCw size={10} className={githubLoading ? 'animate-spin' : ''} />
-                              Refresh
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={openGithubAppInstall}
+                            className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-lg shadow-purple-500/20 active:scale-95 duration-100 flex items-center gap-2"
+                          >
+                            <Github size={13} />
+                            Install GitHub App
+                          </button>
+                          {githubLoading && (
+                            <p className="text-[10px] text-zinc-600 mt-3 flex items-center gap-1.5 justify-center">
+                              <Loader2 size={11} className="animate-spin text-purple-500" /> Checking installation status...
+                            </p>
+                          )}
                         </div>
-                        <input
-                          type="text"
-                          placeholder="Search repositories..."
-                          value={repoSearch}
-                          onChange={(e) => setRepoSearch(e.target.value)}
-                          className="w-full h-10 px-3 rounded-xl glass-input text-xs text-white"
-                        />
-                        {githubLoading ? (
-                          <div className="h-32 flex flex-col items-center justify-center text-zinc-500 text-xs">
-                            <Loader2 className="w-6 h-6 animate-spin text-violet-500 mb-2" />
-                            Loading repositories...
+                      ) : (
+                        <div className="space-y-3">
+                          {/* Connection details banner */}
+                          <div className="flex items-center justify-between p-3 border border-white/5 rounded-xl bg-white/[0.01]">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-6 h-6 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                                <Github size={12} className="text-violet-400" />
+                              </div>
+                              <span className="text-[11px] font-semibold text-zinc-200">Connected account: <span className="text-violet-400 font-bold">@{githubAccount}</span></span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={openGithubAppInstall}
+                                className="text-[10px] text-zinc-500 hover:text-zinc-300 font-semibold transition-colors flex items-center gap-1 border border-white/5 rounded-lg px-2.5 py-1 bg-white/[0.02]"
+                              >
+                                Configure
+                              </button>
+                              <button
+                                type="button"
+                                onClick={fetchGithubRepos}
+                                className="text-[10px] text-violet-400 hover:text-violet-300 font-semibold transition-colors flex items-center gap-1"
+                              >
+                                <RefreshCw size={10} className={githubLoading ? 'animate-spin' : ''} />
+                                Refresh
+                              </button>
+                            </div>
                           </div>
-                        ) : githubRepos.length === 0 ? (
-                          <div className="h-32 flex flex-col items-center justify-center text-zinc-500 text-xs text-center border border-white/5 rounded-xl bg-white/[0.01]">
-                            <p>No repositories found.</p>
-                            <button type="button" onClick={openGithubAppInstall} className="mt-2 text-violet-400 hover:underline text-[10px]">
-                              Click to grant access to more repos →
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="max-h-40 overflow-y-auto grid grid-cols-1 gap-1.5 pr-1">
-                            {githubRepos
-                              .filter(repo =>
-                                repo.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
-                                repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
-                              )
-                              .map(repo => (
-                                <button
-                                  key={repo.fullName}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedRepo(repo.fullName);
-                                    setSelectedBranch(repo.defaultBranch);
-                                    if (!newProjectName.trim()) {
-                                      setNewProjectName(repo.name);
-                                    }
-                                  }}
-                                  className={`h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between text-left transition-all ${
-                                    selectedRepo === repo.fullName
-                                      ? 'border-purple-600 bg-purple-500/5 text-violet-400 font-bold'
-                                      : 'border-white/5 bg-white/[0.01] text-zinc-400 hover:text-white hover:border-white/10'
-                                  }`}
-                                >
-                                  <span className="truncate">{repo.fullName}</span>
-                                  <span className="text-[9px] text-zinc-500 font-mono shrink-0 ml-2">branch: {repo.defaultBranch}</span>
-                                </button>
-                              ))}
-                          </div>
-                        )}
+
+                          {/* Repo Search */}
+                          <input
+                            type="text"
+                            placeholder="Search repositories..."
+                            value={repoSearch}
+                            onChange={(e) => setRepoSearch(e.target.value)}
+                            className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 focus:border-purple-500/50 text-xs text-white placeholder-zinc-600 focus:outline-none transition-all"
+                          />
+
+                          {/* Repo list container */}
+                          {githubLoading ? (
+                            <div className="h-40 flex flex-col items-center justify-center text-zinc-500 text-xs">
+                              <Loader2 className="w-6 h-6 animate-spin text-purple-500 mb-2" />
+                              Loading your repositories...
+                            </div>
+                          ) : githubRepos.length === 0 ? (
+                            <div className="h-40 flex flex-col items-center justify-center text-zinc-500 text-xs text-center border border-white/5 rounded-xl bg-white/[0.01] p-6">
+                              <p className="font-semibold text-zinc-400">No repositories found</p>
+                              <p className="text-[10px] text-zinc-600 mt-1 max-w-[250px] leading-relaxed">Ensure you have granted KH Cloud access to repositories on GitHub.</p>
+                              <button type="button" onClick={openGithubAppInstall} className="mt-3 text-violet-400 hover:underline text-[10px] font-bold">
+                                Configure repository permissions →
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="max-h-60 overflow-y-auto grid grid-cols-1 gap-2 pr-1 custom-scrollbar">
+                              {githubRepos
+                                .filter(repo =>
+                                  repo.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
+                                  repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
+                                )
+                                .map(repo => (
+                                  <div
+                                    key={repo.fullName}
+                                    className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                                      selectedRepo === repo.fullName
+                                        ? 'border-purple-500/50 bg-purple-500/[0.03]'
+                                        : 'border-white/5 bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02]'
+                                    }`}
+                                  >
+                                    <div className="min-w-0 flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                                        <Github size={14} className="text-zinc-400" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <h4 className="text-xs font-bold text-white truncate leading-snug">{repo.fullName}</h4>
+                                        <p className="text-[9px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                          <span className="font-mono text-zinc-400">{repo.defaultBranch}</span>
+                                          <span>•</span>
+                                          <span>{repo.private ? 'Private' : 'Public'}</span>
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      disabled={!newProjectName.trim() || detectingProject}
+                                      onClick={() => {
+                                        setSelectedRepo(repo.fullName);
+                                        setSelectedBranch(repo.defaultBranch);
+                                        if (!newProjectName.trim()) {
+                                          setNewProjectName(repo.name);
+                                        }
+                                        handleConfigureSettings();
+                                      }}
+                                      className="h-8 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 font-bold text-[10px] transition-all flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                    >
+                                      {detectingProject && selectedRepo === repo.fullName ? (
+                                        <Loader2 size={10} className="animate-spin text-black" />
+                                      ) : 'Import'}
+                                    </button>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2: CONFIGURE SETTINGS (Vercel collapsible Style) */}
+                {wizardStep === 2 && (
+                  <div className="space-y-5">
+                    
+                    {/* Selected Repository Card */}
+                    <div className="p-3.5 border border-white/5 rounded-xl bg-white/[0.01] flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-2.5">
+                        <Github size={14} className="text-violet-400" />
+                        <span className="text-[11px] font-bold text-zinc-200">{selectedRepo}</span>
                       </div>
-                    )}
-                  </div>
-
-
-                  <div className="flex justify-end gap-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setWizardOpen(false)}
-                      className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!newProjectName.trim() || !selectedRepo || detectingProject}
-                      onClick={handleConfigureSettings}
-                      className="h-9 px-4 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs disabled:bg-zinc-700 disabled:text-zinc-400 transition-colors flex items-center gap-1.5"
-                    >
-                      {detectingProject ? (
-                        <>
-                          <Loader2 size={12} className="animate-spin text-black" />
-                          Analyzing Repository...
-                        </>
-                      ) : 'Configure Settings'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {wizardStep === 2 && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Git Branch</label>
-                      <input
-                        type="text"
-                        required
-                        value={selectedBranch}
-                        onChange={(e) => setSelectedBranch(e.target.value)}
-                        className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Target Port</label>
-                      <input
-                        type="number"
-                        required
-                        value={port}
-                        onChange={(e) => setPort(parseInt(e.target.value))}
-                        className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Root Directory</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g. frontend (leave blank to deploy from repository root)"
-                        value={rootDir}
-                        onChange={(e) => setRootDir(e.target.value)}
-                        className="flex-1 h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
-                      />
                       <button
                         type="button"
-                        onClick={reDetectProjectConfig}
-                        disabled={detectingProject}
-                        className="h-10 px-3 rounded-xl border border-white/10 hover:bg-white/5 text-[10px] font-bold text-zinc-400 hover:text-white transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1"
+                        onClick={() => setWizardStep(1)}
+                        className="text-[10px] text-zinc-400 hover:text-white underline font-semibold"
                       >
-                        {detectingProject ? (
-                          <>
-                            <Loader2 size={10} className="animate-spin text-violet-500" />
-                            Scanning...
-                          </>
-                        ) : 'Detect Config'}
+                        Change Repo
                       </button>
                     </div>
-                    <span className="text-[9px] text-zinc-500 block mt-1 leading-normal">
-                      The folder within your repository where your code lives (like frontend/ or client/).
-                    </span>
-                  </div>
 
-                  <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Install Command</label>
-                    <input
-                      type="text"
-                      required
-                      value={installCommand}
-                      onChange={(e) => setInstallCommand(e.target.value)}
-                      placeholder="e.g. npm install"
-                      className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Build Command</label>
-                      <input
-                        type="text"
-                        required
-                        value={buildCommand}
-                        onChange={(e) => setBuildCommand(e.target.value)}
-                        className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Start Command</label>
-                      <input
-                        type="text"
-                        required
-                        value={startCommand}
-                        onChange={(e) => setStartCommand(e.target.value)}
-                        className="w-full h-10 px-3 rounded-xl glass-input text-xs font-semibold text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setWizardStep(1)}
-                      className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWizardStep(3)}
-                      className="h-9 px-5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs active:scale-95 transition-colors"
-                    >
-                      Configure Env Variables
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {wizardStep === 3 && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block mb-1">Paste .env file contents (Optional)</label>
-                    <textarea
-                      value={rawEnvText}
-                      onChange={(e) => setRawEnvText(e.target.value)}
-                      placeholder="DATABASE_URL=postgresql://user:pass@host/db&#10;PORT=3000&#10;API_KEY=mysecretkey"
-                      className="w-full h-32 p-3 rounded-xl glass-input text-xs font-mono text-white placeholder-zinc-600 resize-none focus:outline-none focus:border-white/20"
-                    />
-                  </div>
-
-                  {parsedEnvVars.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Parsed Variables ({parsedEnvVars.length})</label>
-                      <div className="max-h-28 overflow-y-auto border border-white/5 rounded-xl p-3 bg-white/[0.01] space-y-1.5 pr-1">
-                        {parsedEnvVars.map((ev, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-[10px] bg-white/5 px-2.5 py-1 rounded-lg">
-                            <span className="font-mono text-violet-400 font-bold">{ev.key}</span>
-                            <span className="font-mono text-zinc-400 truncate max-w-[200px]">{ev.value}</span>
-                          </div>
-                        ))}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Git Branch</label>
+                        <input
+                          type="text"
+                          required
+                          value={selectedBranch}
+                          onChange={(e) => setSelectedBranch(e.target.value)}
+                          className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] text-xs font-semibold text-white focus:outline-none focus:border-purple-500/50"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Target Port</label>
+                        <input
+                          type="number"
+                          required
+                          value={port}
+                          onChange={(e) => setPort(parseInt(e.target.value))}
+                          className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] text-xs font-semibold text-white focus:outline-none focus:border-purple-500/50"
+                        />
                       </div>
                     </div>
-                  )}
 
-                  <div className="flex justify-between pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setWizardStep(2)}
-                      className="h-9 px-4 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="submit"
-                      className="h-9 px-5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs active:scale-95 shadow-lg shadow-purple-500/10"
-                    >
-                      Deploy Container
-                    </button>
+                    {/* Collapsible Build and Output Settings */}
+                    <div className="border border-white/5 rounded-xl overflow-hidden bg-white/[0.01]">
+                      <button
+                        type="button"
+                        onClick={() => setBuildSettingsOpen(!buildSettingsOpen)}
+                        className="w-full h-11 px-4 flex items-center justify-between text-xs font-bold text-zinc-300 hover:bg-white/[0.02] transition-all"
+                      >
+                        <span className="flex items-center gap-2">
+                          ⚡ Build and Output Settings
+                        </span>
+                        <span className="text-[10px] text-zinc-500 font-semibold">{buildSettingsOpen ? 'Hide Override' : 'Show Override'}</span>
+                      </button>
+                      
+                      {buildSettingsOpen && (
+                        <div className="p-4 border-t border-white/5 space-y-4 bg-black/[0.15]">
+                          
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Root Directory</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="e.g. frontend (leave blank for root)"
+                                value={rootDir}
+                                onChange={(e) => setRootDir(e.target.value)}
+                                className="flex-1 h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] text-xs font-semibold text-white focus:outline-none focus:border-purple-500/50"
+                              />
+                              <button
+                                type="button"
+                                onClick={reDetectProjectConfig}
+                                disabled={detectingProject}
+                                className="h-10 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-[10px] font-bold text-zinc-400 hover:text-white transition-all disabled:opacity-50 shrink-0 flex items-center gap-1.5"
+                              >
+                                {detectingProject ? (
+                                  <>
+                                    <Loader2 size={10} className="animate-spin text-purple-500" />
+                                    Scanning...
+                                  </>
+                                ) : 'Detect Config'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Install Command</label>
+                            <input
+                              type="text"
+                              required
+                              value={installCommand}
+                              onChange={(e) => setInstallCommand(e.target.value)}
+                              className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] text-xs font-semibold text-white focus:outline-none focus:border-purple-500/50"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Build Command</label>
+                              <input
+                                type="text"
+                                required
+                                value={buildCommand}
+                                onChange={(e) => setBuildCommand(e.target.value)}
+                                className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] text-xs font-semibold text-white focus:outline-none focus:border-purple-500/50"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Start Command</label>
+                              <input
+                                type="text"
+                                required
+                                value={startCommand}
+                                onChange={(e) => setStartCommand(e.target.value)}
+                                className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] text-xs font-semibold text-white focus:outline-none focus:border-purple-500/50"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-between pt-4 border-t border-white/5">
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(1)}
+                        className="h-9 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-zinc-300"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(3)}
+                        className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs active:scale-95 shadow-lg shadow-purple-500/10 transition-all"
+                      >
+                        Configure Environment
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </form>
+                )}
+
+                {/* STEP 3: ENVIRONMENT VARIABLES */}
+                {wizardStep === 3 && (
+                  <div className="space-y-5">
+                    
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Paste .env file contents (Optional)</label>
+                        <span className="text-[9px] text-zinc-500 font-semibold">Auto-parsed into variables</span>
+                      </div>
+                      <textarea
+                        value={rawEnvText}
+                        onChange={(e) => setRawEnvText(e.target.value)}
+                        placeholder="DATABASE_URL=postgresql://user:pass@host/db&#10;PORT=3000&#10;API_KEY=mysecretkey"
+                        className="w-full h-36 p-3.5 rounded-xl border border-white/5 bg-white/[0.02] text-xs font-mono text-white placeholder-zinc-700 resize-none focus:outline-none focus:border-purple-500/50 focus:bg-white/[0.03] transition-all"
+                      />
+                    </div>
+
+                    {parsedEnvVars.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Parsed Key-Value Pairs ({parsedEnvVars.length})</label>
+                        <div className="max-h-36 overflow-y-auto border border-white/5 rounded-xl p-3 bg-black/40 space-y-1.5 pr-1 custom-scrollbar">
+                          {parsedEnvVars.map((ev, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-[10px] bg-white/[0.02] border border-white/5 px-3 py-1.5 rounded-lg">
+                              <span className="font-mono text-violet-400 font-bold">{ev.key}</span>
+                              <span className="font-mono text-zinc-500 truncate max-w-[220px]">{ev.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between pt-4 border-t border-white/5">
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(2)}
+                        className="h-9 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-zinc-300"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        className="h-9 px-6 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs active:scale-95 shadow-xl shadow-purple-500/20 transition-all flex items-center gap-1.5"
+                      >
+                        🚀 Deploy Container
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </form>
+            </div>
           </div>
         </div>
       )}

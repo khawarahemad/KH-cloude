@@ -725,6 +725,133 @@ export class AppController {
     return { url: this.githubApp.getInstallUrl(teamId) };
   }
 
+  @Get('github-app/repos/detect')
+  async detectGithubAppProject(
+    @Query('teamId') teamId: string,
+    @Query('repo') repo: string,
+    @Query('branch') branch?: string,
+    @Query('rootDir') rootDir?: string
+  ) {
+    if (!teamId || !repo) throw new BadRequestException('teamId and repo are required.');
+
+    const installation = await this.prisma.githubInstallation.findUnique({
+      where: { teamId },
+    });
+    if (!installation) {
+      throw new BadRequestException('GitHub App not installed for team.');
+    }
+
+    const cleanRootDir = rootDir ? rootDir.replace(/^\/|\/$/g, '') : '';
+    const files = await this.githubApp.fetchRepoContents(installation.installationId, repo, cleanRootDir, branch);
+
+    const hasFile = (name: string) => files.some((f: any) => f.name.toLowerCase() === name.toLowerCase());
+
+    if (hasFile('package.json')) {
+      const pkgFile = files.find((f: any) => f.name === 'package.json');
+      let scripts: any = {};
+      let dependencies: any = {};
+      let devDependencies: any = {};
+
+      if (pkgFile && pkgFile.download_url) {
+        const pkgContent = await this.githubApp.fetchFileContent(installation.installationId, pkgFile.download_url);
+        if (pkgContent) {
+          try {
+            const pkgJson = JSON.parse(pkgContent);
+            scripts = pkgJson.scripts || {};
+            dependencies = pkgJson.dependencies || {};
+            devDependencies = pkgJson.devDependencies || {};
+          } catch (e) {}
+        }
+      }
+
+      const isDep = (name: string) => !!dependencies[name] || !!devDependencies[name];
+
+      let buildCommand = 'npm run build';
+      let startCommand = 'npm run start';
+      let port = 3000;
+
+      if (isDep('next')) {
+        buildCommand = 'npm run build';
+        startCommand = scripts.start ? 'npm run start' : 'npx next start';
+        port = 3000;
+      } else if (isDep('nuxt')) {
+        buildCommand = 'npm run build';
+        startCommand = scripts.start ? 'npm run start' : 'npx nuxt start';
+        port = 3000;
+      } else if (isDep('astro')) {
+        buildCommand = 'npm run build';
+        startCommand = scripts.start ? 'npm run start' : 'npx astro preview --host 0.0.0.0';
+        port = 4321;
+      } else if (isDep('@remix-run/dev') || isDep('@remix-run/node')) {
+        buildCommand = 'npm run build';
+        startCommand = scripts.start ? 'npm run start' : 'npx remix-serve build/index.js';
+        port = 3000;
+      } else if (isDep('vite')) {
+        buildCommand = scripts.build ? 'npm run build' : '';
+        startCommand = scripts.dev ? 'npm run dev' : (scripts.start ? 'npm run start' : 'npx vite --host 0.0.0.0');
+        port = 5173;
+      } else if (isDep('react-scripts')) {
+        buildCommand = 'npm run build';
+        startCommand = 'npm run start';
+        port = 3000;
+      } else if (isDep('@angular/core')) {
+        buildCommand = 'npm run build';
+        startCommand = scripts.start ? 'npm run start' : 'npx ng serve --host 0.0.0.0';
+        port = 4200;
+      } else if (isDep('@nestjs/core')) {
+        buildCommand = 'npm run build';
+        startCommand = scripts['start:prod'] ? 'npm run start:prod' : (scripts.start ? 'npm run start' : 'node dist/main.js');
+        port = 3000;
+      } else {
+        if (!scripts.build) {
+          buildCommand = '';
+        }
+        if (scripts.start) {
+          startCommand = 'npm run start';
+        } else if (scripts.dev) {
+          startCommand = 'npm run dev';
+        } else if (scripts.serve) {
+          startCommand = 'npm run serve';
+        } else {
+          startCommand = 'node index.js';
+        }
+      }
+
+      return {
+        type: 'NODE',
+        port,
+        buildCommand,
+        startCommand,
+        installCommand: 'npm install',
+      };
+    }
+
+    if (hasFile('requirements.txt') || hasFile('pipfile') || hasFile('pyproject.toml')) {
+      let startCommand = 'python app.py';
+      if (hasFile('main.py')) {
+        startCommand = 'python main.py';
+      } else if (hasFile('manage.py')) {
+        startCommand = 'python manage.py runserver 0.0.0.0:8000';
+      }
+
+      return {
+        type: 'PYTHON',
+        port: 8000,
+        buildCommand: '',
+        startCommand,
+        installCommand: 'pip install -r requirements.txt',
+      };
+    }
+
+    return {
+      type: 'STATIC',
+      port: 80,
+      buildCommand: '',
+      startCommand: '',
+      installCommand: '',
+    };
+  }
+
   // --- GITHUB REPOS (LEGACY — OAuth access token, fallback only) ---
 
   @Get('github/repos')
