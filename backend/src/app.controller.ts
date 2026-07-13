@@ -636,10 +636,19 @@ export class AppController {
     let teamId: string | null = null;
     if (state) {
       try {
-        const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8'));
+        let decodedStr = '';
+        try {
+          decodedStr = Buffer.from(state, 'base64url').toString('utf-8');
+        } catch {
+          decodedStr = Buffer.from(state, 'base64').toString('utf-8');
+        }
+        const decoded = JSON.parse(decodedStr);
         teamId = decoded.teamId || null;
       } catch {
-        // state might not be base64url, ignore
+        try {
+          const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+          teamId = decoded.teamId || null;
+        } catch {}
       }
     }
 

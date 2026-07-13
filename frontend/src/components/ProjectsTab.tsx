@@ -189,6 +189,9 @@ export default function ProjectsTab() {
   const openGithubAppInstall = async () => {
     if (!activeTeam) return;
     try {
+      // Save teamId before opening popup — GitHub doesn't send state back via Setup URL
+      localStorage.setItem('github_app_pending_teamId', activeTeam.id);
+
       // Use manage-url: returns manage link for existing installs, install link for new ones
       const data = await apiRequest(`/github-app/manage-url?teamId=${activeTeam.id}`);
       const targetUrl = data.url;
@@ -221,6 +224,7 @@ export default function ProjectsTab() {
       console.error('Failed to get GitHub App URL:', err);
     }
   };
+
 
   useEffect(() => {
     if (wizardOpen && activeTeam) {

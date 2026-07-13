@@ -48,18 +48,15 @@ export default function Home() {
       const installationId = params.get('installation_id');
       const setupAction = params.get('setup_action');
       if (installationId && (setupAction === 'install' || setupAction === 'update')) {
-        // Read teamId from state param
-        const state = params.get('state');
-        let teamId: string | null = null;
-        if (state) {
-          try {
-            const decoded = JSON.parse(atob(state.replace(/-/g, '+').replace(/_/g, '/')));
-            teamId = decoded.teamId || null;
-          } catch {}
-        }
-        // Call backend callback
+        // Read teamId from localStorage (set before popup was opened)
+        // GitHub does NOT send state back via Setup URL, so we use localStorage
+        const teamId = localStorage.getItem('github_app_pending_teamId');
+        localStorage.removeItem('github_app_pending_teamId');
+
+        // Call backend callback to save installation
         if (teamId) {
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com'}/api/github-app/callback?installation_id=${installationId}&state=${state || ''}`)
+          const state = btoa(JSON.stringify({ teamId }));
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com'}/api/github-app/callback?installation_id=${installationId}&state=${encodeURIComponent(state)}`)
             .catch(() => {});
         }
         // Clean URL
