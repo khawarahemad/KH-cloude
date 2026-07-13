@@ -8,6 +8,7 @@ import { DatabasesService } from './databases/databases.service';
 import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
+import { GithubAppService } from './github-app/github-app.service';
 import { WebhookController } from './webhook.controller';
 
 @Module({
@@ -21,6 +22,7 @@ import { WebhookController } from './webhook.controller';
     TeamsService,
     BillingService,
     EdgeFunctionsService,
+    GithubAppService,
   ],
 })
 export class AppModule {}

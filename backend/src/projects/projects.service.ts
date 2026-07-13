@@ -84,54 +84,11 @@ export class ProjectsService {
       },
     });
 
-    // Automatically register webhook on GitHub repository
-    if (data.githubRepo && data.userId) {
-      try {
-        const user = await this.prisma.user.findUnique({
-          where: { id: data.userId },
-        });
-        
-        if (user && user.githubAccessToken) {
-          const cleanRepo = data.githubRepo
-            .replace(/https?:\/\/github\.com\//, '')
-            .replace(/\.git$/, '')
-            .trim();
-          
-          const webhookUrl = 'https://api.khawarahemad.com/api/github/webhook';
-          
-          await fetch(`https://api.github.com/repos/${cleanRepo}/hooks`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${user.githubAccessToken}`,
-              Accept: 'application/vnd.github+json',
-              'User-Agent': 'KH-Cloud-Backend',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              name: 'web',
-              active: true,
-              events: ['push'],
-              config: {
-                url: webhookUrl,
-                content_type: 'json',
-                insecure_ssl: '1',
-              },
-            }),
-          }).then(async (r) => {
-            const resData = await r.json();
-            if (!r.ok) {
-              this.logger.warn(`GitHub Webhook registration failed for ${cleanRepo}: ${resData.message || r.statusText}`);
-            } else {
-              this.logger.log(`GitHub Webhook successfully registered for ${cleanRepo}`);
-            }
-          });
-        }
-      } catch (err: any) {
-        this.logger.error(`Failed to register GitHub webhook: ${err.message}`);
-      }
-    }
+    // NOTE: Webhooks are automatically managed by the GitHub App installation.
+    // No manual webhook registration needed here.
 
     return project;
+
   }
 
   async getProjects(teamId: string) {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, BadRequestException, NotFoundException, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import { PrismaService } from './prisma/prisma.service';
@@ -8,6 +8,7 @@ import { DatabasesService } from './databases/databases.service';
 import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
+import { GithubAppService } from './github-app/github-app.service';
 import { TeamRole, DatabaseType } from '@prisma/client';
 
 import * as crypto from 'crypto';
@@ -26,6 +27,7 @@ export class AppController {
     private teams: TeamsService,
     private billing: BillingService,
     private edgeFunctions: EdgeFunctionsService,
+    private githubApp: GithubAppService,
   ) {}
 
   // --- AUTH ENDPOINTS ---
@@ -240,8 +242,16 @@ export class AppController {
   @Post('github/webhook')
   async handleGithubWebhook(
     @Body() payload: any,
-    @Headers('x-github-event') event: string
+    @Headers('x-github-event') event: string,
+    @Headers('x-hub-signature-256') signature: string,
+    @Req() req: any,
   ) {
+    // Verify HMAC signature using GitHub App webhook secret
+    const rawBody = req.rawBody || JSON.stringify(payload);
+    if (signature && !this.githubApp.verifyWebhookSignature(rawBody, signature)) {
+      throw new BadRequestException('Invalid webhook signature.');
+    }
+
     if (event === 'push') {
       const repoFullName = payload.repository?.full_name;
       const ref = payload.ref; // e.g. refs/heads/main
@@ -608,8 +618,93 @@ export class AppController {
     const teams = await this.teams.getTeams(user.id);
     return { user, teams };
   }
+  // --- GITHUB APP ENDPOINTS ---
+
+  @Get('github-app/install-url')
+  async getGithubAppInstallUrl(@Query('teamId') teamId: string) {
+    if (!teamId) throw new BadRequestException('teamId is required.');
+    return { url: this.githubApp.getInstallUrl(teamId) };
+  }
+
+  @Get('github-app/callback')
+  async githubAppCallback(
+    @Query('installation_id') installationId: string,
+    @Query('state') state: string,
+  ) {
+    if (!installationId) throw new BadRequestException('installation_id is required.');
+
+    let teamId: string | null = null;
+    if (state) {
+      try {
+        const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8'));
+        teamId = decoded.teamId || null;
+      } catch {
+        // state might not be base64url, ignore
+      }
+    }
+
+    if (!teamId) throw new BadRequestException('Invalid or missing state parameter.');
+
+    // Verify team exists
+    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) throw new BadRequestException('Team not found.');
+
+    // Fetch installation metadata from GitHub
+    const jwt = this.githubApp.generateAppJwt();
+    const installRes = await fetch(`https://api.github.com/app/installations/${installationId}`, {
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'KH-Cloud-Backend',
+      },
+    }).then((r) => r.json());
+
+    const accountLogin: string = installRes?.account?.login || 'unknown';
+    const accountType: string = installRes?.account?.type || 'User';
+
+    // Upsert: allow re-installing to update
+    await this.prisma.githubInstallation.upsert({
+      where: { teamId },
+      create: { installationId, teamId, accountLogin, accountType },
+      update: { installationId, accountLogin, accountType },
+    });
+
+    return { success: true, installationId, accountLogin };
+  }
+
+  @Get('github-app/repos')
+  async getGithubAppRepos(@Query('teamId') teamId: string) {
+    if (!teamId) throw new BadRequestException('teamId is required.');
+
+    const installation = await this.prisma.githubInstallation.findUnique({
+      where: { teamId },
+    });
+
+    if (!installation) {
+      return { connected: false, repos: [] };
+    }
+
+    try {
+      const repos = await this.githubApp.listInstallationRepos(installation.installationId);
+      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, repos };
+    } catch (err: any) {
+      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, repos: [], error: err.message };
+    }
+  }
+
+  @Get('github-app/installation')
+  async getGithubAppInstallation(@Query('teamId') teamId: string) {
+    if (!teamId) throw new BadRequestException('teamId is required.');
+    const installation = await this.prisma.githubInstallation.findUnique({
+      where: { teamId },
+    });
+    return installation ? { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin } : { connected: false };
+  }
+
+  // --- GITHUB REPOS (LEGACY — OAuth access token, fallback only) ---
 
   @Get('github/repos')
+
   async getGithubRepos(@Query('userId') userId: string) {
     if (!userId) throw new BadRequestException('User ID is required.');
 

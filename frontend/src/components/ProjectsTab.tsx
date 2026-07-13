@@ -66,9 +66,11 @@ export default function ProjectsTab() {
     setParsedEnvVars(parseEnvText(rawEnvText));
   }, [rawEnvText]);
 
-  // GitHub integration states
+  // GitHub App integration states
   const [githubRepos, setGithubRepos] = useState<any[]>([]);
   const [githubLoading, setGithubLoading] = useState(false);
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [githubAccount, setGithubAccount] = useState('');
   const [repoSearch, setRepoSearch] = useState('');
   
   // Active details tab
@@ -169,23 +171,49 @@ export default function ProjectsTab() {
   const [metrics, setMetrics] = useState<any | null>(null);
 
   const fetchGithubRepos = async () => {
-    if (!user) return;
+    if (!activeTeam) return;
     setGithubLoading(true);
     try {
-      const data = await apiRequest(`/github/repos?userId=${user.id}`);
-      setGithubRepos(data);
+      const data = await apiRequest(`/github-app/repos?teamId=${activeTeam.id}`);
+      setGithubConnected(data.connected === true);
+      setGithubAccount(data.accountLogin || '');
+      setGithubRepos(data.repos || []);
     } catch (err) {
+      setGithubConnected(false);
       setGithubRepos([]);
     } finally {
       setGithubLoading(false);
     }
   };
 
+  const openGithubAppInstall = async () => {
+    if (!activeTeam) return;
+    try {
+      const data = await apiRequest(`/github-app/install-url?teamId=${activeTeam.id}`);
+      const installUrl = data.url;
+      // Open in popup (Vercel-style)
+      const popup = window.open(
+        installUrl,
+        'github-app-install',
+        'width=1000,height=700,scrollbars=yes,resizable=yes'
+      );
+      // Poll for popup close then refresh repos
+      const poll = setInterval(() => {
+        if (!popup || popup.closed) {
+          clearInterval(poll);
+          fetchGithubRepos();
+        }
+      }, 800);
+    } catch (err) {
+      console.error('Failed to get GitHub App install URL:', err);
+    }
+  };
+
   useEffect(() => {
-    if (wizardOpen && user) {
+    if (wizardOpen && activeTeam) {
       fetchGithubRepos();
     }
-  }, [wizardOpen, user]);
+  }, [wizardOpen, activeTeam]);
 
   useEffect(() => {
     if (projectDetails) {
@@ -1190,36 +1218,51 @@ export default function ProjectsTab() {
                   </div>
 
                   <div>
-                    {!user?.githubUsername ? (
+                    {!githubConnected ? (
                       <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01] my-2">
                         <Github size={28} className="text-zinc-400 mb-3 animate-pulse" />
-                        <h4 className="text-xs font-bold text-white mb-1">GitHub Account Not Connected</h4>
+                        <h4 className="text-xs font-bold text-white mb-1">GitHub App Not Installed</h4>
                         <p className="text-[10px] text-zinc-500 max-w-xs mb-4 leading-relaxed">
-                          Connect your GitHub account to import repositories and select projects to deploy.
+                          Install the KH Cloud GitHub App to selectively grant access to specific repositories — just like Vercel and Railway.
                         </p>
                         <button
                           type="button"
-                          onClick={handleConnectGithub}
+                          onClick={openGithubAppInstall}
                           className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md active:scale-95 duration-100 flex items-center gap-2"
                         >
                           <Github size={14} />
-                          Connect GitHub
+                          Install GitHub App
                         </button>
+                        {githubLoading && (
+                          <p className="text-[10px] text-zinc-500 mt-3 flex items-center gap-1">
+                            <Loader2 size={10} className="animate-spin" /> Checking connection...
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">
-                            Select Repository (Connected: @{user.githubUsername})
+                            Select Repository {githubAccount && <span className="text-violet-400 normal-case font-semibold">· @{githubAccount}</span>}
                           </label>
-                          <button
-                            type="button"
-                            onClick={fetchGithubRepos}
-                            className="text-[10px] text-violet-400 hover:underline flex items-center gap-1 font-semibold"
-                          >
-                            <RefreshCw size={10} className={githubLoading ? 'animate-spin' : ''} />
-                            Refresh
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={openGithubAppInstall}
+                              className="text-[10px] text-zinc-500 hover:text-zinc-300 hover:underline flex items-center gap-1"
+                            >
+                              <Github size={9} />
+                              Manage repos
+                            </button>
+                            <button
+                              type="button"
+                              onClick={fetchGithubRepos}
+                              className="text-[10px] text-violet-400 hover:underline flex items-center gap-1 font-semibold"
+                            >
+                              <RefreshCw size={10} className={githubLoading ? 'animate-spin' : ''} />
+                              Refresh
+                            </button>
+                          </div>
                         </div>
                         <input
                           type="text"
@@ -1235,7 +1278,10 @@ export default function ProjectsTab() {
                           </div>
                         ) : githubRepos.length === 0 ? (
                           <div className="h-32 flex flex-col items-center justify-center text-zinc-500 text-xs text-center border border-white/5 rounded-xl bg-white/[0.01]">
-                            No repositories found.
+                            <p>No repositories found.</p>
+                            <button type="button" onClick={openGithubAppInstall} className="mt-2 text-violet-400 hover:underline text-[10px]">
+                              Click to grant access to more repos →
+                            </button>
                           </div>
                         ) : (
                           <div className="max-h-40 overflow-y-auto grid grid-cols-1 gap-1.5 pr-1">
@@ -1270,6 +1316,7 @@ export default function ProjectsTab() {
                       </div>
                     )}
                   </div>
+
 
                   <div className="flex justify-end gap-3 pt-4">
                     <button

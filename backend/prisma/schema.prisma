@@ -89,6 +89,7 @@ model Team {
   usageMetrics       UsageMetric[]
   edgeFunctions      EdgeFunction[]
   apiKeys            ApiKey[]
+  githubInstallation GithubInstallation?
 }
 
 enum TeamRole {
@@ -357,4 +358,15 @@ model ApiKey {
   role      String   @default("ANON") // ANON, SERVICE_ROLE
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model GithubInstallation {
+  id             String   @id @default(uuid())
+  installationId String   @unique // GitHub App installation ID (numeric, stored as string)
+  teamId         String   @unique
+  team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  accountLogin   String   // GitHub account or org login
+  accountType    String   // "User" or "Organization"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
