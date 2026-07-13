@@ -463,7 +463,30 @@ export class AppController {
       });
     } else {
       // Register/Login flow
-      const email = githubUser.email || `${githubUsername}@github.com`;
+      let email = githubUser.email;
+      if (!email) {
+        try {
+          const emailsRes = await fetch('https://api.github.com/user/emails', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: 'application/json',
+              'User-Agent': 'KH-Cloud-Backend',
+            },
+          }).then((r) => r.json());
+          if (Array.isArray(emailsRes)) {
+            const primaryEmail = emailsRes.find((e: any) => e.primary && e.verified);
+            if (primaryEmail) {
+              email = primaryEmail.email;
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch GitHub private emails:', err);
+        }
+      }
+      if (!email) {
+        email = `${githubUsername}@github.com`;
+      }
+
       user = await this.prisma.user.findFirst({
         where: {
           OR: [

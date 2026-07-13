@@ -18,6 +18,7 @@ export class ProjectsService {
     name: string;
     description?: string;
     teamId: string;
+    userId?: string;
     githubRepo?: string;
     githubBranch?: string;
     rootDirectory?: string;
@@ -27,7 +28,7 @@ export class ProjectsService {
     port?: number;
     envVars?: { key: string; value: string; isSecret: boolean }[];
   }) {
-    const slug = data.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const slug = data.name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     
     // Check slug uniqueness within team
     const existing = await this.prisma.project.findFirst({
@@ -82,6 +83,53 @@ export class ProjectsService {
         details: JSON.stringify({ name: project.name, slug }),
       },
     });
+
+    // Automatically register webhook on GitHub repository
+    if (data.githubRepo && data.userId) {
+      try {
+        const user = await this.prisma.user.findUnique({
+          where: { id: data.userId },
+        });
+        
+        if (user && user.githubAccessToken) {
+          const cleanRepo = data.githubRepo
+            .replace(/https?:\/\/github\.com\//, '')
+            .replace(/\.git$/, '')
+            .trim();
+          
+          const webhookUrl = 'https://api.khawarahemad.com/api/github/webhook';
+          
+          await fetch(`https://api.github.com/repos/${cleanRepo}/hooks`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${user.githubAccessToken}`,
+              Accept: 'application/vnd.github+json',
+              'User-Agent': 'KH-Cloud-Backend',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: 'web',
+              active: true,
+              events: ['push'],
+              config: {
+                url: webhookUrl,
+                content_type: 'json',
+                insecure_ssl: '1',
+              },
+            }),
+          }).then(async (r) => {
+            const resData = await r.json();
+            if (!r.ok) {
+              this.logger.warn(`GitHub Webhook registration failed for ${cleanRepo}: ${resData.message || r.statusText}`);
+            } else {
+              this.logger.log(`GitHub Webhook successfully registered for ${cleanRepo}`);
+            }
+          });
+        }
+      } catch (err: any) {
+        this.logger.error(`Failed to register GitHub webhook: ${err.message}`);
+      }
+    }
 
     return project;
   }

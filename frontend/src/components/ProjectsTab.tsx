@@ -392,6 +392,7 @@ export default function ProjectsTab() {
         body: JSON.stringify({
           name: newProjectName,
           teamId: activeTeam.id,
+          userId: user?.id,
           githubRepo: selectedRepo,
           githubBranch: selectedBranch,
           rootDirectory: rootDir.trim(),
