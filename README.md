@@ -1,7 +1,22 @@
-# KH Cloud ?
+# KH Cloud ⚡
 An open-source, self-hosted, lightweight alternative to Vercel, Railway, and Netlify. Built on NestJS, Next.js, Docker, Traefik, Redis, and MinIO.
 
-## ?? Key Features
+## 🗺️ System Architecture
+
+```mermaid
+graph TD
+    Client[User Browser] -->|HTTPS| Traefik[Traefik Router]
+    Traefik -->|Port 3000| Frontend[Next.js Frontend]
+    Traefik -->|Port 5000| Backend[NestJS Backend]
+    Traefik -->|Port 9000| MinIO[MinIO Object Storage]
+    Backend -->|Cache| Redis[Redis Cache]
+    Backend -->|Data| SQLite[(SQLite Database)]
+    GitHub[GitHub Webhooks] -->|Push Events| Traefik
+```
+
+---
+
+## 🚀 Key Features
 - **Vercel-style GitHub App Integration**: Selectively authorize access to specific repositories instead of sharing your entire GitHub account.
 - **GitOps Auto-Deployments**: Push to main/master on GitHub, and your application will automatically build, deploy, and restart.
 - **Dynamic Routing & SSL**: Managed automatically using Traefik and Let's Encrypt certificates.
@@ -10,7 +25,7 @@ An open-source, self-hosted, lightweight alternative to Vercel, Railway, and Net
 
 ---
 
-## ??? VPS Infrastructure Prerequisites
+## 🛠️ VPS Infrastructure Prerequisites
 
 Before deploying KH Cloud, prepare your Linux VPS (Ubuntu 22.04+ recommended).
 
@@ -61,7 +76,7 @@ You need to point your domain name to your VPS IP address. Set up these records 
 
 ---
 
-## ?? Integration Credentials Setup
+## 🔑 Integration Credentials Setup
 
 To enable user sign-in and git-based deployments, you must configure Google OAuth and a GitHub App.
 
@@ -98,7 +113,7 @@ To enable user sign-in and git-based deployments, you must configure Google OAut
 
 ---
 
-## ?? Environment Variables Configuration
+## ⚙️ Environment Variables Configuration
 
 Copy `.env.example` to `.env` in the project root:
 
@@ -131,7 +146,7 @@ GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEA...your
 
 ---
 
-## ?? Deployment
+## 🚀 Deployment
 
 Run the deploy script directly on your VPS. The script will pull updates, build containers, run database migrations, and restart the Traefik router:
 
@@ -160,7 +175,7 @@ docker logs -f kh-cloud-backend
 
 ---
 
-## ?? Security Recommendations
+## 🔒 Security Recommendations
 - **MinIO Credentials**: Change the default username and password for MinIO (`MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`) in `docker-compose.prod.yml` before deploying to production.
 - **Secrets Management**: Keep your `.env` private key and webhook secret safe.
 - **Certificates**: Traefik automatically provisions ACME Let's Encrypt certificates. Ensure port 80 is not blocked so Let's Encrypt HTTP-01 challenge succeeds.
