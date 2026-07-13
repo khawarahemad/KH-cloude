@@ -7,12 +7,17 @@ export class TeamsService {
   constructor(private prisma: PrismaService) {}
 
   async createTeam(name: string, ownerUserId: string) {
-    const slug = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    let slug = name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if (!slug) slug = 'team';
     
-    // Check slug uniqueness
-    const existing = await this.prisma.team.findUnique({ where: { slug } });
-    if (existing) {
-      throw new BadRequestException('A team with this slug/name already exists.');
+    let existing = await this.prisma.team.findUnique({ where: { slug } });
+    while (existing) {
+      const suffix = `-${Math.random().toString(36).substring(2, 6)}`;
+      const candidateSlug = `${slug.substring(0, 40 - suffix.length)}${suffix}`;
+      existing = await this.prisma.team.findUnique({ where: { slug: candidateSlug } });
+      if (!existing) {
+        slug = candidateSlug;
+      }
     }
 
     const team = await this.prisma.team.create({
