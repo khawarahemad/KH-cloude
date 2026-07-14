@@ -169,18 +169,21 @@ enum DeploymentStatus {
 }
 
 model Deployment {
-  id            String           @id @default(uuid())
-  projectId     String
-  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  commitHash    String?
-  commitMessage String?
-  branch        String
-  status        DeploymentStatus @default(QUEUED)
-  buildLogs     String           @default("")
-  buildDuration Int?             // in seconds
-  startedAt     DateTime?
-  endedAt       DateTime?
-  createdAt     DateTime         @default(now())
+  id              String           @id @default(uuid())
+  projectId       String
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  commitHash      String?          // Short 7-char commit SHA
+  commitMessage   String?          // First line of the commit message
+  commitAuthor    String?          // GitHub commit author name
+  branch          String
+  triggeredBy     String           @default("MANUAL") // "MANUAL" | "GITOPS"
+  triggeredByName String?          // Team member name or "GitHub Push by <actor>"
+  status          DeploymentStatus @default(QUEUED)
+  buildLogs       String           @default("")
+  buildDuration   Int?             // in seconds
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime         @default(now())
 }
 
 model EnvVar {

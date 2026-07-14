@@ -161,8 +161,14 @@ export class AppController {
   }
 
   @Post('projects/:id/deploy')
-  async deployProject(@Param('id') id: string, @Body() body: { teamId: string }) {
-    return this.projects.triggerDeployment(id, body.teamId);
+  async deployProject(
+    @Param('id') id: string,
+    @Body() body: { teamId: string; userName?: string; userId?: string },
+  ) {
+    return this.projects.triggerDeployment(id, body.teamId, {
+      triggeredBy: 'MANUAL',
+      triggeredByName: body.userName || 'Dashboard User',
+    });
   }
 
   @Get('projects/:id/deployments')
@@ -257,7 +263,24 @@ export class AppController {
       const ref = payload.ref; // e.g. refs/heads/main
       if (repoFullName && ref) {
         const branch = ref.replace('refs/heads/', '');
-        await this.projects.triggerGitOpsDeployment(repoFullName, branch);
+
+        // Extract commit metadata from GitHub push payload
+        const headCommit = payload.head_commit;
+        const commitHash = headCommit?.id ? headCommit.id.substring(0, 7) : undefined;
+        const commitMessage = headCommit?.message
+          ? headCommit.message.split('\n')[0].trim().substring(0, 120)  // first line, max 120 chars
+          : undefined;
+        const pusher = payload.pusher?.name || payload.sender?.login;
+        const commitAuthor = headCommit?.author?.name || headCommit?.committer?.name || pusher;
+
+        await this.projects.triggerGitOpsDeployment(
+          repoFullName,
+          branch,
+          commitHash,
+          commitMessage,
+          pusher,
+          commitAuthor,
+        );
       }
     }
     return { received: true };

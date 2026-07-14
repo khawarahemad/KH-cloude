@@ -142,19 +142,39 @@ export class ProjectsService {
     return created;
   }
 
-  async triggerDeployment(projectId: string, teamId: string) {
+  async triggerDeployment(
+    projectId: string,
+    teamId: string,
+    context?: {
+      triggeredBy?: 'MANUAL' | 'GITOPS';
+      triggeredByName?: string;  // e.g. "John Doe" or "GitHub Push by khawara"
+      commitHash?: string;       // short 7-char SHA
+      commitMessage?: string;    // first line of commit message
+      commitAuthor?: string;     // git committer name
+    },
+  ) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId },
     });
     if (!project) throw new NotFoundException('Project not found.');
 
-    // Create Deployment record
+    const trigBy = context?.triggeredBy || 'MANUAL';
+    const trigName = context?.triggeredByName || null;
+
+    // Create Deployment record with full attribution metadata
     const deployment = await this.prisma.deployment.create({
       data: {
         projectId,
         branch: project.githubBranch || 'main',
+        triggeredBy: trigBy,
+        triggeredByName: trigName,
+        commitHash: context?.commitHash || null,
+        commitMessage: context?.commitMessage || null,
+        commitAuthor: context?.commitAuthor || null,
         status: 'QUEUED',
-        buildLogs: 'Queued in building queue...\n',
+        buildLogs: trigBy === 'GITOPS'
+          ? `[GitOps] Auto-deploy triggered by push from ${trigName || 'GitHub'}\n`
+          : `[Manual] Deploy triggered by ${trigName || 'Dashboard user'}\n`,
       },
     });
 
@@ -164,8 +184,15 @@ export class ProjectsService {
     return deployment;
   }
 
-  async triggerGitOpsDeployment(repoFullName: string, branch: string) {
-    this.logger.log(`GitOps: Received GitHub push webhook for repository "${repoFullName}" on branch "${branch}"`);
+  async triggerGitOpsDeployment(
+    repoFullName: string,
+    branch: string,
+    commitHash?: string,
+    commitMessage?: string,
+    pusher?: string,
+    commitAuthor?: string,
+  ) {
+    this.logger.log(`GitOps: Received GitHub push webhook for repository "${repoFullName}" on branch "${branch}" (commit: ${commitHash || 'unknown'})`);
 
     // Only fetch projects that have a GitHub repo configured (avoids full table scan)
     const projectsWithRepo = await this.prisma.project.findMany({
@@ -183,9 +210,17 @@ export class ProjectsService {
       this.logger.log(`GitOps: No matching projects found for ${repoFullName}@${branch}.`);
     }
 
+    const triggeredByName = pusher ? `GitHub Push by ${pusher}` : 'GitHub Push';
+
     for (const project of matching) {
-      this.logger.log(`GitOps: Match found! Automatically redeploying project "${project.name}" (${project.id})`);
-      this.triggerDeployment(project.id, project.teamId).catch((err) => {
+      this.logger.log(`GitOps: Match found! Auto-deploying project "${project.name}" (${project.id}) — commit ${commitHash || 'unknown'}`);
+      this.triggerDeployment(project.id, project.teamId, {
+        triggeredBy: 'GITOPS',
+        triggeredByName,
+        commitHash,
+        commitMessage,
+        commitAuthor,
+      }).catch((err) => {
         this.logger.error(`GitOps: Failed to redeploy project ${project.id}: ${err.message}`);
       });
     }
@@ -264,8 +299,10 @@ export class ProjectsService {
         branch: deployment.branch,
         commitHash: deployment.commitHash,
         commitMessage: `Rollback to deployment ${deploymentId.substring(0, 8)}`,
+        triggeredBy: 'MANUAL',
+        triggeredByName: 'Rollback',
         status: 'QUEUED',
-        buildLogs: `Initiating rollback to deployment ${deploymentId}...\n`,
+        buildLogs: `[Manual Rollback] Initiating rollback to deployment ${deploymentId}...\n`,
       },
     });
 

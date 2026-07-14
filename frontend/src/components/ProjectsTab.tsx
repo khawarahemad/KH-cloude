@@ -450,10 +450,14 @@ export default function ProjectsTab() {
         }),
       });
 
-      // Automatically deploy it first time
+      // Automatically deploy it first time — attribute to the creating user
       await apiRequest(`/projects/${project.id}/deploy`, {
         method: 'POST',
-        body: JSON.stringify({ teamId: activeTeam.id }),
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          userName: user?.name || 'Dashboard User',
+          userId: user?.id,
+        }),
       });
 
       setWizardOpen(false);
@@ -476,7 +480,11 @@ export default function ProjectsTab() {
     try {
       const data = await apiRequest(`/projects/${activeProjectId}/deploy`, {
         method: 'POST',
-        body: JSON.stringify({ teamId: activeTeam.id }),
+        body: JSON.stringify({
+          teamId: activeTeam.id,
+          userName: user?.name || 'Dashboard User',
+          userId: user?.id,
+        }),
       });
       setActiveDeploymentId(data.id);
       setBuildLogs('Triggering build...');
@@ -793,18 +801,66 @@ export default function ProjectsTab() {
                       <div style={{ padding: '48px 24px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No deployments yet. Click Redeploy to trigger the first build.</div>
                     )}
                     {projectDetails?.deployments?.map((dep: any, i: number) => (
-                      <div key={dep.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i < (projectDetails.deployments.length - 1) ? '1px solid rgba(255,255,255,0.06)' : 'none', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: dep.status === 'READY' ? '#22c55e' : dep.status === 'FAILED' ? '#ef4444' : '#a78bfa' }} />
+                      <div key={dep.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: i < (projectDetails.deployments.length - 1) ? '1px solid rgba(255,255,255,0.06)' : 'none', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                          {/* Status dot */}
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: dep.status === 'READY' ? '#22c55e' : dep.status === 'FAILED' ? '#ef4444' : dep.status === 'BUILDING' || dep.status === 'DEPLOYING' ? '#a78bfa' : '#6b7280' }} />
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dep.commitMessage || 'Manual Deployment'}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>
+                            {/* Row 1: Trigger type badge + commit message */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                              {/* Auto / Manual badge */}
+                              {dep.triggeredBy === 'GITOPS' ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.3)', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                  ⚡ Auto Deploy
+                                </span>
+                              ) : dep.triggeredByName === 'Rollback' ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(234,179,8,0.12)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.25)', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                  ↩ Rollback
+                                </span>
+                              ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.25)', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                  ▶ Manual
+                                </span>
+                              )}
+                              {/* Commit hash pill */}
+                              {dep.commitHash && (
+                                <span style={{ fontFamily: 'monospace', fontSize: '11px', padding: '1px 6px', borderRadius: '5px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.15)', flexShrink: 0 }}>
+                                  {dep.commitHash}
+                                </span>
+                              )}
+                              {/* Commit message or fallback label */}
+                              <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {dep.commitMessage || (dep.triggeredBy === 'GITOPS' ? 'Git Push' : dep.triggeredByName === 'Rollback' ? 'Rollback Deploy' : 'Manual Deploy')}
+                              </span>
+                            </div>
+                            {/* Row 2: Who triggered + branch + time */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#4b5563', flexWrap: 'wrap' }}>
+                              {dep.triggeredByName && (
+                                <>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                    {dep.triggeredBy === 'GITOPS' ? (
+                                      <Github size={10} style={{ color: '#6b7280' }} />
+                                    ) : (
+                                      <span style={{ fontSize: '10px' }}>👤</span>
+                                    )}
+                                    {dep.triggeredByName}
+                                  </span>
+                                  <span>·</span>
+                                </>
+                              )}
+                              {dep.commitAuthor && dep.triggeredBy === 'GITOPS' && dep.commitAuthor !== dep.triggeredByName?.replace('GitHub Push by ', '') && (
+                                <>
+                                  <span style={{ color: '#6b7280' }}>authored by {dep.commitAuthor}</span>
+                                  <span>·</span>
+                                </>
+                              )}
                               <span>Branch: {dep.branch}</span>
                               <span>·</span>
                               <span>{new Date(dep.createdAt).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
+                        {/* Right side: status badge + logs button */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                           <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase',
                             backgroundColor: dep.status === 'READY' ? 'rgba(34,197,94,0.1)' : dep.status === 'FAILED' ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.1)',
