@@ -9,11 +9,10 @@ import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { GithubAppService } from './github-app/github-app.service';
-import { WebhookController } from './webhook.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [AppController, WebhookController],
+  controllers: [AppController],
   providers: [
     AppService,
     StorageService,
@@ -26,3 +25,4 @@ import { WebhookController } from './webhook.controller';
   ],
 })
 export class AppModule {}
+

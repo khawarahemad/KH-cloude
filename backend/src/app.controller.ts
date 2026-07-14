@@ -145,7 +145,7 @@ export class AppController {
   @Post('projects/:id/update')
   async updateProject(
     @Param('id') id: string,
-    @Body() body: { name?: string; buildCommand?: string; startCommand?: string; port?: number; githubBranch?: string; rootDirectory?: string; teamId: string }
+    @Body() body: { name?: string; buildCommand?: string; installCommand?: string; startCommand?: string; port?: number; githubBranch?: string; rootDirectory?: string; teamId: string }
   ) {
     return this.projects.updateProject(id, body);
   }

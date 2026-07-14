@@ -166,15 +166,22 @@ export class ProjectsService {
 
   async triggerGitOpsDeployment(repoFullName: string, branch: string) {
     this.logger.log(`GitOps: Received GitHub push webhook for repository "${repoFullName}" on branch "${branch}"`);
-    
-    const allProjects = await this.prisma.project.findMany();
+
+    // Only fetch projects that have a GitHub repo configured (avoids full table scan)
+    const projectsWithRepo = await this.prisma.project.findMany({
+      where: { githubRepo: { not: null } },
+    });
     const cleanRepo = (url: string) => url.toLowerCase().replace(/https?:\/\/github\.com\//, '').replace(/\.git$/, '').trim();
     const webhookRepoCleaned = cleanRepo(repoFullName);
 
-    const matching = allProjects.filter(p => {
+    const matching = projectsWithRepo.filter(p => {
       if (!p.githubRepo) return false;
       return cleanRepo(p.githubRepo) === webhookRepoCleaned && p.githubBranch === branch;
     });
+
+    if (matching.length === 0) {
+      this.logger.log(`GitOps: No matching projects found for ${repoFullName}@${branch}.`);
+    }
 
     for (const project of matching) {
       this.logger.log(`GitOps: Match found! Automatically redeploying project "${project.name}" (${project.id})`);
@@ -518,7 +525,7 @@ export class ProjectsService {
 
   async updateProject(
     projectId: string,
-    data: { name?: string; buildCommand?: string; startCommand?: string; port?: number; githubBranch?: string; rootDirectory?: string; teamId: string }
+    data: { name?: string; buildCommand?: string; installCommand?: string; startCommand?: string; port?: number; githubBranch?: string; rootDirectory?: string; teamId: string }
   ) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId: data.teamId },
@@ -530,6 +537,7 @@ export class ProjectsService {
       data: {
         name: data.name ?? project.name,
         buildCommand: data.buildCommand ?? project.buildCommand,
+        installCommand: data.installCommand !== undefined ? data.installCommand : project.installCommand,
         startCommand: data.startCommand ?? project.startCommand,
         port: data.port !== undefined ? data.port : project.port,
         githubBranch: data.githubBranch ?? project.githubBranch,
@@ -806,8 +814,9 @@ export class ProjectsService {
             }
 
             const runCmdText = project.startCommand || detectedStartCommand;
-            
+
             // Build the Dockerfile lines dynamically, stripping out empty lines (like buildSteps if no build script exists)
+            // CMD uses shell exec form so signals propagate correctly to the Node process
             const dockerfileContent = [
               'FROM node:20-alpine',
               'WORKDIR /app',
@@ -817,7 +826,7 @@ export class ProjectsService {
               'COPY . .',
               buildSteps,
               `EXPOSE ${detectedPort}`,
-              `CMD ${runCmdText}`
+              `CMD ["sh", "-c", "${runCmdText.replace(/"/g, '\\"')}"]`
             ].filter(Boolean).join('\n');
 
             fs.writeFileSync(dockerfilePath, dockerfileContent);
@@ -842,7 +851,7 @@ export class ProjectsService {
             }
 
             const runCmdText = project.startCommand || detectedStartCommand;
-            const defaultDockerfile = `FROM python:3.10-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY . .\nEXPOSE ${detectedPort}\nCMD ${runCmdText}`;
+            const defaultDockerfile = `FROM python:3.10-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY . .\nEXPOSE ${detectedPort}\nCMD ["sh", "-c", "${runCmdText.replace(/"/g, '\\"')}"]`;
             fs.writeFileSync(dockerfilePath, defaultDockerfile);
             appendLog(`Generated Python Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText})`);
             
