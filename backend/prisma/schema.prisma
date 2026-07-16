@@ -17,6 +17,10 @@ model User {
   githubAccessToken String?
   githubUsername    String?
   role              String    @default("USER") // USER, ADMIN
+  discordWebhookUrl String?
+  discordNotifyDeploys Boolean @default(true)
+  discordNotifyErrors   Boolean @default(true)
+  discordNotifyDatabases Boolean @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

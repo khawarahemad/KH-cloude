@@ -10,6 +10,7 @@ import { BillingService } from './billing/billing.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { GithubAppService } from './github-app/github-app.service';
 import { TeamRole, DatabaseType } from '@prisma/client';
+import { sendDirectDiscordNotification } from './utils/discord-webhook';
 
 import * as crypto from 'crypto';
 
@@ -94,6 +95,53 @@ export class AppController {
     if (!user) throw new BadRequestException('User not found.');
     const teams = await this.teams.getTeams(userId);
     return { user, teams };
+  }
+
+  @Post('users/:userId/settings')
+  async updateSettings(
+    @Param('userId') userId: string,
+    @Body() body: {
+      discordWebhookUrl?: string;
+      discordNotifyDeploys?: boolean;
+      discordNotifyErrors?: boolean;
+      discordNotifyDatabases?: boolean;
+    }
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found.');
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        discordWebhookUrl: body.discordWebhookUrl !== undefined ? body.discordWebhookUrl : user.discordWebhookUrl,
+        discordNotifyDeploys: body.discordNotifyDeploys !== undefined ? body.discordNotifyDeploys : user.discordNotifyDeploys,
+        discordNotifyErrors: body.discordNotifyErrors !== undefined ? body.discordNotifyErrors : user.discordNotifyErrors,
+        discordNotifyDatabases: body.discordNotifyDatabases !== undefined ? body.discordNotifyDatabases : user.discordNotifyDatabases,
+      },
+    });
+
+    return updated;
+  }
+
+  @Post('users/:userId/settings/test-discord')
+  async testDiscordWebhook(
+    @Param('userId') userId: string,
+    @Body() body: { webhookUrl: string }
+  ) {
+    if (!body.webhookUrl) {
+      throw new BadRequestException('Webhook URL is required.');
+    }
+
+    try {
+      await sendDirectDiscordNotification(body.webhookUrl, {
+        title: '🔔 Test Notification Successful!',
+        description: 'Your Discord integration for KH Cloud is successfully configured. You will now receive system notifications here based on your preferences.',
+        color: 8138221, // Purple
+      });
+      return { success: true };
+    } catch (err: any) {
+      throw new BadRequestException(`Failed to send test notification: ${err.message}`);
+    }
   }
 
   // --- TEAMS ENDPOINTS ---

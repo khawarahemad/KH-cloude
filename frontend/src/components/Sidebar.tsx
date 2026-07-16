@@ -11,6 +11,7 @@ import {
   Shield,
   Zap,
   ChevronRight,
+  Settings,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { id: 'storage',        label: 'Storage',         icon: HardDrive },
   { id: 'teams',          label: 'Team',            icon: Users },
   { id: 'billing',        label: 'Billing',         icon: CreditCard },
+  { id: 'settings',       label: 'Settings',        icon: Settings },
 ];
 
 export default function Sidebar() {

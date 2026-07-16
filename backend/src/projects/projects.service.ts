@@ -4,6 +4,7 @@ import { ProjectStatus, DeploymentStatus } from '@prisma/client';
 import { exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { sendDiscordNotification } from '../utils/discord-webhook';
 
 @Injectable()
 export class ProjectsService {
@@ -717,8 +718,9 @@ export class ProjectsService {
     };
 
     const startDeployment = async () => {
+      let project: any = null;
       try {
-        const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+        project = await this.prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
           appendLog('Project not found. Deployment aborted.');
           return;
@@ -733,6 +735,17 @@ export class ProjectsService {
         await this.prisma.deployment.update({
           where: { id: deploymentId },
           data: { status: 'BUILDING', startedAt: new Date() },
+        });
+
+        sendDiscordNotification(project.teamId, 'deploy', {
+          title: `🚀 Deployment Started: ${project.name}`,
+          description: `A new deployment has been triggered for **${project.name}**.`,
+          color: 8138221, // Purple
+          fields: [
+            { name: 'Branch', value: `\`${project.githubBranch || 'main'}\``, inline: true },
+            { name: 'Triggered By', value: deployment.triggeredByName || 'Manual Action', inline: true },
+            { name: 'Commit Message', value: deployment.commitMessage || 'No commit message', inline: false },
+          ]
         });
 
         // 1. Prepare Workspace
@@ -1109,6 +1122,18 @@ export class ProjectsService {
           data: { status: 'READY' },
         });
 
+        sendDiscordNotification(project.teamId, 'deploy', {
+          title: `✅ Deployment Successful: ${project.name}`,
+          description: `The deployment for **${project.name}** was successful and is now online.`,
+          color: 2278750, // Green
+          url: `https://${targetDomain}`,
+          fields: [
+            { name: 'Branch', value: `\`${project.githubBranch || 'main'}\``, inline: true },
+            { name: 'Duration', value: `${Math.floor((Date.now() - deployment.createdAt.getTime()) / 1000)}s`, inline: true },
+            { name: 'Domain', value: `[${targetDomain}](https://${targetDomain})`, inline: false }
+          ]
+        });
+
         // Clean up build directory
         fs.rmSync(buildDir, { recursive: true, force: true });
         this.deploymentLogs.delete(deploymentId);
@@ -1123,6 +1148,17 @@ export class ProjectsService {
           where: { id: projectId },
           data: { status: 'INACTIVE' },
         });
+
+        sendDiscordNotification(project?.teamId || '', 'error', {
+          title: `❌ Deployment Failed: ${project?.name || 'Unknown Project'}`,
+          description: `The deployment for **${project?.name || 'unknown'}** has failed.`,
+          color: 15680580, // Red
+          fields: [
+            { name: 'Branch', value: `\`${project?.githubBranch || 'main'}\``, inline: true },
+            { name: 'Error Message', value: err.message || 'Unknown error', inline: false }
+          ]
+        });
+
         this.deploymentLogs.delete(deploymentId);
       }
     };

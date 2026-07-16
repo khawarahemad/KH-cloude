@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DatabaseType } from '@prisma/client';
+import { sendDiscordNotification } from '../utils/discord-webhook';
 
 @Injectable()
 export class DatabasesService {
@@ -39,7 +40,27 @@ export class DatabasesService {
         where: { id: db.id },
         data: { status: 'RUNNING' },
       });
+      sendDiscordNotification(data.teamId, 'database', {
+        title: `⚡ Database Online: ${db.name}`,
+        description: `The **${db.type}** database **${db.name}** is now up and running!`,
+        color: 2278750, // Green
+        fields: [
+          { name: 'Host', value: `\`${host}\``, inline: true },
+          { name: 'Port', value: String(port), inline: true }
+        ]
+      });
     }, 5000);
+
+    sendDiscordNotification(data.teamId, 'database', {
+      title: `🗄️ Database Provisioning: ${db.name}`,
+      description: `A new **${db.type}** database instance is being created.`,
+      color: 3899904, // Blue
+      fields: [
+        { name: 'Name', value: db.name, inline: true },
+        { name: 'Type', value: db.type, inline: true },
+        { name: 'Host', value: `\`${host}\``, inline: false }
+      ]
+    });
 
     await this.prisma.auditLog.create({
       data: {
@@ -68,6 +89,16 @@ export class DatabasesService {
     if (!db) throw new NotFoundException('Database not found.');
 
     await this.prisma.databaseInstance.delete({ where: { id } });
+
+    sendDiscordNotification(teamId, 'database', {
+      title: `🗑️ Database Deleted: ${db.name}`,
+      description: `The **${db.type}** database **${db.name}** has been deleted.`,
+      color: 16096779, // Orange/Yellow
+      fields: [
+        { name: 'Name', value: db.name, inline: true },
+        { name: 'Type', value: db.type, inline: true }
+      ]
+    });
 
     await this.prisma.auditLog.create({
       data: {

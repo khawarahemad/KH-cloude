@@ -13,6 +13,7 @@ import TeamsTab from '@/components/TeamsTab';
 import BillingTab from '@/components/BillingTab';
 import AdminTab from '@/components/AdminTab';
 import EdgeFunctionsTab from '@/components/EdgeFunctionsTab';
+import SettingsTab from '@/components/SettingsTab';
 import { apiRequest } from '@/lib/api';
 import { Shield } from 'lucide-react';
 
@@ -167,6 +168,8 @@ export default function Home() {
         return <TeamsTab />;
       case 'billing':
         return <BillingTab />;
+      case 'settings':
+        return <SettingsTab />;
       case 'admin':
         return <AdminTab />;
       default:

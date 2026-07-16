@@ -7,6 +7,10 @@ export interface User {
   email: string;
   githubUsername?: string;
   role?: string;
+  discordWebhookUrl?: string;
+  discordNotifyDeploys?: boolean;
+  discordNotifyErrors?: boolean;
+  discordNotifyDatabases?: boolean;
 }
 
 export interface Team {
