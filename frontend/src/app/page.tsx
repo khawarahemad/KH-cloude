@@ -26,82 +26,143 @@ export default function Home() {
   const [isAdminSubdomain, setIsAdminSubdomain] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
   const [isInstallingGithub, setIsInstallingGithub] = useState(false);
+  const [githubInstallStatus, setGithubInstallStatus] = useState<'linking' | 'success' | 'error'>('linking');
+  const [githubInstallMessage, setGithubInstallMessage] = useState('Linking your GitHub App installation with KH Cloud...');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      const isAuth = hostname.startsWith('auth.');
-      const isAdmin = hostname.startsWith('admin.');
-      setIsAuthSubdomain(isAuth);
-      setIsAdminSubdomain(isAdmin);
+    if (typeof window === 'undefined') return;
 
-      // Check for session_data parameter
-      const params = new URLSearchParams(window.location.search);
-      const logoutParam = params.get('logout');
-      if (logoutParam === 'true') {
-        localStorage.removeItem('kh-cloud-session');
-        useAppStore.getState().logout();
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
-      }
+    const hostname = window.location.hostname;
+    const isAuth = hostname.startsWith('auth.');
+    const isAdmin = hostname.startsWith('admin.');
+    setIsAuthSubdomain(isAuth);
+    setIsAdminSubdomain(isAdmin);
 
-      // Check for GitHub App installation callback
-      // GitHub redirects here after install/update with ?installation_id=XXX&setup_action=install
-      const installationId = params.get('installation_id');
-      const setupAction = params.get('setup_action');
-      if (installationId && (setupAction === 'install' || setupAction === 'update')) {
-        setIsInstallingGithub(true);
-        // Read teamId from localStorage (set before popup was opened)
-        // GitHub does NOT send state back via Setup URL, so we use localStorage
-        const teamId = localStorage.getItem('github_app_pending_teamId');
-        localStorage.removeItem('github_app_pending_teamId');
+    const params = new URLSearchParams(window.location.search);
+    const logoutParam = params.get('logout');
+    if (logoutParam === 'true') {
+      localStorage.removeItem('kh-cloud-session');
+      useAppStore.getState().logout();
+      window.history.replaceState({}, '', window.location.pathname);
+    }
 
-        // Call backend callback to save installation
-        if (teamId) {
-          const state = btoa(JSON.stringify({ teamId }));
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com'}/api/github-app/callback?installation_id=${installationId}&state=${encodeURIComponent(state)}`)
-            .then(() => {
-              if (window.opener) {
-                window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId }, '*');
-              }
-              window.close();
-            })
-            .catch(() => {
-              if (window.opener) {
-                window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId }, '*');
-              }
-              window.close();
-            });
-        } else {
-          // If no teamId, just clean up and close popup
-          setTimeout(() => {
-            if (window.opener) {
-              window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED', installationId, teamId: null }, '*');
-            }
-            window.close();
-          }, 500);
+    // GitHub App setup URL redirect:
+    // ?installation_id=XXX&setup_action=install|update
+    const installationId = params.get('installation_id');
+    const setupAction = params.get('setup_action');
+    if (installationId && (setupAction === 'install' || setupAction === 'update')) {
+      setIsInstallingGithub(true);
+      setGithubInstallStatus('linking');
+
+      const teamId = localStorage.getItem('github_app_pending_teamId');
+
+      const notifyOpener = (payload: Record<string, unknown>) => {
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(payload, window.location.origin);
+          }
+        } catch {
+          // Cross-origin opener access can throw — storage event below is the backup.
         }
-        return;
-      }
+        // Broadcast to any open KH Cloud tab (works even when postMessage/close fail)
+        try {
+          localStorage.setItem(
+            'github_app_installed_event',
+            JSON.stringify({ ...payload, ts: Date.now() }),
+          );
+          // Allow storage listeners to fire, then clear
+          setTimeout(() => localStorage.removeItem('github_app_installed_event'), 500);
+        } catch {}
+      };
 
+      const resumeApp = () => {
+        localStorage.removeItem('github_app_pending_teamId');
+        window.history.replaceState({}, '', window.location.pathname);
+        setIsInstallingGithub(false);
+        setLoadingSession(false);
+        // Mark so ProjectsTab can refresh if this was same-tab
+        sessionStorage.setItem('github_app_just_installed', '1');
+      };
 
+      const finishAndCloseOrResume = (ok: boolean, message?: string) => {
+        setGithubInstallStatus(ok ? 'success' : 'error');
+        setGithubInstallMessage(
+          message ||
+            (ok
+              ? 'GitHub App connected. Closing this window...'
+              : 'Could not save the installation. Returning to the dashboard...'),
+        );
 
-      const sessionDataParam = params.get('session_data');
-      if (sessionDataParam) {
+        notifyOpener({
+          type: 'GITHUB_APP_INSTALLED',
+          installationId,
+          teamId: teamId || null,
+          success: ok,
+        });
+
+        // Try closing popup; if the browser blocks it (common after GitHub redirects),
+        // fall back to resuming the app in this same tab so the spinner never hangs.
+        const tryClose = () => {
+          try {
+            window.close();
+          } catch {}
+        };
+
+        setTimeout(() => {
+          tryClose();
+          setTimeout(() => {
+            // window.closed is unreliable for same-tab; if we're still here, resume.
+            resumeApp();
+          }, 400);
+        }, ok ? 700 : 1200);
+      };
+
+      const saveInstallation = async () => {
+        if (!teamId) {
+          finishAndCloseOrResume(
+            false,
+            'Install session expired. You can close this window and click Refresh in KH Cloud.',
+          );
+          return;
+        }
+
+        const state = btoa(JSON.stringify({ teamId }))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+
+        const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com').replace(/\/$/, '');
+        const url = `${apiBase}/api/github-app/callback?installation_id=${encodeURIComponent(installationId)}&state=${encodeURIComponent(state)}`;
 
         try {
-          const data = JSON.parse(decodeURIComponent(sessionDataParam));
-          setUser(data.user);
-          setTeams(data.teams);
-          
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, '', newUrl);
-        } catch (e) {
-          console.error("Session parse failed:", e);
+          const res = await fetch(url);
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.message || `Callback failed (${res.status})`);
+          }
+          finishAndCloseOrResume(true, 'GitHub App connected successfully!');
+        } catch (err: any) {
+          console.error('GitHub App callback failed:', err);
+          finishAndCloseOrResume(false, err?.message || 'Failed to link GitHub App.');
         }
-      }
-      setLoadingSession(false);
+      };
+
+      saveInstallation();
+      return;
     }
+
+    const sessionDataParam = params.get('session_data');
+    if (sessionDataParam) {
+      try {
+        const data = JSON.parse(decodeURIComponent(sessionDataParam));
+        setUser(data.user);
+        setTeams(data.teams);
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (e) {
+        console.error('Session parse failed:', e);
+      }
+    }
+    setLoadingSession(false);
   }, []);
 
   // Attempt auto-login with query parameters or session simulation
@@ -178,19 +239,45 @@ export default function Home() {
   };
 
   if (isInstallingGithub) {
+    const isSuccess = githubInstallStatus === 'success';
+    const isError = githubInstallStatus === 'error';
     return (
       <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-[#09090b] text-white">
         <div className="flex flex-col items-center space-y-4 max-w-sm text-center px-6">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full border-2 border-violet-500/10 border-t-2 border-t-violet-500 animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-zinc-500">⚡</span>
-            </div>
+            {githubInstallStatus === 'linking' ? (
+              <div className="w-16 h-16 rounded-full border-2 border-violet-500/10 border-t-2 border-t-violet-500 animate-spin" />
+            ) : (
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center border ${
+                  isSuccess
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                    : 'border-red-500/30 bg-red-500/10 text-red-400'
+                }`}
+              >
+                <span className="text-2xl">{isSuccess ? '✓' : '!'}</span>
+              </div>
+            )}
           </div>
-          <h2 className="text-sm font-semibold text-zinc-200">Connecting GitHub App...</h2>
-          <p className="text-xs text-zinc-500 leading-relaxed">
-            Linking your installations with KH Cloud. This window will close automatically once the authorization is saved.
-          </p>
+          <h2 className="text-sm font-semibold text-zinc-200">
+            {isSuccess ? 'Connected' : isError ? 'Connection issue' : 'Connecting GitHub App...'}
+          </h2>
+          <p className="text-xs text-zinc-500 leading-relaxed">{githubInstallMessage}</p>
+          {(isSuccess || isError) && (
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem('github_app_pending_teamId');
+                window.history.replaceState({}, '', window.location.pathname);
+                setIsInstallingGithub(false);
+                setLoadingSession(false);
+                sessionStorage.setItem('github_app_just_installed', '1');
+              }}
+              className="mt-2 h-9 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-200 transition-colors"
+            >
+              Continue to dashboard
+            </button>
+          )}
         </div>
       </div>
     );

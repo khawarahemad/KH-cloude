@@ -69,8 +69,10 @@ export default function ProjectsTab() {
   // GitHub App integration states
   const [githubRepos, setGithubRepos] = useState<any[]>([]);
   const [githubLoading, setGithubLoading] = useState(false);
+  const [githubConnecting, setGithubConnecting] = useState(false);
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubAccount, setGithubAccount] = useState('');
+  const [githubAccountType, setGithubAccountType] = useState('');
   const [githubRepoSelection, setGithubRepoSelection] = useState<'all' | 'selected' | string | null>(null);
   const [repoSearch, setRepoSearch] = useState('');
   
@@ -101,7 +103,7 @@ export default function ProjectsTab() {
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   const [detectingProject, setDetectingProject] = useState(false);
-  const [buildSettingsOpen, setBuildSettingsOpen] = useState(false);
+  const [buildSettingsOpen, setBuildSettingsOpen] = useState(true);
 
   // Env vars UI state
   const [envSaving, setEnvSaving] = useState(false);
@@ -179,25 +181,64 @@ export default function ProjectsTab() {
       const data = await apiRequest(`/github-app/repos?teamId=${activeTeam.id}`);
       setGithubConnected(data.connected === true);
       setGithubAccount(data.accountLogin || '');
+      setGithubAccountType(data.accountType || '');
       setGithubRepoSelection(data.repositorySelection || null);
       setGithubRepos(data.repos || []);
     } catch (err) {
       setGithubConnected(false);
+      setGithubAccountType('');
       setGithubRepoSelection(null);
       setGithubRepos([]);
     } finally {
       setGithubLoading(false);
+      setGithubConnecting(false);
     }
   };
 
-  const openGithubAppInstall = async () => {
+  const openGithubAppInstall = async (action?: 'install' | 'manage') => {
     if (!activeTeam) return;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    let abandonTimer: ReturnType<typeof setTimeout> | null = null;
+    let settled = false;
+
+    const cleanup = () => {
+      if (poll) clearInterval(poll);
+      if (abandonTimer) clearTimeout(abandonTimer);
+      window.removeEventListener('message', onMessage);
+      window.removeEventListener('storage', onStorage);
+    };
+
+    const onInstalled = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      setGithubConnecting(false);
+      fetchGithubRepos();
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'GITHUB_APP_INSTALLED') {
+        onInstalled();
+      }
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== 'github_app_installed_event' || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue);
+        if (payload?.type === 'GITHUB_APP_INSTALLED') onInstalled();
+      } catch {}
+    };
+
     try {
       // Save teamId before opening popup — GitHub doesn't send state back via Setup URL
       localStorage.setItem('github_app_pending_teamId', activeTeam.id);
+      setGithubConnecting(true);
 
-      // Use manage-url: returns manage link for existing installs, install link for new ones
-      const data = await apiRequest(`/github-app/manage-url?teamId=${activeTeam.id}`);
+      // action=install opens fresh install page (pick org); default manages current install
+      const qs = action === 'install' ? `&action=install` : '';
+      const data = await apiRequest(`/github-app/manage-url?teamId=${activeTeam.id}${qs}`);
       const targetUrl = data.url;
 
       const popup = window.open(
@@ -206,34 +247,60 @@ export default function ProjectsTab() {
         'width=1000,height=700,scrollbars=yes,resizable=yes'
       );
 
-      // Listen for postMessage from popup (sent by page.tsx after GitHub redirects back)
-      const onMessage = (event: MessageEvent) => {
-        if (event.data?.type === 'GITHUB_APP_INSTALLED') {
-          window.removeEventListener('message', onMessage);
-          clearInterval(poll);
-          fetchGithubRepos();
-        }
-      };
-      window.addEventListener('message', onMessage);
+      if (!popup) {
+        // Popup blocked — open in same tab instead; callback page will resume dashboard
+        setGithubConnecting(false);
+        window.location.href = targetUrl;
+        return;
+      }
 
-      // Fallback: also poll for popup close (covers cases where postMessage doesn't fire)
-      const poll = setInterval(() => {
-        if (!popup || popup.closed) {
-          clearInterval(poll);
-          window.removeEventListener('message', onMessage);
-          fetchGithubRepos();
+      window.addEventListener('message', onMessage);
+      window.addEventListener('storage', onStorage);
+
+      // Fallback: when popup closes, refresh once (covers postMessage failures)
+      poll = setInterval(() => {
+        if (popup.closed) {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          // Small delay so callback can finish writing the install before we list repos
+          setTimeout(() => fetchGithubRepos(), 600);
         }
       }, 800);
+
+      // Hard stop so "connecting" never spins forever if user abandons the flow
+      abandonTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        setGithubConnecting(false);
+      }, 5 * 60 * 1000);
     } catch (err) {
       console.error('Failed to get GitHub App URL:', err);
+      setGithubConnecting(false);
     }
   };
 
-
   useEffect(() => {
     if (wizardOpen && activeTeam) {
+      // Same-tab install recovery: callback page sets this flag before resuming
+      if (sessionStorage.getItem('github_app_just_installed') === '1') {
+        sessionStorage.removeItem('github_app_just_installed');
+      }
       fetchGithubRepos();
     }
+  }, [wizardOpen, activeTeam]);
+
+  // Also catch installs completed in another tab while wizard is already open
+  useEffect(() => {
+    if (!wizardOpen) return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'github_app_installed_event' && event.newValue) {
+        fetchGithubRepos();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, [wizardOpen, activeTeam]);
 
   useEffect(() => {
@@ -1338,15 +1405,28 @@ export default function ProjectsTab() {
                           </p>
                           <button
                             type="button"
-                            onClick={openGithubAppInstall}
-                            className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-lg shadow-purple-500/20 active:scale-95 duration-100 flex items-center gap-2"
+                            onClick={() => openGithubAppInstall('install')}
+                            disabled={githubConnecting}
+                            className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-lg shadow-purple-500/20 active:scale-95 duration-100 flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait"
                           >
-                            <Github size={13} />
-                            Install GitHub App
+                            {githubConnecting ? (
+                              <>
+                                <Loader2 size={13} className="animate-spin" />
+                                Waiting for GitHub...
+                              </>
+                            ) : (
+                              <>
+                                <Github size={13} />
+                                Install GitHub App
+                              </>
+                            )}
                           </button>
-                          {githubLoading && (
+                          {(githubConnecting || githubLoading) && (
                             <p className="text-[10px] text-zinc-600 mt-3 flex items-center gap-1.5 justify-center">
-                              <Loader2 size={11} className="animate-spin text-purple-500" /> Checking installation status...
+                              <Loader2 size={11} className="animate-spin text-purple-500" />
+                              {githubConnecting
+                                ? 'Complete install in the GitHub window — this will update automatically.'
+                                : 'Checking installation status...'}
                             </p>
                           )}
                         </div>
@@ -1354,16 +1434,33 @@ export default function ProjectsTab() {
                         <div className="space-y-3">
                           {/* Connection details banner */}
                           <div className="flex items-center justify-between p-3 border border-white/5 rounded-xl bg-white/[0.01]">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-6 h-6 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
                                 <Github size={12} className="text-violet-400" />
                               </div>
-                              <span className="text-[11px] font-semibold text-zinc-200">Connected account: <span className="text-violet-400 font-bold">@{githubAccount}</span></span>
+                              <div className="min-w-0">
+                                <span className="text-[11px] font-semibold text-zinc-200">
+                                  Connected: <span className="text-violet-400 font-bold">@{githubAccount}</span>
+                                </span>
+                                {githubAccountType && (
+                                  <span className="ml-1.5 text-[9px] text-zinc-500 font-medium uppercase tracking-wide">
+                                    ({githubAccountType === 'Organization' ? 'Org' : 'User'})
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 shrink-0">
                               <button
                                 type="button"
-                                onClick={openGithubAppInstall}
+                                onClick={() => openGithubAppInstall('install')}
+                                className="text-[10px] text-zinc-500 hover:text-zinc-300 font-semibold transition-colors flex items-center gap-1 border border-white/5 rounded-lg px-2.5 py-1 bg-white/[0.02]"
+                                title="Install on a different GitHub organization or account"
+                              >
+                                Switch org
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openGithubAppInstall('manage')}
                                 className="text-[10px] text-zinc-500 hover:text-zinc-300 font-semibold transition-colors flex items-center gap-1 border border-white/5 rounded-lg px-2.5 py-1 bg-white/[0.02]"
                               >
                                 Configure
@@ -1384,7 +1481,7 @@ export default function ProjectsTab() {
                               <p className="font-semibold text-amber-200 mb-0.5">Showing all repositories on @{githubAccount}</p>
                               <p className="text-amber-200/70">
                                 The GitHub App was installed with access to <span className="font-semibold">all</span> repos.
-                                Click <button type="button" onClick={openGithubAppInstall} className="underline font-bold text-amber-100 hover:text-white">Configure</button> and switch to <span className="font-semibold">Only select repositories</span> to limit this list.
+                                Click <button type="button" onClick={() => openGithubAppInstall('manage')} className="underline font-bold text-amber-100 hover:text-white">Configure</button> and switch to <span className="font-semibold">Only select repositories</span> to limit this list.
                               </p>
                             </div>
                           )}
@@ -1407,10 +1504,17 @@ export default function ProjectsTab() {
                           ) : githubRepos.length === 0 ? (
                             <div className="h-40 flex flex-col items-center justify-center text-zinc-500 text-xs text-center border border-white/5 rounded-xl bg-white/[0.01] p-6">
                               <p className="font-semibold text-zinc-400">No repositories found</p>
-                              <p className="text-[10px] text-zinc-600 mt-1 max-w-[250px] leading-relaxed">Ensure you have granted KH Cloud access to repositories on GitHub.</p>
-                              <button type="button" onClick={openGithubAppInstall} className="mt-3 text-violet-400 hover:underline text-[10px] font-bold">
-                                Configure repository permissions →
-                              </button>
+                              <p className="text-[10px] text-zinc-600 mt-1 max-w-[280px] leading-relaxed">
+                                Grant KH Cloud access to repos on @{githubAccount}, or switch to a different GitHub organization.
+                              </p>
+                              <div className="flex gap-3 mt-3">
+                                <button type="button" onClick={() => openGithubAppInstall('manage')} className="text-violet-400 hover:underline text-[10px] font-bold">
+                                  Configure repos →
+                                </button>
+                                <button type="button" onClick={() => openGithubAppInstall('install')} className="text-zinc-400 hover:underline text-[10px] font-bold">
+                                  Switch organization →
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <div className="max-h-60 overflow-y-auto grid grid-cols-1 gap-2 pr-1 custom-scrollbar">

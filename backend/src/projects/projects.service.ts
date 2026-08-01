@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { sendDiscordNotification } from '../utils/discord-webhook';
+import { GithubAppService } from '../github-app/github-app.service';
 
 @Injectable()
 export class ProjectsService {
@@ -13,7 +14,10 @@ export class ProjectsService {
   // Simulated live logs in-memory mapping deploymentId -> log lines
   private deploymentLogs = new Map<string, string[]>();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private githubApp: GithubAppService,
+  ) {}
 
   async createProject(data: {
     name: string;
@@ -405,8 +409,9 @@ export class ProjectsService {
         } else {
           this.logger.error(`[Domain Route] Failed to re-launch container: ${rerunRes.stderr}`);
         }
-      } catch (err) {
-        this.logger.error(`[Domain Route] Error during container re-route: ${err.message}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(`[Domain Route] Error during container re-route: ${message}`);
         await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } }).catch(() => null);
       }
     });
@@ -504,8 +509,9 @@ export class ProjectsService {
         } else {
           this.logger.error(`[Domain Remove] Failed to re-launch container: ${rerunRes.stderr}`);
         }
-      } catch (err) {
-        this.logger.error(`[Domain Remove] Error during container re-route: ${err.message}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(`[Domain Remove] Error during container re-route: ${message}`);
       }
     });
 
@@ -708,12 +714,14 @@ export class ProjectsService {
               fs.writeFileSync(filePath, content, 'utf8');
               appendLog(`[Vite Patcher] Successfully patched ${fileBasename} at ${path.relative(dir, filePath)} to set server.host and server.allowedHosts to true`);
             }
-          } catch (err) {
-            appendLog(`[Vite Patcher] Failed to patch ${fileBasename}: ${err.message}`);
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            appendLog(`[Vite Patcher] Failed to patch ${fileBasename}: ${message}`);
           }
         }
-      } catch (err) {
-        appendLog(`[Vite Patcher] Error scanning for Vite configs: ${err.message}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        appendLog(`[Vite Patcher] Error scanning for Vite configs: ${message}`);
       }
     };
 
@@ -752,34 +760,66 @@ export class ProjectsService {
         const buildDir = path.join('/usr/src/app/storage-mock/builds', deploymentId);
         fs.mkdirSync(buildDir, { recursive: true });
 
-        // 2. Clone Git Repo
+        // 2. Clone Git Repo — prefer GitHub App installation token (works for org repos)
         let repoUrl = project.githubRepo;
         if (!repoUrl) {
           appendLog('No GitHub repository URL provided. Aborting.');
           throw new Error('No GitHub repository provided');
         }
 
-        // Fetch team member user to retrieve GitHub Access Token
-        const teamMember = await this.prisma.teamMember.findFirst({
-          where: { teamId: project.teamId },
-          include: { user: true },
-        });
-        const githubToken = teamMember?.user?.githubAccessToken;
+        // Normalize owner/repo form
+        const cleanRepoRef = (url: string) =>
+          url.replace(/https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '').trim();
+        const repoFullName = cleanRepoRef(repoUrl);
 
-        if (!repoUrl.startsWith('http://') && !repoUrl.startsWith('https://')) {
-          if (githubToken) {
-            repoUrl = `https://x-access-token:${githubToken}@github.com/${repoUrl}.git`;
-          } else {
-            repoUrl = `https://github.com/${repoUrl}.git`;
+        let githubToken: string | null = null;
+        let authSource = 'none';
+
+        const installation = await this.prisma.githubInstallation.findUnique({
+          where: { teamId: project.teamId },
+        });
+
+        if (installation) {
+          try {
+            githubToken = await this.githubApp.getInstallationToken(installation.installationId);
+            authSource = `GitHub App (@${installation.accountLogin})`;
+            appendLog(`Using GitHub App installation token for @${installation.accountLogin} (${installation.accountType}).`);
+          } catch (err: any) {
+            appendLog(`[Warn] Failed to mint GitHub App installation token: ${err.message}`);
           }
-        } else if (githubToken && repoUrl.includes('github.com')) {
-          repoUrl = repoUrl.replace('https://github.com', `https://x-access-token:${githubToken}@github.com`);
+        } else {
+          appendLog('[Warn] No GitHub App installation linked to this team. Falling back to OAuth token.');
         }
 
-        const maskedRepoUrl = repoUrl.replace(/:[^@]+@github\.com/, ':****@github.com');
-        appendLog(`Cloning branch "${project.githubBranch || 'main'}" from repository: ${maskedRepoUrl}`);
-        const cloneRes = await runCmd(`git clone --depth 1 -b ${project.githubBranch || 'main'} ${repoUrl} .`, buildDir);
+        // Fallback: any team member's personal OAuth token (often fails for org private repos)
+        if (!githubToken) {
+          const teamMember = await this.prisma.teamMember.findFirst({
+            where: { teamId: project.teamId, user: { githubAccessToken: { not: null } } },
+            include: { user: true },
+          });
+          githubToken = teamMember?.user?.githubAccessToken || null;
+          if (githubToken) authSource = 'OAuth (personal)';
+        }
+
+        if (githubToken) {
+          repoUrl = `https://x-access-token:${githubToken}@github.com/${repoFullName}.git`;
+        } else {
+          repoUrl = `https://github.com/${repoFullName}.git`;
+          appendLog('[Warn] No GitHub credentials available — public clone only.');
+        }
+
+        const maskedRepoUrl = `https://github.com/${repoFullName}.git`;
+        appendLog(`Cloning branch "${project.githubBranch || 'main'}" from ${maskedRepoUrl} (auth: ${authSource})`);
+        const cloneRes = await runCmd(`git clone --depth 1 -b ${project.githubBranch || 'main'} "${repoUrl}" .`, buildDir);
         if (cloneRes.code !== 0) {
+          const errHint = (cloneRes.stderr || cloneRes.stdout || '').toLowerCase();
+          if (errHint.includes('not found') || errHint.includes('repository not found') || errHint.includes('could not read from remote')) {
+            throw new Error(
+              `Repository not found or access denied for "${repoFullName}". ` +
+              `Install/reinstall the KH Cloud GitHub App on the correct GitHub organization that owns this repo, ` +
+              `then grant access to this repository.`,
+            );
+          }
           throw new Error('Failed to clone Git repository');
         }
 
@@ -813,6 +853,7 @@ export class ProjectsService {
             
             const isPnpm = fs.existsSync(path.join(effectiveBuildDir, 'pnpm-lock.yaml'));
             const isYarn = fs.existsSync(path.join(effectiveBuildDir, 'yarn.lock'));
+            const isBun = fs.existsSync(path.join(effectiveBuildDir, 'bun.lockb')) || fs.existsSync(path.join(effectiveBuildDir, 'bun.lock'));
 
             if (isPnpm) {
               appendLog('pnpm-lock.yaml detected. Preparing pnpm manager configuration...');
@@ -820,6 +861,9 @@ export class ProjectsService {
             } else if (isYarn) {
               appendLog('yarn.lock detected. Preparing yarn manager configuration...');
               detectedStartCommand = 'yarn start';
+            } else if (isBun) {
+              appendLog('bun.lock detected. Preparing bun manager configuration...');
+              detectedStartCommand = 'bun start';
             }
 
             try {
@@ -832,7 +876,8 @@ export class ProjectsService {
               } else if (scripts.dev) {
                 appendLog('No "start" script found. Falling back to "dev" script...');
                 detectedStartCommand = isPnpm ? 'pnpm run dev' :
-                                       isYarn ? 'yarn dev' : 'npm run dev';
+                                       isYarn ? 'yarn dev' :
+                                       isBun ? 'bun run dev' : 'npm run dev';
               } else if (packageJson.main && fs.existsSync(path.join(effectiveBuildDir, packageJson.main))) {
                 appendLog(`No start script found. Launching main entrypoint file: node ${packageJson.main}`);
                 detectedStartCommand = `node ${packageJson.main}`;
@@ -847,23 +892,43 @@ export class ProjectsService {
                   appendLog(`Warning: No clear startup script detected. Defaulting to: ${detectedStartCommand}`);
                 }
               }
-            } catch (err) {
-              appendLog(`Failed to parse package.json: ${err.message}. Defaulting to npm start.`);
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : String(err);
+              appendLog(`Failed to parse package.json: ${message}. Defaulting to npm start.`);
               hasBuildScript = true; // Attempt build step on parse failures
             }
 
-            let installSteps = 'RUN npm install';
-            let buildSteps = hasBuildScript ? 'RUN npm run build' : '';
+            // Prefer user-configured install/build/start from project settings
+            const customInstall = typeof project.installCommand === 'string' ? project.installCommand.trim() : '';
+            const customBuild = typeof project.buildCommand === 'string' ? project.buildCommand.trim() : null;
+            const customStart = typeof project.startCommand === 'string' ? project.startCommand.trim() : '';
 
-            if (isPnpm) {
+            let installSteps: string;
+            if (customInstall) {
+              installSteps = `RUN ${customInstall}`;
+              appendLog(`Using configured install command: ${customInstall}`);
+            } else if (isPnpm) {
               installSteps = 'RUN npm install -g pnpm && pnpm install';
-              buildSteps = hasBuildScript ? 'RUN pnpm build' : '';
             } else if (isYarn) {
               installSteps = 'RUN yarn install';
-              buildSteps = hasBuildScript ? 'RUN yarn build' : '';
+            } else if (isBun) {
+              installSteps = 'RUN npm install -g bun && bun install';
+            } else {
+              installSteps = 'RUN npm install';
             }
 
-            const runCmdText = project.startCommand || detectedStartCommand;
+            let buildSteps = '';
+            if (customBuild !== null) {
+              // Explicit setting (including empty string = skip build)
+              buildSteps = customBuild ? `RUN ${customBuild}` : '';
+              if (customBuild) appendLog(`Using configured build command: ${customBuild}`);
+              else appendLog('Build command left empty — skipping build step.');
+            } else if (hasBuildScript) {
+              buildSteps = isPnpm ? 'RUN pnpm build' : isYarn ? 'RUN yarn build' : isBun ? 'RUN bun run build' : 'RUN npm run build';
+            }
+
+            const runCmdText = customStart || detectedStartCommand;
+            if (customStart) appendLog(`Using configured start command: ${customStart}`);
 
             // Build the Dockerfile lines dynamically, stripping out empty lines (like buildSteps if no build script exists)
             // CMD uses shell exec form so signals propagate correctly to the Node process
@@ -871,7 +936,7 @@ export class ProjectsService {
               'FROM node:20-alpine',
               'WORKDIR /app',
               'COPY package*.json ./',
-              'COPY pnpm-lock.yaml* yarn.lock* package-lock.json* ./',
+              'COPY pnpm-lock.yaml* yarn.lock* package-lock.json* bun.lockb* bun.lock* ./',
               installSteps,
               'COPY . .',
               buildSteps,
@@ -880,7 +945,7 @@ export class ProjectsService {
             ].filter(Boolean).join('\n');
 
             fs.writeFileSync(dockerfilePath, dockerfileContent);
-            appendLog(`Generated Node.js Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText}, Has Build: ${hasBuildScript})`);
+            appendLog(`Generated Node.js Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText}, Has Build: ${!!buildSteps})`);
             
             // Sync port to DB if not set
             if (!project.port) {
@@ -900,8 +965,14 @@ export class ProjectsService {
               detectedStartCommand = `python ${found}`;
             }
 
-            const runCmdText = project.startCommand || detectedStartCommand;
-            const defaultDockerfile = `FROM python:3.10-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY . .\nEXPOSE ${detectedPort}\nCMD ["sh", "-c", "${runCmdText.replace(/"/g, '\\"')}"]`;
+            const customInstall = typeof project.installCommand === 'string' ? project.installCommand.trim() : '';
+            const customStart = typeof project.startCommand === 'string' ? project.startCommand.trim() : '';
+            const installCmd = customInstall || 'pip install --no-cache-dir -r requirements.txt';
+            const runCmdText = customStart || project.startCommand || detectedStartCommand;
+            if (customInstall) appendLog(`Using configured install command: ${customInstall}`);
+            if (customStart) appendLog(`Using configured start command: ${customStart}`);
+
+            const defaultDockerfile = `FROM python:3.10-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN ${installCmd}\nCOPY . .\nEXPOSE ${detectedPort}\nCMD ["sh", "-c", "${runCmdText.replace(/"/g, '\\"')}"]`;
             fs.writeFileSync(dockerfilePath, defaultDockerfile);
             appendLog(`Generated Python Dockerfile (Port: ${detectedPort}, CMD: ${runCmdText})`);
             

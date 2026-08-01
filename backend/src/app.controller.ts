@@ -736,20 +736,39 @@ export class AppController {
         Authorization: `Bearer ${jwt}`,
         Accept: 'application/vnd.github+json',
         'User-Agent': 'KH-Cloud-Backend',
+        'X-GitHub-Api-Version': '2022-11-28',
       },
-    }).then((r) => r.json());
+    });
 
-    const accountLogin: string = installRes?.account?.login || 'unknown';
-    const accountType: string = installRes?.account?.type || 'User';
+    if (!installRes.ok) {
+      const errText = await installRes.text();
+      throw new BadRequestException(`Failed to fetch GitHub installation metadata: ${errText}`);
+    }
 
-    // Upsert: allow re-installing to update
+    const installJson: any = await installRes.json();
+    const accountLogin: string = installJson?.account?.login || 'unknown';
+    const accountType: string = installJson?.account?.type || 'User';
+
+    if (accountLogin === 'unknown') {
+      throw new BadRequestException('GitHub installation account could not be resolved. Check GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY.');
+    }
+
+    // If this installationId is already linked to another team, reassign it
+    const existingByInstall = await this.prisma.githubInstallation.findUnique({
+      where: { installationId },
+    });
+    if (existingByInstall && existingByInstall.teamId !== teamId) {
+      await this.prisma.githubInstallation.delete({ where: { id: existingByInstall.id } });
+    }
+
+    // Upsert on team: allow switching from personal → org (or org A → org B)
     await this.prisma.githubInstallation.upsert({
       where: { teamId },
       create: { installationId, teamId, accountLogin, accountType },
       update: { installationId, accountLogin, accountType },
     });
 
-    return { success: true, installationId, accountLogin };
+    return { success: true, installationId, accountLogin, accountType };
   }
 
   @Get('github-app/repos')
@@ -770,6 +789,7 @@ export class AppController {
         connected: true,
         installationId: installation.installationId,
         accountLogin: installation.accountLogin,
+        accountType: installation.accountType,
         // "all" means the GitHub App installation can see every repo on the account —
         // not a listing bug. Users must switch to "Only select repositories" via Configure.
         repositorySelection,
@@ -777,7 +797,7 @@ export class AppController {
         repos,
       };
     } catch (err: any) {
-      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, repositorySelection: null, totalCount: 0, repos: [], error: err.message };
+      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, accountType: installation.accountType, repositorySelection: null, totalCount: 0, repos: [], error: err.message };
     }
   }
 
@@ -787,22 +807,46 @@ export class AppController {
     const installation = await this.prisma.githubInstallation.findUnique({
       where: { teamId },
     });
-    return installation ? { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin } : { connected: false };
+    return installation
+      ? {
+          connected: true,
+          installationId: installation.installationId,
+          accountLogin: installation.accountLogin,
+          accountType: installation.accountType,
+        }
+      : { connected: false };
   }
 
   @Get('github-app/manage-url')
-  async getGithubAppManageUrl(@Query('teamId') teamId: string) {
+  async getGithubAppManageUrl(
+    @Query('teamId') teamId: string,
+    @Query('action') action?: string,
+  ) {
     if (!teamId) throw new BadRequestException('teamId is required.');
     const appSlug = process.env.GITHUB_APP_SLUG || 'kh-cloud-app';
     const installation = await this.prisma.githubInstallation.findUnique({
       where: { teamId },
     });
-    if (installation) {
-      // Direct link to manage this specific installation (add/remove repos, uninstall)
-      return { url: `https://github.com/apps/${appSlug}/installations/${installation.installationId}` };
+
+    // action=install always opens the fresh install page so users can pick a different org
+    if (action === 'install' || !installation) {
+      return {
+        url: this.githubApp.getInstallUrl(teamId),
+        mode: 'install',
+        connected: !!installation,
+        accountLogin: installation?.accountLogin || null,
+        accountType: installation?.accountType || null,
+      };
     }
-    // Not installed yet — send to install page
-    return { url: this.githubApp.getInstallUrl(teamId) };
+
+    // Default: manage the current installation (add/remove repos)
+    return {
+      url: `https://github.com/apps/${appSlug}/installations/${installation.installationId}`,
+      mode: 'manage',
+      connected: true,
+      accountLogin: installation.accountLogin,
+      accountType: installation.accountType,
+    };
   }
 
   @Get('github-app/repos/detect')
@@ -824,13 +868,28 @@ export class AppController {
     const cleanRootDir = rootDir ? rootDir.replace(/^\/|\/$/g, '') : '';
     const files = await this.githubApp.fetchRepoContents(installation.installationId, repo, cleanRootDir, branch);
 
+    if (!files || files.length === 0) {
+      // Distinguish empty dir vs access/not-found by probing the repo root
+      const rootProbe = cleanRootDir
+        ? await this.githubApp.fetchRepoContents(installation.installationId, repo, '', branch)
+        : files;
+      if (!rootProbe || rootProbe.length === 0) {
+        throw new NotFoundException(
+          `Repository "${repo}" was not found or the GitHub App (@${installation.accountLogin}) does not have access. ` +
+          `Install the app on the organization that owns this repo and grant repository access.`,
+        );
+      }
+      // Root exists but rootDir is empty / wrong — continue with empty files for STATIC fallback
+    }
+
     const hasFile = (name: string) => files.some((f: any) => f.name.toLowerCase() === name.toLowerCase());
 
     if (hasFile('package.json')) {
-      const pkgFile = files.find((f: any) => f.name === 'package.json');
+      const pkgFile = files.find((f: any) => f.name.toLowerCase() === 'package.json');
       let scripts: any = {};
       let dependencies: any = {};
       let devDependencies: any = {};
+      let packageManager: string | null = null;
 
       if (pkgFile && pkgFile.download_url) {
         const pkgContent = await this.githubApp.fetchFileContent(installation.installationId, pkgFile.download_url);
@@ -840,58 +899,86 @@ export class AppController {
             scripts = pkgJson.scripts || {};
             dependencies = pkgJson.dependencies || {};
             devDependencies = pkgJson.devDependencies || {};
+            packageManager = typeof pkgJson.packageManager === 'string' ? pkgJson.packageManager : null;
           } catch (e) {}
         }
       }
 
       const isDep = (name: string) => !!dependencies[name] || !!devDependencies[name];
+      const hasPnpm = hasFile('pnpm-lock.yaml') || (packageManager || '').startsWith('pnpm');
+      const hasYarn = hasFile('yarn.lock') || (packageManager || '').startsWith('yarn');
+      const hasBun = hasFile('bun.lockb') || hasFile('bun.lock') || (packageManager || '').startsWith('bun');
 
-      let buildCommand = 'npm run build';
-      let startCommand = 'npm run start';
+      const installCommand = hasPnpm
+        ? 'pnpm install'
+        : hasYarn
+          ? 'yarn install'
+          : hasBun
+            ? 'bun install'
+            : 'npm install';
+
+      const pkgBuild = hasPnpm ? 'pnpm build' : hasYarn ? 'yarn build' : hasBun ? 'bun run build' : 'npm run build';
+      const pkgStart = hasPnpm ? 'pnpm start' : hasYarn ? 'yarn start' : hasBun ? 'bun start' : 'npm run start';
+      const pkgDev = hasPnpm ? 'pnpm run dev' : hasYarn ? 'yarn dev' : hasBun ? 'bun run dev' : 'npm run dev';
+
+      let buildCommand = scripts.build ? pkgBuild : '';
+      let startCommand = pkgStart;
       let port = 3000;
 
       if (isDep('next')) {
-        buildCommand = 'npm run build';
-        startCommand = scripts.start ? 'npm run start' : 'npx next start';
+        buildCommand = scripts.build ? pkgBuild : 'npm run build';
+        startCommand = scripts.start ? pkgStart : 'npx next start';
         port = 3000;
       } else if (isDep('nuxt')) {
-        buildCommand = 'npm run build';
-        startCommand = scripts.start ? 'npm run start' : 'npx nuxt start';
+        buildCommand = scripts.build ? pkgBuild : 'npm run build';
+        startCommand = scripts.start ? pkgStart : 'npx nuxt start';
         port = 3000;
       } else if (isDep('astro')) {
-        buildCommand = 'npm run build';
-        startCommand = scripts.start ? 'npm run start' : 'npx astro preview --host 0.0.0.0';
+        buildCommand = scripts.build ? pkgBuild : 'npm run build';
+        startCommand = scripts.start ? pkgStart : 'npx astro preview --host 0.0.0.0';
         port = 4321;
       } else if (isDep('@remix-run/dev') || isDep('@remix-run/node')) {
-        buildCommand = 'npm run build';
-        startCommand = scripts.start ? 'npm run start' : 'npx remix-serve build/index.js';
+        buildCommand = scripts.build ? pkgBuild : 'npm run build';
+        startCommand = scripts.start ? pkgStart : 'npx remix-serve build/index.js';
         port = 3000;
       } else if (isDep('vite')) {
-        buildCommand = scripts.build ? 'npm run build' : '';
-        startCommand = scripts.dev ? 'npm run dev' : (scripts.start ? 'npm run start' : 'npx vite --host 0.0.0.0');
+        buildCommand = scripts.build ? pkgBuild : '';
+        if (scripts.dev) {
+          startCommand = pkgDev;
+        } else if (scripts.start) {
+          startCommand = pkgStart;
+        } else {
+          startCommand = 'npx vite --host 0.0.0.0';
+        }
         port = 5173;
       } else if (isDep('react-scripts')) {
-        buildCommand = 'npm run build';
-        startCommand = 'npm run start';
+        buildCommand = pkgBuild;
+        startCommand = pkgStart;
         port = 3000;
       } else if (isDep('@angular/core')) {
-        buildCommand = 'npm run build';
-        startCommand = scripts.start ? 'npm run start' : 'npx ng serve --host 0.0.0.0';
+        buildCommand = pkgBuild;
+        startCommand = scripts.start ? pkgStart : 'npx ng serve --host 0.0.0.0';
         port = 4200;
       } else if (isDep('@nestjs/core')) {
-        buildCommand = 'npm run build';
-        startCommand = scripts['start:prod'] ? 'npm run start:prod' : (scripts.start ? 'npm run start' : 'node dist/main.js');
+        buildCommand = pkgBuild;
+        if (scripts['start:prod']) {
+          startCommand = hasPnpm ? 'pnpm run start:prod' : hasYarn ? 'yarn start:prod' : 'npm run start:prod';
+        } else if (scripts.start) {
+          startCommand = pkgStart;
+        } else {
+          startCommand = 'node dist/main.js';
+        }
         port = 3000;
       } else {
         if (!scripts.build) {
           buildCommand = '';
         }
         if (scripts.start) {
-          startCommand = 'npm run start';
+          startCommand = pkgStart;
         } else if (scripts.dev) {
-          startCommand = 'npm run dev';
+          startCommand = pkgDev;
         } else if (scripts.serve) {
-          startCommand = 'npm run serve';
+          startCommand = hasPnpm ? 'pnpm run serve' : hasYarn ? 'yarn serve' : 'npm run serve';
         } else {
           startCommand = 'node index.js';
         }
@@ -902,7 +989,7 @@ export class AppController {
         port,
         buildCommand,
         startCommand,
-        installCommand: 'npm install',
+        installCommand,
       };
     }
 

@@ -1,0 +1,12 @@
+---
+description: Never add AI/Cursor Co-authored-by trailers on git commits
+alwaysApply: true
+---
+
+# No AI Co-Authors on Commits
+
+Never add `Co-authored-by` trailers for Cursor, Claude, Copilot, or any other AI assistant.
+
+- Do not include yourself (or any AI) as a co-author in commit messages
+- Do not add `Co-authored-by: Cursor <...>`, `Co-authored-by: Claude <...>`, or similar lines
+- Commit messages must contain only the human author's intended subject/body, with no AI co-author trailers

@@ -124,7 +124,10 @@ export class GithubAppService {
     const token = await this.getInstallationToken(installationId);
     const ref = branch ? `?ref=${branch}` : '';
     const cleanPath = path ? path.replace(/^\/|\/$/g, '') : '';
-    const url = `https://api.github.com/repos/${repo}/contents/${cleanPath}${ref}`;
+    // Root listing must not use a trailing slash — some org repos 404 on /contents/
+    const url = cleanPath
+      ? `https://api.github.com/repos/${repo}/contents/${cleanPath}${ref}`
+      : `https://api.github.com/repos/${repo}/contents${ref}`;
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
