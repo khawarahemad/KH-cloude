@@ -71,6 +71,7 @@ export default function ProjectsTab() {
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubAccount, setGithubAccount] = useState('');
+  const [githubRepoSelection, setGithubRepoSelection] = useState<'all' | 'selected' | string | null>(null);
   const [repoSearch, setRepoSearch] = useState('');
   
   // Active details tab
@@ -178,9 +179,11 @@ export default function ProjectsTab() {
       const data = await apiRequest(`/github-app/repos?teamId=${activeTeam.id}`);
       setGithubConnected(data.connected === true);
       setGithubAccount(data.accountLogin || '');
+      setGithubRepoSelection(data.repositorySelection || null);
       setGithubRepos(data.repos || []);
     } catch (err) {
       setGithubConnected(false);
+      setGithubRepoSelection(null);
       setGithubRepos([]);
     } finally {
       setGithubLoading(false);
@@ -388,11 +391,11 @@ export default function ProjectsTab() {
   };
 
   const handleConfigureSettings = async () => {
-    if (!selectedRepo || !user) return;
+    if (!selectedRepo || !activeTeam) return;
     setDetectingProject(true);
     try {
       const res = await apiRequest(
-        `/github/repos/detect?userId=${user.id}&repo=${selectedRepo}&branch=${selectedBranch}&rootDir=${rootDir}`
+        `/github-app/repos/detect?teamId=${activeTeam.id}&repo=${selectedRepo}&branch=${selectedBranch}&rootDir=${rootDir}`
       );
       setPort(res.port);
       setBuildCommand(res.buildCommand);
@@ -411,11 +414,11 @@ export default function ProjectsTab() {
   };
 
   const reDetectProjectConfig = async () => {
-    if (!selectedRepo || !user) return;
+    if (!selectedRepo || !activeTeam) return;
     setDetectingProject(true);
     try {
       const res = await apiRequest(
-        `/github/repos/detect?userId=${user.id}&repo=${selectedRepo}&branch=${selectedBranch}&rootDir=${rootDir}`
+        `/github-app/repos/detect?teamId=${activeTeam.id}&repo=${selectedRepo}&branch=${selectedBranch}&rootDir=${rootDir}`
       );
       setPort(res.port);
       setBuildCommand(res.buildCommand);
@@ -1375,6 +1378,16 @@ export default function ProjectsTab() {
                               </button>
                             </div>
                           </div>
+
+                          {githubRepoSelection === 'all' && (
+                            <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] text-[10px] text-amber-200/90 leading-relaxed">
+                              <p className="font-semibold text-amber-200 mb-0.5">Showing all repositories on @{githubAccount}</p>
+                              <p className="text-amber-200/70">
+                                The GitHub App was installed with access to <span className="font-semibold">all</span> repos.
+                                Click <button type="button" onClick={openGithubAppInstall} className="underline font-bold text-amber-100 hover:text-white">Configure</button> and switch to <span className="font-semibold">Only select repositories</span> to limit this list.
+                              </p>
+                            </div>
+                          )}
 
                           {/* Repo Search */}
                           <input

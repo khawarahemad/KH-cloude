@@ -765,10 +765,19 @@ export class AppController {
     }
 
     try {
-      const repos = await this.githubApp.listInstallationRepos(installation.installationId);
-      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, repos };
+      const { repos, repositorySelection, totalCount } = await this.githubApp.listInstallationRepos(installation.installationId);
+      return {
+        connected: true,
+        installationId: installation.installationId,
+        accountLogin: installation.accountLogin,
+        // "all" means the GitHub App installation can see every repo on the account —
+        // not a listing bug. Users must switch to "Only select repositories" via Configure.
+        repositorySelection,
+        totalCount,
+        repos,
+      };
     } catch (err: any) {
-      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, repos: [], error: err.message };
+      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, repositorySelection: null, totalCount: 0, repos: [], error: err.message };
     }
   }
 

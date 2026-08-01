@@ -63,32 +63,56 @@ export class GithubAppService {
     return data.token;
   }
 
-  async listInstallationRepos(installationId: string): Promise<any[]> {
+  async listInstallationRepos(installationId: string): Promise<{
+    repos: any[];
+    repositorySelection: 'all' | 'selected' | string;
+    totalCount: number;
+  }> {
     const token = await this.getInstallationToken(installationId);
-    const res = await fetch(
-      'https://api.github.com/installation/repositories?per_page=100',
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'KH-Cloud-Backend',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-      },
-    );
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Failed to list installation repos: ${err}`);
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'KH-Cloud-Backend',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+
+    // Paginate: GitHub returns at most 100 per page; "all" installs can exceed that.
+    const allRepos: any[] = [];
+    let repositorySelection: 'all' | 'selected' | string = 'selected';
+    let totalCount = 0;
+    let page = 1;
+
+    while (true) {
+      const res = await fetch(
+        `https://api.github.com/installation/repositories?per_page=100&page=${page}`,
+        { headers },
+      );
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Failed to list installation repos: ${err}`);
+      }
+      const data: any = await res.json();
+      repositorySelection = data.repository_selection || repositorySelection;
+      totalCount = typeof data.total_count === 'number' ? data.total_count : totalCount;
+      const batch: any[] = data.repositories || [];
+      allRepos.push(...batch);
+      if (batch.length < 100 || allRepos.length >= totalCount) break;
+      page += 1;
+      // Safety cap to avoid runaway loops
+      if (page > 20) break;
     }
-    const data: any = await res.json();
-    const repos: any[] = data.repositories || [];
-    return repos.map((repo: any) => ({
-      name: repo.name,
-      fullName: repo.full_name,
-      defaultBranch: repo.default_branch || 'main',
-      cloneUrl: repo.clone_url,
-      private: repo.private,
-    }));
+
+    return {
+      repositorySelection,
+      totalCount: totalCount || allRepos.length,
+      repos: allRepos.map((repo: any) => ({
+        name: repo.name,
+        fullName: repo.full_name,
+        defaultBranch: repo.default_branch || 'main',
+        cloneUrl: repo.clone_url,
+        private: repo.private,
+      })),
+    };
   }
 
   async fetchRepoContents(
@@ -132,7 +156,7 @@ export class GithubAppService {
 
   verifyWebhookSignature(rawBody: Buffer | string, signatureHeader: string): boolean {
     if (!this.webhookSecret) {
-      this.logger.warn('GITHUB_APP_WEBHOOK_SECRET not set — skipping verification!');
+      this.logger.warn('GITHUB_APP_WEBHOOK_SECRET not set - skipping verification!');
       return true;
     }
     const sig = signatureHeader.startsWith('sha256=')
@@ -149,7 +173,8 @@ export class GithubAppService {
   }
 
   getInstallUrl(teamId: string): string {
-    const appSlug = process.env.GITHUB_APP_SLUG || 'kh-cloud';
+    // Keep default in sync with manage-url / README (GITHUB_APP_SLUG=kh-cloud-app)
+    const appSlug = process.env.GITHUB_APP_SLUG || 'kh-cloud-app';
     const state = Buffer.from(JSON.stringify({ teamId })).toString('base64url');
     return `https://github.com/apps/${appSlug}/installations/new?state=${state}`;
   }
