@@ -771,53 +771,141 @@ export class ProjectsService {
         const cleanRepoRef = (url: string) =>
           url.replace(/https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '').trim();
         const repoFullName = cleanRepoRef(repoUrl);
-
-        let githubToken: string | null = null;
-        let authSource = 'none';
-
-        const installation = await this.prisma.githubInstallation.findUnique({
+        const repoOwner = repoFullName.split('/')[0] || '';
+        const teamInstallation = await this.prisma.githubInstallation.findUnique({
           where: { teamId: project.teamId },
         });
 
-        if (installation) {
-          try {
-            githubToken = await this.githubApp.getInstallationToken(installation.installationId);
-            authSource = `GitHub App (@${installation.accountLogin})`;
-            appendLog(`Using GitHub App installation token for @${installation.accountLogin} (${installation.accountType}).`);
-          } catch (err: any) {
-            appendLog(`[Warn] Failed to mint GitHub App installation token: ${err.message}`);
+        // Collect candidate App installations: repo-specific → owner match → team-linked.
+        // With the App on both personal + org accounts, this picks the right one per deploy.
+        type InstallCandidate = {
+          installationId: string;
+          accountLogin: string;
+          accountType: string;
+          via: string;
+        };
+        const candidates: InstallCandidate[] = [];
+        const seenIds = new Set<string>();
+        const pushCandidate = (c: InstallCandidate | null | undefined) => {
+          if (!c?.installationId || seenIds.has(c.installationId)) return;
+          seenIds.add(c.installationId);
+          candidates.push(c);
+        };
+
+        try {
+          const forRepo = await this.githubApp.getRepoInstallation(repoFullName);
+          if (forRepo) {
+            pushCandidate({ ...forRepo, via: 'repo-install' });
+            appendLog(
+              `Auto-detected GitHub App for ${repoFullName} → @${forRepo.accountLogin} (${forRepo.accountType}).`,
+            );
           }
-        } else {
-          appendLog('[Warn] No GitHub App installation linked to this team. Falling back to OAuth token.');
+        } catch (err: any) {
+          appendLog(`[Warn] Repo installation lookup failed: ${err.message}`);
         }
 
-        // Fallback: any team member's personal OAuth token (often fails for org private repos)
-        if (!githubToken) {
-          const teamMember = await this.prisma.teamMember.findFirst({
-            where: { teamId: project.teamId, user: { githubAccessToken: { not: null } } },
-            include: { user: true },
+        if (repoOwner) {
+          try {
+            const byOwner = await this.githubApp.findInstallationByOwner(repoOwner);
+            if (byOwner) {
+              pushCandidate({ ...byOwner, via: 'owner-match' });
+              if (candidates.length === 1) {
+                appendLog(
+                  `Matched GitHub App by owner @${byOwner.accountLogin} (${byOwner.accountType}).`,
+                );
+              }
+            }
+          } catch (err: any) {
+            appendLog(`[Warn] Owner installation lookup failed: ${err.message}`);
+          }
+        }
+
+        if (teamInstallation) {
+          pushCandidate({
+            installationId: teamInstallation.installationId,
+            accountLogin: teamInstallation.accountLogin,
+            accountType: teamInstallation.accountType,
+            via: 'team-link',
           });
-          githubToken = teamMember?.user?.githubAccessToken || null;
-          if (githubToken) authSource = 'OAuth (personal)';
         }
 
-        if (githubToken) {
-          repoUrl = `https://x-access-token:${githubToken}@github.com/${repoFullName}.git`;
-        } else {
-          repoUrl = `https://github.com/${repoFullName}.git`;
+        // Mint tokens for each candidate; try clone with the first that works.
+        const installTokens: { token: string; source: string; accountLogin: string }[] = [];
+        for (const c of candidates) {
+          try {
+            const token = await this.githubApp.getInstallationToken(c.installationId);
+            installTokens.push({
+              token,
+              source: `GitHub App (@${c.accountLogin})`,
+              accountLogin: c.accountLogin,
+            });
+          } catch (err: any) {
+            appendLog(
+              `[Warn] Failed to mint token for @${c.accountLogin} (${c.via}): ${err.message}`,
+            );
+          }
+        }
+
+        // OAuth fallback after App installs
+        const teamMember = await this.prisma.teamMember.findFirst({
+          where: { teamId: project.teamId, user: { githubAccessToken: { not: null } } },
+          include: { user: true },
+        });
+        const oauthToken = teamMember?.user?.githubAccessToken || null;
+
+        if (installTokens.length === 0 && !oauthToken) {
           appendLog('[Warn] No GitHub credentials available — public clone only.');
+        } else if (installTokens.length === 0) {
+          appendLog('[Warn] No GitHub App installation token available. Falling back to OAuth.');
         }
 
         const maskedRepoUrl = `https://github.com/${repoFullName}.git`;
-        appendLog(`Cloning branch "${project.githubBranch || 'main'}" from ${maskedRepoUrl} (auth: ${authSource})`);
-        const cloneRes = await runCmd(`git clone --depth 1 -b ${project.githubBranch || 'main'} "${repoUrl}" .`, buildDir);
+        const branch = project.githubBranch || 'main';
+        let cloneRes: { code: number; stdout: string; stderr: string } | null = null;
+        const tryClone = async (token: string | null, source: string) => {
+          const url = token
+            ? `https://x-access-token:${token}@github.com/${repoFullName}.git`
+            : `https://github.com/${repoFullName}.git`;
+          appendLog(`Cloning branch "${branch}" from ${maskedRepoUrl} (auth: ${source})`);
+          return runCmd(`git clone --depth 1 -b ${branch} "${url}" .`, buildDir);
+        };
+
+        for (const t of installTokens) {
+          cloneRes = await tryClone(t.token, t.source);
+          if (cloneRes.code === 0) break;
+          const hint = (cloneRes.stderr || cloneRes.stdout || '').toLowerCase();
+          const accessDenied =
+            hint.includes('not found') ||
+            hint.includes('repository not found') ||
+            hint.includes('could not read from remote') ||
+            hint.includes('authentication failed');
+          if (!accessDenied) break; // non-auth failure — don't keep retrying
+          appendLog(
+            `[Warn] Clone failed with @${t.accountLogin}. Trying next GitHub App installation if available...`,
+          );
+          // Clear partial clone so next attempt can write into buildDir
+          try {
+            for (const entry of fs.readdirSync(buildDir)) {
+              fs.rmSync(path.join(buildDir, entry), { recursive: true, force: true });
+            }
+          } catch { /* ignore */ }
+        }
+
+        if ((!cloneRes || cloneRes.code !== 0) && oauthToken) {
+          cloneRes = await tryClone(oauthToken, 'OAuth (personal)');
+        }
+
+        if (!cloneRes) {
+          cloneRes = await tryClone(null, 'none');
+        }
+
         if (cloneRes.code !== 0) {
           const errHint = (cloneRes.stderr || cloneRes.stdout || '').toLowerCase();
           if (errHint.includes('not found') || errHint.includes('repository not found') || errHint.includes('could not read from remote')) {
+            const ownerHint = repoOwner ? `@${repoOwner}` : 'the account that owns this repo';
             throw new Error(
               `Repository not found or access denied for "${repoFullName}". ` +
-              `Install/reinstall the KH Cloud GitHub App on the correct GitHub organization that owns this repo, ` +
-              `then grant access to this repository.`,
+              `Open Configure on ${ownerHint} for kh-cloud-app and grant access to this repository, then redeploy.`,
             );
           }
           throw new Error('Failed to clone Git repository');

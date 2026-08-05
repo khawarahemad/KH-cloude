@@ -63,6 +63,101 @@ export class GithubAppService {
     return data.token;
   }
 
+  /**
+   * Resolve which GitHub App installation can access a repo, regardless of
+   * which account/org the team currently has linked. Uses the App JWT so
+   * installs on personal accounts and other orgs are discovered automatically.
+   */
+  async getRepoInstallation(repoFullName: string): Promise<{
+    installationId: string;
+    accountLogin: string;
+    accountType: string;
+  } | null> {
+    const clean = repoFullName
+      .replace(/https?:\/\/github\.com\//i, '')
+      .replace(/\.git$/i, '')
+      .replace(/^\/+|\/+$/g, '')
+      .trim();
+    const [owner, repo] = clean.split('/');
+    if (!owner || !repo) return null;
+
+    const jwt = this.generateAppJwt();
+    const res = await fetch(
+      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/installation`,
+      {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'KH-Cloud-Backend',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      },
+    );
+    if (!res.ok) {
+      if (res.status !== 404) {
+        const err = await res.text();
+        this.logger.warn(`getRepoInstallation(${clean}) failed: ${res.status} ${err}`);
+      }
+      return null;
+    }
+    const data: any = await res.json();
+    return {
+      installationId: String(data.id),
+      accountLogin: data.account?.login || owner,
+      accountType: data.account?.type || 'User',
+    };
+  }
+
+  /**
+   * Find an app installation whose account login matches the repo owner
+   * (fallback when /repos/.../installation is unavailable).
+   */
+  async findInstallationByOwner(owner: string): Promise<{
+    installationId: string;
+    accountLogin: string;
+    accountType: string;
+  } | null> {
+    if (!owner) return null;
+    const jwt = this.generateAppJwt();
+    let page = 1;
+    const target = owner.toLowerCase();
+
+    while (page <= 10) {
+      const res = await fetch(
+        `https://api.github.com/app/installations?per_page=100&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'KH-Cloud-Backend',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        },
+      );
+      if (!res.ok) {
+        const err = await res.text();
+        this.logger.warn(`findInstallationByOwner(${owner}) failed: ${res.status} ${err}`);
+        return null;
+      }
+      const batch: any[] = await res.json();
+      if (!Array.isArray(batch) || batch.length === 0) break;
+
+      const match = batch.find(
+        (inst) => (inst.account?.login || '').toLowerCase() === target,
+      );
+      if (match) {
+        return {
+          installationId: String(match.id),
+          accountLogin: match.account?.login || owner,
+          accountType: match.account?.type || 'User',
+        };
+      }
+      if (batch.length < 100) break;
+      page += 1;
+    }
+    return null;
+  }
+
   async listInstallationRepos(installationId: string): Promise<{
     repos: any[];
     repositorySelection: 'all' | 'selected' | string;

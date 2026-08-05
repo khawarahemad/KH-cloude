@@ -861,22 +861,43 @@ export class AppController {
     const installation = await this.prisma.githubInstallation.findUnique({
       where: { teamId },
     });
-    if (!installation) {
+
+    // Prefer the App install that can actually see this repo (may differ from team's linked org).
+    let installationId = installation?.installationId || null;
+    let accountLogin = installation?.accountLogin || 'unknown';
+    try {
+      const resolved = await this.githubApp.getRepoInstallation(repo);
+      if (resolved) {
+        installationId = resolved.installationId;
+        accountLogin = resolved.accountLogin;
+      } else if (!installationId) {
+        const owner = repo.replace(/https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').split('/')[0];
+        const byOwner = owner ? await this.githubApp.findInstallationByOwner(owner) : null;
+        if (byOwner) {
+          installationId = byOwner.installationId;
+          accountLogin = byOwner.accountLogin;
+        }
+      }
+    } catch {
+      // keep team-linked installation
+    }
+
+    if (!installationId) {
       throw new BadRequestException('GitHub App not installed for team.');
     }
 
     const cleanRootDir = rootDir ? rootDir.replace(/^\/|\/$/g, '') : '';
-    const files = await this.githubApp.fetchRepoContents(installation.installationId, repo, cleanRootDir, branch);
+    const files = await this.githubApp.fetchRepoContents(installationId, repo, cleanRootDir, branch);
 
     if (!files || files.length === 0) {
       // Distinguish empty dir vs access/not-found by probing the repo root
       const rootProbe = cleanRootDir
-        ? await this.githubApp.fetchRepoContents(installation.installationId, repo, '', branch)
+        ? await this.githubApp.fetchRepoContents(installationId, repo, '', branch)
         : files;
       if (!rootProbe || rootProbe.length === 0) {
         throw new NotFoundException(
-          `Repository "${repo}" was not found or the GitHub App (@${installation.accountLogin}) does not have access. ` +
-          `Install the app on the organization that owns this repo and grant repository access.`,
+          `Repository "${repo}" was not found or the GitHub App (@${accountLogin}) does not have access. ` +
+          `Install the app on the account/organization that owns this repo and grant repository access.`,
         );
       }
       // Root exists but rootDir is empty / wrong — continue with empty files for STATIC fallback
@@ -892,7 +913,7 @@ export class AppController {
       let packageManager: string | null = null;
 
       if (pkgFile && pkgFile.download_url) {
-        const pkgContent = await this.githubApp.fetchFileContent(installation.installationId, pkgFile.download_url);
+        const pkgContent = await this.githubApp.fetchFileContent(installationId, pkgFile.download_url);
         if (pkgContent) {
           try {
             const pkgJson = JSON.parse(pkgContent);
