@@ -996,7 +996,10 @@ export class ProjectsService {
             // Ensure package managers exist in the image when lockfiles or commands need them
             // (e.g. install=npm but build/start=pnpm → previously failed with "pnpm: not found")
             const needsPnpm = isPnpm || /\bpnpm\b/.test(commandBlob);
-            const needsBun = isBun || /(^|[\s;&|])bun(\s|$)/.test(commandBlob);
+            // Prefer pnpm when both lockfiles exist; only pull in bun if commands explicitly use it
+            const needsBun =
+              /\b(?:bun|bunx)\s/.test(`${commandBlob} `) ||
+              (isBun && !needsPnpm && !isYarn);
 
             let installSteps: string;
             if (customInstall) {
@@ -1141,10 +1144,30 @@ export class ProjectsService {
           data: { status: 'DEPLOYING' },
         });
 
-        // 6. Stop and Remove previous container version
-        appendLog(`Stopping and removing any existing container version: ${containerName}`);
-        await runCmd(`docker stop ${containerName}`, buildDir).catch(() => null);
-        await runCmd(`docker rm ${containerName}`, buildDir).catch(() => null);
+        // 6. Stop and Remove previous container version (force + wait — avoids name conflicts)
+        const containerExists = (name: string): Promise<boolean> =>
+          new Promise((resolve) => {
+            exec(
+              `docker inspect ${name}`,
+              { cwd: buildDir, maxBuffer: 1024 * 1024 },
+              (err) => resolve(!err),
+            );
+          });
+
+        const forceRemoveContainer = async (name: string) => {
+          appendLog(`Stopping and removing any existing container version: ${name}`);
+          await runCmd(`docker rm -f ${name}`, buildDir).catch(() => null);
+          // Wait until Docker releases the name (rm can be async/"already in progress")
+          for (let attempt = 0; attempt < 15; attempt++) {
+            if (!(await containerExists(name))) return;
+            appendLog(`Waiting for container ${name} to be fully removed... (${attempt + 1}/15)`);
+            await new Promise((r) => setTimeout(r, 1000));
+            await runCmd(`docker rm -f ${name}`, buildDir).catch(() => null);
+          }
+          appendLog(`[Warn] Container ${name} may still exist after force-remove attempts.`);
+        };
+
+        await forceRemoveContainer(containerName);
 
         // 7. Start container with Traefik routing labels and environment variables
         
@@ -1208,7 +1231,15 @@ export class ProjectsService {
         appendLog(`Deploying container to Traefik routing mesh...`);
         let runRes = await runCmd(runCmdString, buildDir);
         if (runRes.code !== 0) {
-          throw new Error('Failed to run container');
+          const conflictHint = `${runRes.stderr || ''} ${runRes.stdout || ''}`.toLowerCase();
+          if (conflictHint.includes('already in use') || conflictHint.includes('conflict')) {
+            appendLog('Container name conflict detected — force-removing and retrying once...');
+            await forceRemoveContainer(containerName);
+            runRes = await runCmd(runCmdString, buildDir);
+          }
+          if (runRes.code !== 0) {
+            throw new Error('Failed to run container');
+          }
         }
 
         // 8. Smart port auto-detection & health validation
@@ -1250,8 +1281,7 @@ export class ProjectsService {
           });
 
           // Stop and remove old mismatched container
-          await runCmd(`docker stop ${containerName}`, buildDir).catch(() => null);
-          await runCmd(`docker rm ${containerName}`, buildDir).catch(() => null);
+          await forceRemoveContainer(containerName);
 
           // Rebuild run string with the auto-detected port
           containerPort = detectedPort;
