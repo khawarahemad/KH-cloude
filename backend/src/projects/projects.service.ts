@@ -808,8 +808,9 @@ export class ProjectsService {
           try {
             const byOwner = await this.githubApp.findInstallationByOwner(repoOwner);
             if (byOwner) {
+              const before = candidates.length;
               pushCandidate({ ...byOwner, via: 'owner-match' });
-              if (candidates.length === 1) {
+              if (candidates.length > before) {
                 appendLog(
                   `Matched GitHub App by owner @${byOwner.accountLogin} (${byOwner.accountType}).`,
                 );
@@ -991,15 +992,31 @@ export class ProjectsService {
             const customBuild = typeof project.buildCommand === 'string' ? project.buildCommand.trim() : null;
             const customStart = typeof project.startCommand === 'string' ? project.startCommand.trim() : '';
 
+            const commandBlob = `${customInstall} ${customBuild || ''} ${customStart} ${detectedStartCommand}`;
+            // Ensure package managers exist in the image when lockfiles or commands need them
+            // (e.g. install=npm but build/start=pnpm → previously failed with "pnpm: not found")
+            const needsPnpm = isPnpm || /\bpnpm\b/.test(commandBlob);
+            const needsBun = isBun || /(^|[\s;&|])bun(\s|$)/.test(commandBlob);
+
             let installSteps: string;
             if (customInstall) {
-              installSteps = `RUN ${customInstall}`;
+              let installCmd = customInstall;
+              if (needsPnpm && !/\bnpm install -g pnpm\b/.test(installCmd) && !/\bcorepack\b/.test(installCmd)) {
+                installCmd = `npm install -g pnpm && ${installCmd}`;
+              }
+              if (needsBun && !/\bnpm install -g bun\b/.test(installCmd)) {
+                installCmd = `npm install -g bun && ${installCmd}`;
+              }
+              installSteps = `RUN ${installCmd}`;
               appendLog(`Using configured install command: ${customInstall}`);
-            } else if (isPnpm) {
+              if (installCmd !== customInstall) {
+                appendLog(`Bootstrapping package manager before install (effective: ${installCmd})`);
+              }
+            } else if (isPnpm || needsPnpm) {
               installSteps = 'RUN npm install -g pnpm && pnpm install';
             } else if (isYarn) {
               installSteps = 'RUN yarn install';
-            } else if (isBun) {
+            } else if (isBun || needsBun) {
               installSteps = 'RUN npm install -g bun && bun install';
             } else {
               installSteps = 'RUN npm install';
@@ -1012,7 +1029,13 @@ export class ProjectsService {
               if (customBuild) appendLog(`Using configured build command: ${customBuild}`);
               else appendLog('Build command left empty — skipping build step.');
             } else if (hasBuildScript) {
-              buildSteps = isPnpm ? 'RUN pnpm build' : isYarn ? 'RUN yarn build' : isBun ? 'RUN bun run build' : 'RUN npm run build';
+              buildSteps = needsPnpm || isPnpm
+                ? 'RUN pnpm build'
+                : isYarn
+                  ? 'RUN yarn build'
+                  : needsBun || isBun
+                    ? 'RUN bun run build'
+                    : 'RUN npm run build';
             }
 
             const runCmdText = customStart || detectedStartCommand;
