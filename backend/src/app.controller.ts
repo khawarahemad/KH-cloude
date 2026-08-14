@@ -755,7 +755,7 @@ export class AppController {
     }
 
     // Upsert on team + installationId: allows multiple installations per team (personal + orgs)
-    await this.prisma.githubInstallation.upsert({
+    await (this.prisma.githubInstallation as any).upsert({
       where: {
         teamId_installationId: { teamId, installationId },
       },
@@ -770,32 +770,43 @@ export class AppController {
   async getGithubAppInstallations(@Query('teamId') teamId: string) {
     if (!teamId) throw new BadRequestException('teamId is required.');
 
-    // 1. Fetch all installations stored in DB for this team
-    let teamInstalls = await this.prisma.githubInstallation.findMany({
+    // 1. Discover all live installations directly from GitHub App API
+    let liveAppInstalls: {
+      installationId: string;
+      accountLogin: string;
+      accountType: string;
+      avatarUrl?: string;
+    }[] = [];
+    try {
+      liveAppInstalls = await this.githubApp.listAllInstallations();
+    } catch (err: any) {
+      console.warn('Failed listing GitHub App installations:', err.message);
+    }
+
+    // 2. Fetch existing stored installations from DB for this team
+    let teamInstalls: any[] = await (this.prisma.githubInstallation as any).findMany({
       where: { teamId },
       orderBy: { createdAt: 'asc' },
     });
 
-    // 2. Auto-sync / discover all installations available from GitHub App
-    try {
-      const allAppInstalls = await this.githubApp.listAllInstallations();
-      if (allAppInstalls.length > 0) {
-        for (const appInst of allAppInstalls) {
-          const existing = teamInstalls.find(i => i.installationId === appInst.installationId);
+    // 3. Upsert / synchronize each live installation to the team in DB
+    if (liveAppInstalls.length > 0) {
+      for (const appInst of liveAppInstalls) {
+        try {
+          const existing = teamInstalls.find((i: any) => i.installationId === appInst.installationId);
           if (existing) {
             if (existing.avatarUrl !== appInst.avatarUrl || existing.accountLogin !== appInst.accountLogin) {
-              await this.prisma.githubInstallation.update({
+              await (this.prisma.githubInstallation as any).update({
                 where: { id: existing.id },
                 data: {
                   accountLogin: appInst.accountLogin,
                   accountType: appInst.accountType,
-                  avatarUrl: appInst.avatarUrl,
+                  avatarUrl: appInst.avatarUrl || null,
                 },
               });
             }
           } else {
-            // Auto-link installations to the team
-            await this.prisma.githubInstallation.upsert({
+            await (this.prisma.githubInstallation as any).upsert({
               where: {
                 teamId_installationId: {
                   teamId,
@@ -807,35 +818,67 @@ export class AppController {
                 teamId,
                 accountLogin: appInst.accountLogin,
                 accountType: appInst.accountType,
-                avatarUrl: appInst.avatarUrl,
+                avatarUrl: appInst.avatarUrl || null,
               },
               update: {
                 accountLogin: appInst.accountLogin,
                 accountType: appInst.accountType,
-                avatarUrl: appInst.avatarUrl,
+                avatarUrl: appInst.avatarUrl || null,
               },
             });
           }
+        } catch (err: any) {
+          console.warn(`Could not sync installation ${appInst.installationId} to DB:`, err.message);
         }
+      }
 
-        teamInstalls = await this.prisma.githubInstallation.findMany({
+      // Re-fetch updated installations from DB
+      try {
+        teamInstalls = await (this.prisma.githubInstallation as any).findMany({
           where: { teamId },
           orderBy: { createdAt: 'asc' },
         });
+      } catch {}
+    }
+
+    // 4. Merge DB installations with live installations to ensure NO account is ever omitted
+    const seen = new Set<string>();
+    const mergedList: {
+      id?: string;
+      installationId: string;
+      accountLogin: string;
+      accountType: string;
+      avatarUrl?: string | null;
+    }[] = [];
+
+    for (const inst of teamInstalls) {
+      if (!seen.has(inst.installationId)) {
+        seen.add(inst.installationId);
+        mergedList.push({
+          id: inst.id,
+          installationId: inst.installationId,
+          accountLogin: inst.accountLogin,
+          accountType: inst.accountType,
+          avatarUrl: inst.avatarUrl,
+        });
       }
-    } catch (err: any) {
-      console.warn('Auto-sync installations failed:', err.message);
+    }
+
+    for (const inst of liveAppInstalls) {
+      if (!seen.has(inst.installationId)) {
+        seen.add(inst.installationId);
+        mergedList.push({
+          installationId: inst.installationId,
+          accountLogin: inst.accountLogin,
+          accountType: inst.accountType,
+          avatarUrl: inst.avatarUrl || null,
+        });
+      }
     }
 
     return {
-      connected: teamInstalls.length > 0,
-      installations: teamInstalls.map((i) => ({
-        id: i.id,
-        installationId: i.installationId,
-        accountLogin: i.accountLogin,
-        accountType: i.accountType,
-        avatarUrl: i.avatarUrl,
-      })),
+      connected: mergedList.length > 0,
+      installations: mergedList,
     };
   }
 
@@ -860,57 +903,102 @@ export class AppController {
   ) {
     if (!teamId) throw new BadRequestException('teamId is required.');
 
-    // Ensure installations are up to date
-    let teamInstalls = await this.prisma.githubInstallation.findMany({
+    // 1. Discover all live installations directly from GitHub App API
+    let liveAppInstalls: {
+      installationId: string;
+      accountLogin: string;
+      accountType: string;
+      avatarUrl?: string;
+    }[] = [];
+    try {
+      liveAppInstalls = await this.githubApp.listAllInstallations();
+    } catch (err: any) {
+      console.warn('Failed listing GitHub App installations in getGithubAppRepos:', err.message);
+    }
+
+    // 2. Fetch existing DB installations
+    let teamInstalls: any[] = await (this.prisma.githubInstallation as any).findMany({
       where: { teamId },
       orderBy: { createdAt: 'asc' },
     });
 
-    // Auto-discover installations if empty
-    if (teamInstalls.length === 0) {
+    // 3. Sync live installations into DB
+    if (liveAppInstalls.length > 0) {
+      for (const appInst of liveAppInstalls) {
+        try {
+          const existing = teamInstalls.find((i: any) => i.installationId === appInst.installationId);
+          if (!existing) {
+            await (this.prisma.githubInstallation as any).upsert({
+              where: {
+                teamId_installationId: { teamId, installationId: appInst.installationId },
+              },
+              create: {
+                installationId: appInst.installationId,
+                teamId,
+                accountLogin: appInst.accountLogin,
+                accountType: appInst.accountType,
+                avatarUrl: appInst.avatarUrl || null,
+              },
+              update: {
+                accountLogin: appInst.accountLogin,
+                accountType: appInst.accountType,
+                avatarUrl: appInst.avatarUrl || null,
+              },
+            });
+          }
+        } catch {}
+      }
+
       try {
-        const allAppInstalls = await this.githubApp.listAllInstallations();
-        for (const appInst of allAppInstalls) {
-          await this.prisma.githubInstallation.upsert({
-            where: {
-              teamId_installationId: { teamId, installationId: appInst.installationId },
-            },
-            create: {
-              installationId: appInst.installationId,
-              teamId,
-              accountLogin: appInst.accountLogin,
-              accountType: appInst.accountType,
-              avatarUrl: appInst.avatarUrl,
-            },
-            update: {
-              accountLogin: appInst.accountLogin,
-              accountType: appInst.accountType,
-              avatarUrl: appInst.avatarUrl,
-            },
-          });
-        }
-        teamInstalls = await this.prisma.githubInstallation.findMany({
+        teamInstalls = await (this.prisma.githubInstallation as any).findMany({
           where: { teamId },
           orderBy: { createdAt: 'asc' },
         });
       } catch {}
     }
 
-    if (teamInstalls.length === 0) {
+    // 4. Merge DB installations with live installations
+    const seen = new Set<string>();
+    const installationsList: {
+      id?: string;
+      installationId: string;
+      accountLogin: string;
+      accountType: string;
+      avatarUrl?: string | null;
+    }[] = [];
+
+    for (const inst of teamInstalls) {
+      if (!seen.has(inst.installationId)) {
+        seen.add(inst.installationId);
+        installationsList.push({
+          id: inst.id,
+          installationId: inst.installationId,
+          accountLogin: inst.accountLogin,
+          accountType: inst.accountType,
+          avatarUrl: inst.avatarUrl,
+        });
+      }
+    }
+
+    for (const inst of liveAppInstalls) {
+      if (!seen.has(inst.installationId)) {
+        seen.add(inst.installationId);
+        installationsList.push({
+          installationId: inst.installationId,
+          accountLogin: inst.accountLogin,
+          accountType: inst.accountType,
+          avatarUrl: inst.avatarUrl || null,
+        });
+      }
+    }
+
+    if (installationsList.length === 0) {
       return { connected: false, installations: [], repos: [] };
     }
 
-    const installationsList = teamInstalls.map((i) => ({
-      id: i.id,
-      installationId: i.installationId,
-      accountLogin: i.accountLogin,
-      accountType: i.accountType,
-      avatarUrl: i.avatarUrl,
-    }));
-
     // If a specific installation is requested (and not 'all')
     if (installationId && installationId !== 'all') {
-      const target = teamInstalls.find((i) => i.installationId === installationId);
+      const target = installationsList.find((i) => i.installationId === installationId);
       if (!target) {
         return {
           connected: true,
@@ -964,7 +1052,7 @@ export class AppController {
 
     // Default: fetch repos across all installations in parallel
     const allRepos: any[] = [];
-    const fetchPromises = teamInstalls.map(async (inst) => {
+    const fetchPromises = installationsList.map(async (inst) => {
       try {
         const { repos } = await this.githubApp.listInstallationRepos(inst.installationId);
         return repos.map((r) => ({
@@ -989,7 +1077,7 @@ export class AppController {
       connected: true,
       installations: installationsList,
       installationId: 'all',
-      accountLogin: teamInstalls.map(i => i.accountLogin).join(', '),
+      accountLogin: installationsList.map(i => i.accountLogin).join(', '),
       accountType: 'Multiple',
       repositorySelection: 'all',
       totalCount: allRepos.length,
@@ -1000,7 +1088,7 @@ export class AppController {
   @Get('github-app/installation')
   async getGithubAppInstallation(@Query('teamId') teamId: string) {
     if (!teamId) throw new BadRequestException('teamId is required.');
-    const installation = await this.prisma.githubInstallation.findFirst({
+    const installation: any = await (this.prisma.githubInstallation as any).findFirst({
       where: { teamId },
       orderBy: { createdAt: 'asc' },
     });
