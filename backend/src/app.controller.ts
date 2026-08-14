@@ -748,64 +748,261 @@ export class AppController {
     const installJson: any = await installRes.json();
     const accountLogin: string = installJson?.account?.login || 'unknown';
     const accountType: string = installJson?.account?.type || 'User';
+    const avatarUrl: string | null = installJson?.account?.avatar_url || null;
 
     if (accountLogin === 'unknown') {
       throw new BadRequestException('GitHub installation account could not be resolved. Check GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY.');
     }
 
-    // If this installationId is already linked to another team, reassign it
-    const existingByInstall = await this.prisma.githubInstallation.findUnique({
-      where: { installationId },
+    // Upsert on team + installationId: allows multiple installations per team (personal + orgs)
+    await this.prisma.githubInstallation.upsert({
+      where: {
+        teamId_installationId: { teamId, installationId },
+      },
+      create: { installationId, teamId, accountLogin, accountType, avatarUrl },
+      update: { accountLogin, accountType, avatarUrl },
     });
-    if (existingByInstall && existingByInstall.teamId !== teamId) {
-      await this.prisma.githubInstallation.delete({ where: { id: existingByInstall.id } });
+
+    return { success: true, installationId, accountLogin, accountType, avatarUrl };
+  }
+
+  @Get('github-app/installations')
+  async getGithubAppInstallations(@Query('teamId') teamId: string) {
+    if (!teamId) throw new BadRequestException('teamId is required.');
+
+    // 1. Fetch all installations stored in DB for this team
+    let teamInstalls = await this.prisma.githubInstallation.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // 2. Auto-sync / discover all installations available from GitHub App
+    try {
+      const allAppInstalls = await this.githubApp.listAllInstallations();
+      if (allAppInstalls.length > 0) {
+        for (const appInst of allAppInstalls) {
+          const existing = teamInstalls.find(i => i.installationId === appInst.installationId);
+          if (existing) {
+            if (existing.avatarUrl !== appInst.avatarUrl || existing.accountLogin !== appInst.accountLogin) {
+              await this.prisma.githubInstallation.update({
+                where: { id: existing.id },
+                data: {
+                  accountLogin: appInst.accountLogin,
+                  accountType: appInst.accountType,
+                  avatarUrl: appInst.avatarUrl,
+                },
+              });
+            }
+          } else {
+            // Auto-link installations to the team
+            await this.prisma.githubInstallation.upsert({
+              where: {
+                teamId_installationId: {
+                  teamId,
+                  installationId: appInst.installationId,
+                },
+              },
+              create: {
+                installationId: appInst.installationId,
+                teamId,
+                accountLogin: appInst.accountLogin,
+                accountType: appInst.accountType,
+                avatarUrl: appInst.avatarUrl,
+              },
+              update: {
+                accountLogin: appInst.accountLogin,
+                accountType: appInst.accountType,
+                avatarUrl: appInst.avatarUrl,
+              },
+            });
+          }
+        }
+
+        teamInstalls = await this.prisma.githubInstallation.findMany({
+          where: { teamId },
+          orderBy: { createdAt: 'asc' },
+        });
+      }
+    } catch (err: any) {
+      console.warn('Auto-sync installations failed:', err.message);
     }
 
-    // Upsert on team: allow switching from personal → org (or org A → org B)
-    await this.prisma.githubInstallation.upsert({
-      where: { teamId },
-      create: { installationId, teamId, accountLogin, accountType },
-      update: { installationId, accountLogin, accountType },
+    return {
+      connected: teamInstalls.length > 0,
+      installations: teamInstalls.map((i) => ({
+        id: i.id,
+        installationId: i.installationId,
+        accountLogin: i.accountLogin,
+        accountType: i.accountType,
+        avatarUrl: i.avatarUrl,
+      })),
+    };
+  }
+
+  @Delete('github-app/installations/:installationId')
+  async deleteGithubAppInstallation(
+    @Param('installationId') installationId: string,
+    @Query('teamId') teamId: string,
+  ) {
+    if (!teamId || !installationId) throw new BadRequestException('teamId and installationId are required.');
+
+    await this.prisma.githubInstallation.deleteMany({
+      where: { teamId, installationId },
     });
 
-    return { success: true, installationId, accountLogin, accountType };
+    return { success: true };
   }
 
   @Get('github-app/repos')
-  async getGithubAppRepos(@Query('teamId') teamId: string) {
+  async getGithubAppRepos(
+    @Query('teamId') teamId: string,
+    @Query('installationId') installationId?: string,
+  ) {
     if (!teamId) throw new BadRequestException('teamId is required.');
 
-    const installation = await this.prisma.githubInstallation.findUnique({
+    // Ensure installations are up to date
+    let teamInstalls = await this.prisma.githubInstallation.findMany({
       where: { teamId },
+      orderBy: { createdAt: 'asc' },
     });
 
-    if (!installation) {
-      return { connected: false, repos: [] };
+    // Auto-discover installations if empty
+    if (teamInstalls.length === 0) {
+      try {
+        const allAppInstalls = await this.githubApp.listAllInstallations();
+        for (const appInst of allAppInstalls) {
+          await this.prisma.githubInstallation.upsert({
+            where: {
+              teamId_installationId: { teamId, installationId: appInst.installationId },
+            },
+            create: {
+              installationId: appInst.installationId,
+              teamId,
+              accountLogin: appInst.accountLogin,
+              accountType: appInst.accountType,
+              avatarUrl: appInst.avatarUrl,
+            },
+            update: {
+              accountLogin: appInst.accountLogin,
+              accountType: appInst.accountType,
+              avatarUrl: appInst.avatarUrl,
+            },
+          });
+        }
+        teamInstalls = await this.prisma.githubInstallation.findMany({
+          where: { teamId },
+          orderBy: { createdAt: 'asc' },
+        });
+      } catch {}
     }
 
-    try {
-      const { repos, repositorySelection, totalCount } = await this.githubApp.listInstallationRepos(installation.installationId);
-      return {
-        connected: true,
-        installationId: installation.installationId,
-        accountLogin: installation.accountLogin,
-        accountType: installation.accountType,
-        // "all" means the GitHub App installation can see every repo on the account —
-        // not a listing bug. Users must switch to "Only select repositories" via Configure.
-        repositorySelection,
-        totalCount,
-        repos,
-      };
-    } catch (err: any) {
-      return { connected: true, installationId: installation.installationId, accountLogin: installation.accountLogin, accountType: installation.accountType, repositorySelection: null, totalCount: 0, repos: [], error: err.message };
+    if (teamInstalls.length === 0) {
+      return { connected: false, installations: [], repos: [] };
     }
+
+    const installationsList = teamInstalls.map((i) => ({
+      id: i.id,
+      installationId: i.installationId,
+      accountLogin: i.accountLogin,
+      accountType: i.accountType,
+      avatarUrl: i.avatarUrl,
+    }));
+
+    // If a specific installation is requested (and not 'all')
+    if (installationId && installationId !== 'all') {
+      const target = teamInstalls.find((i) => i.installationId === installationId);
+      if (!target) {
+        return {
+          connected: true,
+          installations: installationsList,
+          installationId,
+          accountLogin: '',
+          accountType: '',
+          avatarUrl: null,
+          repositorySelection: null,
+          totalCount: 0,
+          repos: [],
+        };
+      }
+
+      try {
+        const { repos, repositorySelection, totalCount } =
+          await this.githubApp.listInstallationRepos(target.installationId);
+        const enrichedRepos = repos.map((r) => ({
+          ...r,
+          accountLogin: target.accountLogin,
+          accountType: target.accountType,
+          avatarUrl: target.avatarUrl,
+          installationId: target.installationId,
+        }));
+        return {
+          connected: true,
+          installations: installationsList,
+          installationId: target.installationId,
+          accountLogin: target.accountLogin,
+          accountType: target.accountType,
+          avatarUrl: target.avatarUrl,
+          repositorySelection,
+          totalCount,
+          repos: enrichedRepos,
+        };
+      } catch (err: any) {
+        return {
+          connected: true,
+          installations: installationsList,
+          installationId: target.installationId,
+          accountLogin: target.accountLogin,
+          accountType: target.accountType,
+          avatarUrl: target.avatarUrl,
+          repositorySelection: null,
+          totalCount: 0,
+          repos: [],
+          error: err.message,
+        };
+      }
+    }
+
+    // Default: fetch repos across all installations in parallel
+    const allRepos: any[] = [];
+    const fetchPromises = teamInstalls.map(async (inst) => {
+      try {
+        const { repos } = await this.githubApp.listInstallationRepos(inst.installationId);
+        return repos.map((r) => ({
+          ...r,
+          accountLogin: inst.accountLogin,
+          accountType: inst.accountType,
+          avatarUrl: inst.avatarUrl,
+          installationId: inst.installationId,
+        }));
+      } catch (err: any) {
+        console.warn(`Failed listing repos for installation ${inst.installationId} (@${inst.accountLogin}):`, err.message);
+        return [];
+      }
+    });
+
+    const results = await Promise.all(fetchPromises);
+    for (const repoList of results) {
+      allRepos.push(...repoList);
+    }
+
+    return {
+      connected: true,
+      installations: installationsList,
+      installationId: 'all',
+      accountLogin: teamInstalls.map(i => i.accountLogin).join(', '),
+      accountType: 'Multiple',
+      repositorySelection: 'all',
+      totalCount: allRepos.length,
+      repos: allRepos,
+    };
   }
 
   @Get('github-app/installation')
   async getGithubAppInstallation(@Query('teamId') teamId: string) {
     if (!teamId) throw new BadRequestException('teamId is required.');
-    const installation = await this.prisma.githubInstallation.findUnique({
+    const installation = await this.prisma.githubInstallation.findFirst({
       where: { teamId },
+      orderBy: { createdAt: 'asc' },
     });
     return installation
       ? {
@@ -813,6 +1010,7 @@ export class AppController {
           installationId: installation.installationId,
           accountLogin: installation.accountLogin,
           accountType: installation.accountType,
+          avatarUrl: installation.avatarUrl,
         }
       : { connected: false };
   }
@@ -820,30 +1018,49 @@ export class AppController {
   @Get('github-app/manage-url')
   async getGithubAppManageUrl(
     @Query('teamId') teamId: string,
+    @Query('installationId') installationId?: string,
     @Query('action') action?: string,
   ) {
     if (!teamId) throw new BadRequestException('teamId is required.');
     const appSlug = process.env.GITHUB_APP_SLUG || 'kh-cloud-app';
-    const installation = await this.prisma.githubInstallation.findUnique({
-      where: { teamId },
-    });
 
-    // action=install always opens the fresh install page so users can pick a different org
-    if (action === 'install' || !installation) {
+    if (action === 'install') {
       return {
         url: this.githubApp.getInstallUrl(teamId),
         mode: 'install',
-        connected: !!installation,
-        accountLogin: installation?.accountLogin || null,
-        accountType: installation?.accountType || null,
+        connected: true,
       };
     }
 
-    // Default: manage the current installation (add/remove repos)
+    let installation = null;
+    if (installationId) {
+      installation = await this.prisma.githubInstallation.findFirst({
+        where: { teamId, installationId },
+      });
+    }
+
+    if (!installation) {
+      installation = await this.prisma.githubInstallation.findFirst({
+        where: { teamId },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (!installation) {
+      return {
+        url: this.githubApp.getInstallUrl(teamId),
+        mode: 'install',
+        connected: false,
+        accountLogin: null,
+        accountType: null,
+      };
+    }
+
     return {
       url: `https://github.com/apps/${appSlug}/installations/${installation.installationId}`,
       mode: 'manage',
       connected: true,
+      installationId: installation.installationId,
       accountLogin: installation.accountLogin,
       accountType: installation.accountType,
     };
@@ -858,28 +1075,51 @@ export class AppController {
   ) {
     if (!teamId || !repo) throw new BadRequestException('teamId and repo are required.');
 
-    const installation = await this.prisma.githubInstallation.findUnique({
+    const cleanRepoName = repo
+      .replace(/https?:\/\/github\.com\//i, '')
+      .replace(/\.git$/i, '')
+      .replace(/^\/+|\/+$/g, '')
+      .trim();
+
+    const teamInstalls = await this.prisma.githubInstallation.findMany({
       where: { teamId },
     });
 
-    // Prefer the App install that can actually see this repo (may differ from team's linked org).
-    let installationId = installation?.installationId || null;
-    let accountLogin = installation?.accountLogin || 'unknown';
+    let installationId: string | null = null;
+    let accountLogin = 'unknown';
+
     try {
-      const resolved = await this.githubApp.getRepoInstallation(repo);
+      const resolved = await this.githubApp.getRepoInstallation(cleanRepoName);
       if (resolved) {
         installationId = resolved.installationId;
         accountLogin = resolved.accountLogin;
-      } else if (!installationId) {
-        const owner = repo.replace(/https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').split('/')[0];
-        const byOwner = owner ? await this.githubApp.findInstallationByOwner(owner) : null;
-        if (byOwner) {
-          installationId = byOwner.installationId;
-          accountLogin = byOwner.accountLogin;
+      }
+    } catch {}
+
+    if (!installationId) {
+      const owner = cleanRepoName.split('/')[0];
+      if (owner) {
+        const matchedInst = teamInstalls.find(
+          (i) => i.accountLogin.toLowerCase() === owner.toLowerCase(),
+        );
+        if (matchedInst) {
+          installationId = matchedInst.installationId;
+          accountLogin = matchedInst.accountLogin;
+        } else {
+          try {
+            const byOwner = await this.githubApp.findInstallationByOwner(owner);
+            if (byOwner) {
+              installationId = byOwner.installationId;
+              accountLogin = byOwner.accountLogin;
+            }
+          } catch {}
         }
       }
-    } catch {
-      // keep team-linked installation
+    }
+
+    if (!installationId && teamInstalls.length > 0) {
+      installationId = teamInstalls[0].installationId;
+      accountLogin = teamInstalls[0].accountLogin;
     }
 
     if (!installationId) {

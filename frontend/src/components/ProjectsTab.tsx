@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
-import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock } from 'lucide-react';
+import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock, ChevronDown, Building2, User, ExternalLink, Link2, Check, Sparkles, FolderGit2, Trash2, Search, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDialog } from './CustomDialogProvider';
 
@@ -67,6 +67,8 @@ export default function ProjectsTab() {
   }, [rawEnvText]);
 
   // GitHub App integration states
+  const [githubInstallations, setGithubInstallations] = useState<any[]>([]);
+  const [selectedInstallationId, setSelectedInstallationId] = useState<string>('all');
   const [githubRepos, setGithubRepos] = useState<any[]>([]);
   const [githubLoading, setGithubLoading] = useState(false);
   const [githubConnecting, setGithubConnecting] = useState(false);
@@ -74,7 +76,11 @@ export default function ProjectsTab() {
   const [githubAccount, setGithubAccount] = useState('');
   const [githubAccountType, setGithubAccountType] = useState('');
   const [githubRepoSelection, setGithubRepoSelection] = useState<'all' | 'selected' | string | null>(null);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
+  const [importMode, setImportMode] = useState<'browse' | 'direct'>('browse');
+  const [directGitUrl, setDirectGitUrl] = useState('');
+  const [directBranch, setDirectBranch] = useState('main');
   
   // Active details tab
   const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'console' | 'terminal' | 'settings'>('deployments');
@@ -174,18 +180,23 @@ export default function ProjectsTab() {
   // Metrics state
   const [metrics, setMetrics] = useState<any | null>(null);
 
-  const fetchGithubRepos = async () => {
+  const fetchGithubRepos = async (instId?: string) => {
     if (!activeTeam) return;
     setGithubLoading(true);
+    const targetInstId = instId !== undefined ? instId : selectedInstallationId;
     try {
-      const data = await apiRequest(`/github-app/repos?teamId=${activeTeam.id}`);
+      const qs = targetInstId && targetInstId !== 'all' ? `&installationId=${encodeURIComponent(targetInstId)}` : '';
+      const data = await apiRequest(`/github-app/repos?teamId=${activeTeam.id}${qs}`);
       setGithubConnected(data.connected === true);
+      setGithubInstallations(data.installations || []);
       setGithubAccount(data.accountLogin || '');
       setGithubAccountType(data.accountType || '');
       setGithubRepoSelection(data.repositorySelection || null);
       setGithubRepos(data.repos || []);
     } catch (err) {
       setGithubConnected(false);
+      setGithubInstallations([]);
+      setGithubAccount('');
       setGithubAccountType('');
       setGithubRepoSelection(null);
       setGithubRepos([]);
@@ -195,7 +206,7 @@ export default function ProjectsTab() {
     }
   };
 
-  const openGithubAppInstall = async (action?: 'install' | 'manage') => {
+  const openGithubAppInstall = async (action?: 'install' | 'manage', installationId?: string) => {
     if (!activeTeam) return;
     let poll: ReturnType<typeof setInterval> | null = null;
     let abandonTimer: ReturnType<typeof setTimeout> | null = null;
@@ -236,8 +247,11 @@ export default function ProjectsTab() {
       localStorage.setItem('github_app_pending_teamId', activeTeam.id);
       setGithubConnecting(true);
 
-      // action=install opens fresh install page (pick org); default manages current install
-      const qs = action === 'install' ? `&action=install` : '';
+      const qs = action === 'install'
+        ? `&action=install`
+        : installationId
+          ? `&action=manage&installationId=${encodeURIComponent(installationId)}`
+          : `&action=manage`;
       const data = await apiRequest(`/github-app/manage-url?teamId=${activeTeam.id}${qs}`);
       const targetUrl = data.url;
 
@@ -278,6 +292,72 @@ export default function ProjectsTab() {
     } catch (err) {
       console.error('Failed to get GitHub App URL:', err);
       setGithubConnecting(false);
+    }
+  };
+
+  const handleSelectInstallation = (instId: string) => {
+    setSelectedInstallationId(instId);
+    setAccountDropdownOpen(false);
+    fetchGithubRepos(instId);
+  };
+
+  const handleDisconnectInstallation = async (instId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeTeam) return;
+    try {
+      await apiRequest(`/github-app/installations/${instId}?teamId=${activeTeam.id}`, {
+        method: 'DELETE',
+      });
+      if (selectedInstallationId === instId) {
+        setSelectedInstallationId('all');
+        fetchGithubRepos('all');
+      } else {
+        fetchGithubRepos();
+      }
+    } catch (err: any) {
+      console.error('Failed to disconnect installation:', err);
+    }
+  };
+
+  const handleImportDirectGit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeTeam || !directGitUrl.trim()) return;
+
+    let cleanRepo = directGitUrl.trim();
+    cleanRepo = cleanRepo
+      .replace(/https?:\/\/github\.com\//i, '')
+      .replace(/\.git$/i, '')
+      .replace(/^\/+|\/+$/g, '');
+
+    const parts = cleanRepo.split('/');
+    if (parts.length < 2) {
+      alert('Please enter a valid GitHub repository format, e.g. "owner/repo" or "https://github.com/owner/repo"');
+      return;
+    }
+
+    const repoName = parts[1];
+    setNewProjectName(newProjectName.trim() || repoName);
+    setSelectedRepo(cleanRepo);
+    setSelectedBranch(directBranch || 'main');
+
+    setDetectingProject(true);
+    try {
+      const res = await apiRequest(
+        `/github-app/repos/detect?teamId=${activeTeam.id}&repo=${encodeURIComponent(cleanRepo)}&branch=${encodeURIComponent(directBranch || 'main')}&rootDir=${encodeURIComponent(rootDir)}`
+      );
+      setPort(res.port || 3000);
+      setBuildCommand(res.buildCommand || 'npm run build');
+      setStartCommand(res.startCommand || 'npm run start');
+      setInstallCommand(res.installCommand || 'npm install');
+      setWizardStep(2);
+    } catch {
+      setPort(3000);
+      setBuildCommand('npm run build');
+      setStartCommand('npm run start');
+      setInstallCommand('npm install');
+      setWizardStep(2);
+    } finally {
+      setDetectingProject(false);
     }
   };
 
@@ -1392,206 +1472,461 @@ export default function ProjectsTab() {
                       />
                     </div>
 
-                    {/* GitHub Connection Box */}
-                    <div className="space-y-3">
-                      {!githubConnected ? (
-                        <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01] transition-all">
-                          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                            <Github size={24} className="text-zinc-300" />
+                    {/* Mode Segmented Controls */}
+                    <div className="flex items-center gap-2 p-1 bg-white/[0.02] border border-white/5 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setImportMode('browse')}
+                        className={`flex-1 h-8 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                          importMode === 'browse'
+                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <Github size={13} />
+                        Connected Accounts ({githubInstallations.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImportMode('direct')}
+                        className={`flex-1 h-8 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                          importMode === 'direct'
+                            ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <Link2 size={13} />
+                        Direct Git URL
+                      </button>
+                    </div>
+
+                    {/* DIRECT GIT IMPORT MODE */}
+                    {importMode === 'direct' && (
+                      <div className="space-y-4 p-4 rounded-2xl border border-white/5 bg-white/[0.01]">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">
+                            Repository URL or Path
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={directGitUrl}
+                              onChange={(e) => setDirectGitUrl(e.target.value)}
+                              placeholder="e.g. organization/repo or https://github.com/organization/repo"
+                              className="w-full h-10 px-3 pl-9 rounded-xl border border-white/10 bg-black/40 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50"
+                            />
+                            <Github size={14} className="absolute left-3 top-3 text-zinc-500" />
                           </div>
-                          <h4 className="text-xs font-bold text-white mb-1.5">Connect GitHub Account</h4>
-                          <p className="text-[10px] text-zinc-500 max-w-sm mb-4 leading-relaxed">
-                            Link the KH Cloud GitHub App to selectively authorize repositories for automatic trigger deployments.
+                          <p className="text-[10px] text-zinc-500">
+                            Paste any repository URL from your personal profile or any authorized organization.
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => openGithubAppInstall('install')}
-                            disabled={githubConnecting}
-                            className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-lg shadow-purple-500/20 active:scale-95 duration-100 flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait"
-                          >
-                            {githubConnecting ? (
-                              <>
-                                <Loader2 size={13} className="animate-spin" />
-                                Waiting for GitHub...
-                              </>
-                            ) : (
-                              <>
-                                <Github size={13} />
-                                Install GitHub App
-                              </>
-                            )}
-                          </button>
-                          {(githubConnecting || githubLoading) && (
-                            <p className="text-[10px] text-zinc-600 mt-3 flex items-center gap-1.5 justify-center">
-                              <Loader2 size={11} className="animate-spin text-purple-500" />
-                              {githubConnecting
-                                ? 'Complete install in the GitHub window — this will update automatically.'
-                                : 'Checking installation status...'}
-                            </p>
-                          )}
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {/* Connection details banner */}
-                          <div className="flex items-center justify-between p-3 border border-white/5 rounded-xl bg-white/[0.01]">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-6 h-6 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
-                                <Github size={12} className="text-violet-400" />
-                              </div>
-                              <div className="min-w-0">
-                                <span className="text-[11px] font-semibold text-zinc-200">
-                                  Connected: <span className="text-violet-400 font-bold">@{githubAccount}</span>
-                                </span>
-                                {githubAccountType && (
-                                  <span className="ml-1.5 text-[9px] text-zinc-500 font-medium uppercase tracking-wide">
-                                    ({githubAccountType === 'Organization' ? 'Org' : 'User'})
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex gap-2 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => openGithubAppInstall('install')}
-                                className="text-[10px] text-zinc-500 hover:text-zinc-300 font-semibold transition-colors flex items-center gap-1 border border-white/5 rounded-lg px-2.5 py-1 bg-white/[0.02]"
-                                title="Install on a different GitHub organization or account"
-                              >
-                                Switch org
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openGithubAppInstall('manage')}
-                                className="text-[10px] text-zinc-500 hover:text-zinc-300 font-semibold transition-colors flex items-center gap-1 border border-white/5 rounded-lg px-2.5 py-1 bg-white/[0.02]"
-                              >
-                                Configure
-                              </button>
-                              <button
-                                type="button"
-                                onClick={fetchGithubRepos}
-                                className="text-[10px] text-violet-400 hover:text-violet-300 font-semibold transition-colors flex items-center gap-1"
-                              >
-                                <RefreshCw size={10} className={githubLoading ? 'animate-spin' : ''} />
-                                Refresh
-                              </button>
-                            </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">
+                              Branch
+                            </label>
+                            <input
+                              type="text"
+                              value={directBranch}
+                              onChange={(e) => setDirectBranch(e.target.value)}
+                              placeholder="main"
+                              className="w-full h-9 px-3 rounded-xl border border-white/10 bg-black/40 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 font-mono"
+                            />
                           </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">
+                              Root Directory (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={rootDir}
+                              onChange={(e) => setRootDir(e.target.value)}
+                              placeholder="/"
+                              className="w-full h-9 px-3 rounded-xl border border-white/10 bg-black/40 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500/50 font-mono"
+                            />
+                          </div>
+                        </div>
 
-                          {githubRepoSelection === 'all' && (
-                            <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] text-[10px] text-amber-200/90 leading-relaxed">
-                              <p className="font-semibold text-amber-200 mb-0.5">Showing all repositories on @{githubAccount}</p>
-                              <p className="text-amber-200/70">
-                                The GitHub App was installed with access to <span className="font-semibold">all</span> repos.
-                                Click <button type="button" onClick={() => openGithubAppInstall('manage')} className="underline font-bold text-amber-100 hover:text-white">Configure</button> and switch to <span className="font-semibold">Only select repositories</span> to limit this list.
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Repo Search */}
-                          <input
-                            type="text"
-                            placeholder="Search repositories..."
-                            value={repoSearch}
-                            onChange={(e) => setRepoSearch(e.target.value)}
-                            className="w-full h-10 px-3 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 focus:border-purple-500/50 text-xs text-white placeholder-zinc-600 focus:outline-none transition-all"
-                          />
-
-                          {/* Repo list container */}
-                          {githubLoading ? (
-                            <div className="h-40 flex flex-col items-center justify-center text-zinc-500 text-xs">
-                              <Loader2 className="w-6 h-6 animate-spin text-purple-500 mb-2" />
-                              Loading your repositories...
-                            </div>
-                          ) : githubRepos.length === 0 ? (
-                            <div className="h-40 flex flex-col items-center justify-center text-zinc-500 text-xs text-center border border-white/5 rounded-xl bg-white/[0.01] p-6">
-                              <p className="font-semibold text-zinc-400">No repositories found</p>
-                              <p className="text-[10px] text-zinc-600 mt-1 max-w-[280px] leading-relaxed">
-                                Grant KH Cloud access to repos on @{githubAccount}, or switch to a different GitHub organization.
-                              </p>
-                              <div className="flex gap-3 mt-3">
-                                <button type="button" onClick={() => openGithubAppInstall('manage')} className="text-violet-400 hover:underline text-[10px] font-bold">
-                                  Configure repos →
-                                </button>
-                                <button type="button" onClick={() => openGithubAppInstall('install')} className="text-zinc-400 hover:underline text-[10px] font-bold">
-                                  Switch organization →
-                                </button>
-                              </div>
-                            </div>
+                        <button
+                          type="button"
+                          disabled={!directGitUrl.trim() || detectingProject}
+                          onClick={handleImportDirectGit}
+                          className="w-full h-10 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-600/20"
+                        >
+                          {detectingProject ? (
+                            <>
+                              <Loader2 size={13} className="animate-spin" />
+                              Detecting project framework & settings...
+                            </>
                           ) : (
-                            <div className="max-h-60 overflow-y-auto grid grid-cols-1 gap-2 pr-1 custom-scrollbar">
-                              {githubRepos
-                                .filter(repo =>
-                                  repo.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
-                                  repo.fullName.toLowerCase().includes(repoSearch.toLowerCase())
-                                )
-                                .map(repo => (
-                                  <div
-                                    key={repo.fullName}
-                                    className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
-                                      selectedRepo === repo.fullName
-                                        ? 'border-purple-500/50 bg-purple-500/[0.03]'
-                                        : 'border-white/5 bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02]'
-                                    }`}
-                                  >
-                                    <div className="min-w-0 flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
-                                        <Github size={14} className="text-zinc-400" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <h4 className="text-xs font-bold text-white truncate leading-snug">{repo.fullName}</h4>
-                                        <p className="text-[9px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
-                                          <span className="font-mono text-zinc-400">{repo.defaultBranch}</span>
-                                          <span>•</span>
-                                          <span>{repo.private ? 'Private' : 'Public'}</span>
-                                        </p>
-                                      </div>
+                            <>
+                              Import & Configure
+                              <ArrowRight size={13} />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* BROWSE REPOSITORIES MODE */}
+                    {importMode === 'browse' && (
+                      <div className="space-y-3">
+                        {!githubConnected && githubInstallations.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01] transition-all">
+                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                              <Github size={24} className="text-zinc-300" />
+                            </div>
+                            <h4 className="text-xs font-bold text-white mb-1.5">Connect GitHub Account or Organization</h4>
+                            <p className="text-[10px] text-zinc-500 max-w-sm mb-4 leading-relaxed">
+                              Link the KH Cloud GitHub App to authorize repositories from your personal profile or organizations for automatic deployments.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => openGithubAppInstall('install')}
+                              disabled={githubConnecting}
+                              className="h-9 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-lg shadow-purple-500/20 active:scale-95 duration-100 flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait"
+                            >
+                              {githubConnecting ? (
+                                <>
+                                  <Loader2 size={13} className="animate-spin" />
+                                  Waiting for GitHub...
+                                </>
+                              ) : (
+                                <>
+                                  <Github size={13} />
+                                  Install GitHub App
+                                </>
+                              )}
+                            </button>
+                            {(githubConnecting || githubLoading) && (
+                              <p className="text-[10px] text-zinc-600 mt-3 flex items-center gap-1.5 justify-center">
+                                <Loader2 size={11} className="animate-spin text-purple-500" />
+                                {githubConnecting
+                                  ? 'Complete install in the GitHub window — this will update automatically.'
+                                  : 'Checking installation status...'}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {/* Interactive Account & Organization Switcher Bar */}
+                            <div className="relative">
+                              <div className="flex items-center justify-between p-2.5 border border-white/5 rounded-xl bg-white/[0.01] gap-2">
+                                {/* Dropdown Trigger */}
+                                <button
+                                  type="button"
+                                  onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+                                  className="flex items-center gap-2.5 min-w-0 flex-1 hover:bg-white/[0.02] p-1.5 rounded-lg transition-all text-left group"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0 overflow-hidden">
+                                    {selectedInstallationId === 'all' ? (
+                                      <Globe size={13} className="text-violet-400" />
+                                    ) : (
+                                      (() => {
+                                        const cur = githubInstallations.find(i => i.installationId === selectedInstallationId);
+                                        if (cur?.avatarUrl) {
+                                          return <img src={cur.avatarUrl} alt="" className="w-full h-full object-cover" />;
+                                        }
+                                        return cur?.accountType === 'Organization' ? (
+                                          <Building2 size={13} className="text-violet-400" />
+                                        ) : (
+                                          <User size={13} className="text-violet-400" />
+                                        );
+                                      })()
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[11px] font-bold text-zinc-200 truncate group-hover:text-white">
+                                        {selectedInstallationId === 'all' ? (
+                                          'All Repositories'
+                                        ) : (
+                                          `@${githubInstallations.find(i => i.installationId === selectedInstallationId)?.accountLogin || githubAccount}`
+                                        )}
+                                      </span>
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-white/5 border border-white/5 text-zinc-400 font-medium shrink-0">
+                                        {selectedInstallationId === 'all'
+                                          ? `${githubInstallations.length} accounts`
+                                          : githubInstallations.find(i => i.installationId === selectedInstallationId)?.accountType || 'Account'}
+                                      </span>
                                     </div>
+                                    <p className="text-[9px] text-zinc-500 truncate">
+                                      {selectedInstallationId === 'all'
+                                        ? 'Showing repositories from all connected accounts & orgs'
+                                        : `Filtered to @${githubInstallations.find(i => i.installationId === selectedInstallationId)?.accountLogin || githubAccount}`}
+                                    </p>
+                                  </div>
+                                  <ChevronDown
+                                    size={14}
+                                    className={`text-zinc-500 transition-transform duration-200 shrink-0 ${accountDropdownOpen ? 'rotate-180 text-violet-400' : ''}`}
+                                  />
+                                </button>
+
+                                {/* Quick Action Buttons */}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => openGithubAppInstall('install')}
+                                    className="text-[10px] text-zinc-300 hover:text-white font-semibold transition-colors flex items-center gap-1 border border-white/5 hover:border-white/10 rounded-lg px-2.5 py-1.5 bg-white/[0.02] hover:bg-white/[0.04]"
+                                    title="Connect another GitHub organization or account"
+                                  >
+                                    <Plus size={11} className="text-violet-400" />
+                                    Add org
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => fetchGithubRepos()}
+                                    className="text-[10px] text-violet-400 hover:text-violet-300 font-semibold transition-colors flex items-center gap-1 border border-white/5 rounded-lg px-2.5 py-1.5 bg-white/[0.02]"
+                                    title="Refresh repositories"
+                                  >
+                                    <RefreshCw size={11} className={githubLoading ? 'animate-spin' : ''} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* ACCOUNT & ORG SWITCHER DROPDOWN */}
+                              {accountDropdownOpen && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => setAccountDropdownOpen(false)}
+                                  />
+                                  <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-xl border border-white/10 bg-[#12131a] shadow-2xl p-2 space-y-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100">
+                                    <div className="px-2.5 py-1 text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                                      Switch Account or Organization
+                                    </div>
+
+                                    {/* Option: All Repositories */}
                                     <button
                                       type="button"
-                                      disabled={detectingProject}
-                                      onClick={() => {
-                                        if (!activeTeam) return;
-                                        // Set project name from repo name first if empty
-                                        const finalName = newProjectName.trim() || repo.name;
-                                        setNewProjectName(finalName);
-                                        setSelectedRepo(repo.fullName);
-                                        setSelectedBranch(repo.defaultBranch);
-                                        
-                                        // Trigger detection
-                                        // Since state updates are async, we pass values directly or let handleConfigureSettings read from ref
-                                        // Let's pass the repo/branch directly in apiRequest or trigger detection manually
-                                        setDetectingProject(true);
-                                        apiRequest(`/github-app/repos/detect?teamId=${activeTeam.id}&repo=${repo.fullName}&branch=${repo.defaultBranch}&rootDir=${rootDir}`)
-                                          .then(res => {
-                                            setPort(res.port);
-                                            setBuildCommand(res.buildCommand);
-                                            setStartCommand(res.startCommand);
-                                            setInstallCommand(res.installCommand);
-                                            setWizardStep(2);
-                                          })
-                                          .catch(() => {
-                                            setPort(3000);
-                                            setBuildCommand('npm run build');
-                                            setStartCommand('npm run start');
-                                            setInstallCommand('npm install');
-                                            setWizardStep(2);
-                                          })
-                                          .finally(() => {
-                                            setDetectingProject(false);
-                                          });
-                                      }}
-                                      className="h-8 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 font-bold text-[10px] transition-all flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                      onClick={() => handleSelectInstallation('all')}
+                                      className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
+                                        selectedInstallationId === 'all'
+                                          ? 'bg-purple-500/10 text-white border border-purple-500/20'
+                                          : 'hover:bg-white/[0.03] text-zinc-300'
+                                      }`}
                                     >
-                                      {detectingProject && selectedRepo === repo.fullName ? (
-                                        <Loader2 size={10} className="animate-spin text-black" />
-                                      ) : 'Import'}
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="w-6 h-6 rounded-md bg-purple-500/20 flex items-center justify-center shrink-0">
+                                          <Globe size={12} className="text-violet-400" />
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="text-[11px] font-bold truncate">All Connected Repositories</div>
+                                          <div className="text-[9px] text-zinc-500">Combine personal and organization repos</div>
+                                        </div>
+                                      </div>
+                                      {selectedInstallationId === 'all' && (
+                                        <Check size={13} className="text-violet-400 shrink-0" />
+                                      )}
+                                    </button>
+
+                                    <div className="h-px bg-white/5 my-1" />
+
+                                    {/* List of Connected Accounts */}
+                                    <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                                      {githubInstallations.map((inst) => {
+                                        const isSelected = selectedInstallationId === inst.installationId;
+                                        return (
+                                          <div
+                                            key={inst.installationId}
+                                            onClick={() => handleSelectInstallation(inst.installationId)}
+                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all cursor-pointer ${
+                                              isSelected
+                                                ? 'bg-purple-500/10 text-white border border-purple-500/20'
+                                                : 'hover:bg-white/[0.03] text-zinc-300'
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                              <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center shrink-0 overflow-hidden border border-white/5">
+                                                {inst.avatarUrl ? (
+                                                  <img src={inst.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                                ) : inst.accountType === 'Organization' ? (
+                                                  <Building2 size={12} className="text-zinc-400" />
+                                                ) : (
+                                                  <User size={12} className="text-zinc-400" />
+                                                )}
+                                              </div>
+                                              <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="text-[11px] font-bold truncate">@{inst.accountLogin}</span>
+                                                  <span className="text-[8px] px-1 rounded bg-white/5 text-zinc-400 uppercase font-semibold">
+                                                    {inst.accountType === 'Organization' ? 'Org' : 'User'}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                              <button
+                                                type="button"
+                                                onClick={() => openGithubAppInstall('manage', inst.installationId)}
+                                                className="text-[9px] text-zinc-400 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
+                                                title="Configure repository permissions on GitHub"
+                                              >
+                                                <Settings size={11} />
+                                              </button>
+                                              {isSelected && (
+                                                <Check size={13} className="text-violet-400" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    <div className="h-px bg-white/5 my-1" />
+
+                                    {/* Add New Org / Account Link */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAccountDropdownOpen(false);
+                                        openGithubAppInstall('install');
+                                      }}
+                                      className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-[11px] font-bold text-violet-400 hover:bg-violet-500/10 transition-all"
+                                    >
+                                      <Plus size={13} />
+                                      Connect another GitHub Account / Org
                                     </button>
                                   </div>
-                                ))}
+                                </>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+
+                            {/* Repo Search */}
+                            <div className="relative">
+                              <input
+                                type="text"
+                                placeholder="Search repositories..."
+                                value={repoSearch}
+                                onChange={(e) => setRepoSearch(e.target.value)}
+                                className="w-full h-10 px-3 pl-9 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 focus:border-purple-500/50 text-xs text-white placeholder-zinc-600 focus:outline-none transition-all"
+                              />
+                              <Search size={14} className="absolute left-3 top-3 text-zinc-500" />
+                            </div>
+
+                            {/* Repo list container */}
+                            {githubLoading ? (
+                              <div className="h-40 flex flex-col items-center justify-center text-zinc-500 text-xs">
+                                <Loader2 className="w-6 h-6 animate-spin text-purple-500 mb-2" />
+                                Loading your repositories...
+                              </div>
+                            ) : githubRepos.length === 0 ? (
+                              <div className="h-40 flex flex-col items-center justify-center text-zinc-500 text-xs text-center border border-white/5 rounded-xl bg-white/[0.01] p-6">
+                                <p className="font-semibold text-zinc-400">No repositories found</p>
+                                <p className="text-[10px] text-zinc-600 mt-1 max-w-[280px] leading-relaxed">
+                                  Grant KH Cloud access to repositories on GitHub, or switch to another organization.
+                                </p>
+                                <div className="flex gap-3 mt-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => openGithubAppInstall('manage', selectedInstallationId !== 'all' ? selectedInstallationId : undefined)}
+                                    className="text-violet-400 hover:underline text-[10px] font-bold"
+                                  >
+                                    Configure repos on GitHub →
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openGithubAppInstall('install')}
+                                    className="text-zinc-400 hover:underline text-[10px] font-bold"
+                                  >
+                                    + Add Organization →
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="max-h-64 overflow-y-auto grid grid-cols-1 gap-2 pr-1 custom-scrollbar">
+                                {githubRepos
+                                  .filter(repo =>
+                                    repo.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
+                                    repo.fullName.toLowerCase().includes(repoSearch.toLowerCase()) ||
+                                    (repo.accountLogin && repo.accountLogin.toLowerCase().includes(repoSearch.toLowerCase()))
+                                  )
+                                  .map(repo => (
+                                    <div
+                                      key={repo.fullName}
+                                      className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                                        selectedRepo === repo.fullName
+                                          ? 'border-purple-500/50 bg-purple-500/[0.03]'
+                                          : 'border-white/5 bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02]'
+                                      }`}
+                                    >
+                                      <div className="min-w-0 flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center shrink-0 overflow-hidden">
+                                          {repo.avatarUrl ? (
+                                            <img src={repo.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                          ) : (
+                                            <Github size={14} className="text-zinc-400" />
+                                          )}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <h4 className="text-xs font-bold text-white truncate leading-snug">{repo.fullName}</h4>
+                                            {repo.accountLogin && (
+                                              <span className="text-[8px] px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 font-semibold shrink-0">
+                                                @{repo.accountLogin}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-[9px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                            <span className="font-mono text-zinc-400">{repo.defaultBranch}</span>
+                                            <span>•</span>
+                                            <span>{repo.private ? 'Private' : 'Public'}</span>
+                                            {repo.accountType && (
+                                              <>
+                                                <span>•</span>
+                                                <span>{repo.accountType}</span>
+                                              </>
+                                            )}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        disabled={detectingProject}
+                                        onClick={() => {
+                                          if (!activeTeam) return;
+                                          const finalName = newProjectName.trim() || repo.name;
+                                          setNewProjectName(finalName);
+                                          setSelectedRepo(repo.fullName);
+                                          setSelectedBranch(repo.defaultBranch);
+                                          
+                                          setDetectingProject(true);
+                                          apiRequest(`/github-app/repos/detect?teamId=${activeTeam.id}&repo=${encodeURIComponent(repo.fullName)}&branch=${encodeURIComponent(repo.defaultBranch)}&rootDir=${encodeURIComponent(rootDir)}`)
+                                            .then(res => {
+                                              setPort(res.port || 3000);
+                                              setBuildCommand(res.buildCommand || 'npm run build');
+                                              setStartCommand(res.startCommand || 'npm run start');
+                                              setInstallCommand(res.installCommand || 'npm install');
+                                              setWizardStep(2);
+                                            })
+                                            .catch(() => {
+                                              setPort(3000);
+                                              setBuildCommand('npm run build');
+                                              setStartCommand('npm run start');
+                                              setInstallCommand('npm install');
+                                              setWizardStep(2);
+                                            })
+                                            .finally(() => {
+                                              setDetectingProject(false);
+                                            });
+                                        }}
+                                        className="h-8 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 font-bold text-[10px] transition-all flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                                      >
+                                        {detectingProject && selectedRepo === repo.fullName ? (
+                                          <Loader2 size={10} className="animate-spin text-black" />
+                                        ) : 'Import'}
+                                      </button>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

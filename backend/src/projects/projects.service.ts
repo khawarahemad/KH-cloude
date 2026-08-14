@@ -524,9 +524,10 @@ export class ProjectsService {
     });
     if (!project) throw new NotFoundException('Project not found.');
 
-    // Stop and remove the project's Docker container on the host VPS
+    // Stop and remove the project's Docker container and images on the host VPS
     const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
     const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+    const repoName = `kh-cloud-${cleanSlug}`;
 
     exec(`docker stop ${containerName} && docker rm ${containerName}`, (error, stdout, stderr) => {
       if (error) {
@@ -534,6 +535,19 @@ export class ProjectsService {
       } else {
         this.logger.log(`Successfully removed container ${containerName}`);
       }
+
+      // Remove all Docker images and dangling layers for this deleted project
+      exec(`docker images --format "{{.Repository}}:{{.Tag}}" ${repoName}`, (err, stdout) => {
+        if (!err && stdout?.trim()) {
+          const tags = stdout.trim().split('\n').filter(Boolean);
+          for (const t of tags) {
+            exec(`docker rmi -f ${t.trim()}`, () => {});
+          }
+        }
+        exec('docker image prune -f', () => {
+          exec('docker builder prune -f --keep-storage 500MB', () => {});
+        });
+      });
     });
 
     // Delete project from database (cascades to deployments, envVars, domains)
@@ -727,12 +741,15 @@ export class ProjectsService {
 
     const startDeployment = async () => {
       let project: any = null;
+      let cleanSlug = '';
+      const buildDir = path.join('/usr/src/app/storage-mock/builds', deploymentId);
       try {
         project = await this.prisma.project.findUnique({ where: { id: projectId } });
         if (!project) {
           appendLog('Project not found. Deployment aborted.');
           return;
         }
+        cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
 
         const deployment = await this.prisma.deployment.findUnique({ where: { id: deploymentId } });
         if (!deployment) {
@@ -757,7 +774,6 @@ export class ProjectsService {
         });
 
         // 1. Prepare Workspace
-        const buildDir = path.join('/usr/src/app/storage-mock/builds', deploymentId);
         fs.mkdirSync(buildDir, { recursive: true });
 
         // 2. Clone Git Repo — prefer GitHub App installation token (works for org repos)
@@ -772,7 +788,7 @@ export class ProjectsService {
           url.replace(/https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '').trim();
         const repoFullName = cleanRepoRef(repoUrl);
         const repoOwner = repoFullName.split('/')[0] || '';
-        const teamInstallation = await this.prisma.githubInstallation.findUnique({
+        const teamInstallations = await this.prisma.githubInstallation.findMany({
           where: { teamId: project.teamId },
         });
 
@@ -821,11 +837,11 @@ export class ProjectsService {
           }
         }
 
-        if (teamInstallation) {
+        for (const tInst of teamInstallations) {
           pushCandidate({
-            installationId: teamInstallation.installationId,
-            accountLogin: teamInstallation.accountLogin,
-            accountType: teamInstallation.accountType,
+            installationId: tInst.installationId,
+            accountLogin: tInst.accountLogin,
+            accountType: tInst.accountType,
             via: 'team-link',
           });
         }
@@ -1128,7 +1144,7 @@ export class ProjectsService {
         }
 
         // 4. Build Docker Image
-        const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+        cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
         const imageTag = `kh-cloud-${cleanSlug}:${deploymentId}`;
         const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
 
@@ -1346,8 +1362,15 @@ export class ProjectsService {
           ]
         });
 
-        // Clean up build directory
-        fs.rmSync(buildDir, { recursive: true, force: true });
+        // Clean up workspace build directory, old project images, dangling layers, and build cache
+        await this.cleanupDeploymentArtifacts(
+          projectId,
+          cleanSlug,
+          imageTag,
+          buildDir,
+          appendLog
+        );
+
         this.deploymentLogs.delete(deploymentId);
 
       } catch (err: any) {
@@ -1370,6 +1393,15 @@ export class ProjectsService {
             { name: 'Error Message', value: err.message || 'Unknown error', inline: false }
           ]
         });
+
+        // Even on failure, purge the workspace build directory and prune dangling build artifacts
+        await this.cleanupDeploymentArtifacts(
+          projectId,
+          cleanSlug || '',
+          null,
+          buildDir,
+          appendLog
+        ).catch(() => null);
 
         this.deploymentLogs.delete(deploymentId);
       }
@@ -1438,5 +1470,108 @@ export class ProjectsService {
 
     const output = (execRes.stdout || '') + (execRes.stderr || '');
     return { output: output || '(No output)' };
+  }
+
+  /**
+   * Post-deployment storage and cache cleanup:
+   * 1. Removes all previous Docker images of this project, retaining only current imageTag.
+   * 2. Prunes dangling Docker images (unnamed intermediate build layers).
+   * 3. Prunes Docker buildx/builder cache to prevent disk exhaustion.
+   * 4. Removes the deployment workspace build directory and cleans any orphaned build directories.
+   */
+  private async cleanupDeploymentArtifacts(
+    projectId: string,
+    cleanSlug: string,
+    currentImageTag: string | null,
+    buildDir?: string,
+    logFn?: (msg: string) => void,
+  ) {
+    const log = (msg: string) => {
+      this.logger.log(msg);
+      if (logFn) logFn(msg);
+    };
+
+    // 1. Clean workspace build directory
+    if (buildDir && fs.existsSync(buildDir)) {
+      try {
+        fs.rmSync(buildDir, { recursive: true, force: true });
+        log(`[Cleanup] Removed workspace build directory: ${buildDir}`);
+      } catch (err: any) {
+        this.logger.warn(`Failed to remove buildDir ${buildDir}: ${err.message}`);
+      }
+    }
+
+    // 2. Remove orphaned temporary build directories older than 30 minutes
+    try {
+      const baseBuildsDir = '/usr/src/app/storage-mock/builds';
+      if (fs.existsSync(baseBuildsDir)) {
+        const now = Date.now();
+        const entries = fs.readdirSync(baseBuildsDir);
+        for (const entry of entries) {
+          const entryPath = path.join(baseBuildsDir, entry);
+          try {
+            const stats = fs.statSync(entryPath);
+            if (stats.isDirectory() && now - stats.mtimeMs > 30 * 60 * 1000) {
+              fs.rmSync(entryPath, { recursive: true, force: true });
+              this.logger.log(`[Cleanup] Pruned orphaned build directory: ${entryPath}`);
+            }
+          } catch { /* ignore individual stat/rm errors */ }
+        }
+      }
+    } catch { /* ignore base directory access errors */ }
+
+    // 3. Remove previous Docker images for this project (keeping only currentImageTag)
+    if (cleanSlug) {
+      try {
+        const repoName = `kh-cloud-${cleanSlug}`;
+        const cmd = `docker images --format "{{.Repository}}:{{.Tag}}" ${repoName}`;
+        const output = await new Promise<string>((resolve) => {
+          exec(cmd, { timeout: 15000 }, (err, stdout) => resolve(stdout || ''));
+        });
+
+        const lines = output.trim().split('\n').filter(Boolean);
+        let removedCount = 0;
+        for (const line of lines) {
+          const trimmedTag = line.trim();
+          if (trimmedTag && trimmedTag !== currentImageTag) {
+            await new Promise<void>((resolve) => {
+              exec(`docker rmi -f ${trimmedTag}`, { timeout: 15000 }, () => resolve());
+            });
+            removedCount++;
+          }
+        }
+        if (removedCount > 0) {
+          log(`[Cleanup] Pruned ${removedCount} previous Docker image(s) for ${repoName}.`);
+        }
+      } catch (err: any) {
+        this.logger.warn(`[Cleanup] Failed to clean old project images: ${err.message}`);
+      }
+    }
+
+    // 4. Prune dangling images (unnamed intermediate build layers)
+    try {
+      await new Promise<void>((resolve) => {
+        exec('docker image prune -f', { timeout: 30000 }, (err, stdout) => {
+          if (!err && stdout?.trim()) {
+            this.logger.log(`[Cleanup] Image prune: ${stdout.replace(/\n/g, ' ')}`);
+          }
+          resolve();
+        });
+      });
+    } catch { /* ignore */ }
+
+    // 5. Prune Docker buildx/builder cache to prevent disk exhaustion
+    try {
+      await new Promise<void>((resolve) => {
+        exec('docker builder prune -f --keep-storage 500MB', { timeout: 30000 }, (err, stdout) => {
+          if (!err && stdout?.trim()) {
+            this.logger.log(`[Cleanup] Builder cache prune: ${stdout.replace(/\n/g, ' ')}`);
+          }
+          resolve();
+        });
+      });
+    } catch { /* ignore */ }
+
+    log(`[Cleanup] Storage and cache cleanup complete.`);
   }
 }

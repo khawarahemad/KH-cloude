@@ -158,6 +158,49 @@ export class GithubAppService {
     return null;
   }
 
+  async listAllInstallations(): Promise<{
+    installationId: string;
+    accountLogin: string;
+    accountType: string;
+    avatarUrl?: string;
+    repositorySelection?: string;
+  }[]> {
+    try {
+      const jwt = this.generateAppJwt();
+      let page = 1;
+      const all: any[] = [];
+      while (page <= 10) {
+        const res = await fetch(
+          `https://api.github.com/app/installations?per_page=100&page=${page}`,
+          {
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+              Accept: 'application/vnd.github+json',
+              'User-Agent': 'KH-Cloud-Backend',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+          },
+        );
+        if (!res.ok) break;
+        const batch: any[] = await res.json();
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        all.push(...batch);
+        if (batch.length < 100) break;
+        page += 1;
+      }
+      return all.map((inst) => ({
+        installationId: String(inst.id),
+        accountLogin: inst.account?.login || 'unknown',
+        accountType: inst.account?.type || 'User',
+        avatarUrl: inst.account?.avatar_url || null,
+        repositorySelection: inst.repository_selection || 'selected',
+      }));
+    } catch (err: any) {
+      this.logger.warn(`listAllInstallations failed: ${err.message}`);
+      return [];
+    }
+  }
+
   async listInstallationRepos(installationId: string): Promise<{
     repos: any[];
     repositorySelection: 'all' | 'selected' | string;
