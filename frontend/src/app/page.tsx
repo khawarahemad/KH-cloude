@@ -232,6 +232,8 @@ export default function Home() {
         return <BillingTab />;
       case 'settings':
         return <SettingsTab />;
+      case 'network':
+        return <NetworkMonitorTab />;
       case 'admin':
         return <AdminTab />;
       default:

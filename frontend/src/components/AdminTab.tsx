@@ -335,7 +335,7 @@ export default function AdminTab() {
 
           {/* Quick Metrics */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
               {[
                 { label: 'Total Users', value: users.length, color: '#f1f3f6' },
                 { label: 'Web Containers', value: subTab === 'projects' ? projects.length : users.reduce((acc: number, u: any) => acc + (u.projectsCount || 0), 0), color: '#818cf8' },
@@ -379,10 +379,10 @@ export default function AdminTab() {
               <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Loading system logs...</span>
             </div>
           ) : (
-            <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
+            <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflowX: 'auto' }}>
                           {/* SUB TAB: USERS LIST */}
               {subTab === 'users' && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: '800px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>
                     <span>User / Email</span>
                     <span>System Role</span>
@@ -459,7 +459,7 @@ export default function AdminTab() {
               
               {/* SUB TAB: APP CONTAINERS LIST */}
               {subTab === 'projects' && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: '800px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>
                     <span>Container / Owner</span>
                     <span>Domain URL</span>
@@ -515,7 +515,7 @@ export default function AdminTab() {
               
               {/* SUB TAB: STORAGE BUCKETS LIST */}
               {subTab === 'buckets' && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: '800px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>
                     <span>Bucket / Owner</span>
                     <span>Properties</span>
@@ -577,7 +577,7 @@ export default function AdminTab() {
                 <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
                   {/* Metrics grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
                     <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', padding: '16px' }}>
                       <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563', display: 'block', marginBottom: '4px' }}>Total VPS Disk</span>
                       <span style={{ fontSize: '18px', fontWeight: 700, color: '#f1f3f6' }}>{formatBytes(storageData.disk.total)}</span>
@@ -614,8 +614,8 @@ export default function AdminTab() {
                       <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>Storage Consumers</div>
                     </div>
 
-                    <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+                    <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '600px' }}>
                         <thead>
                           <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                             <th style={{ padding: '8px 12px', fontSize: '10px', color: '#4b5563' }}>Resource Name</th>
@@ -719,7 +719,7 @@ export default function AdminTab() {
                     )}
 
                     {analyzerResult && (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <span style={{ fontSize: '9px', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top directories</span>
                           <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
@@ -758,10 +758,10 @@ export default function AdminTab() {
               {/* SUB TAB: BILLING OVERRIDES */}
               {subTab === 'billing' && (
                 <div style={{ padding: '20px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '24px' }}>
+                  <div className="flex flex-col md:flex-row gap-6">
                     
                     {/* Left: Override Form */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
                       <div>
                         <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>Set Manual Plan Override</div>
                       </div>
@@ -818,7 +818,7 @@ export default function AdminTab() {
                     </div>
 
                     {/* Right: Quick Select Organizations Sidebar */}
-                    <div style={{ borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="w-full md:w-[280px] shrink-0 border-t md:border-t-0 md:border-l border-white/5 pt-5 md:pt-0 md:pl-5 flex flex-col gap-3">
                       <div>
                         <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>Select Organization</div>
                       </div>
