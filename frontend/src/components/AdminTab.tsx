@@ -331,7 +331,7 @@ export default function AdminTab() {
       </div>
 
       <div className="rw-page-content" style={{ padding: '24px' }}>
-        <div style={{ maxWidth: '1200px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
           {/* Quick Metrics */}
           {subTab !== 'billing' && subTab !== 'vps-storage' && (
