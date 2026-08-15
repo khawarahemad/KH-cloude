@@ -48,17 +48,26 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
+      # -----------------------------------------------------------------------
+      # 🛡️ DDoS — Storage rate-limit middleware (30 req/s avg, 60 burst per IP)
+      # -----------------------------------------------------------------------
+      - "traefik.http.middlewares.minio-rate.ratelimit.average=30"
+      - "traefik.http.middlewares.minio-rate.ratelimit.burst=60"
+      - "traefik.http.middlewares.minio-rate.ratelimit.period=1s"
+      - "traefik.http.middlewares.minio-rate.ratelimit.sourcecriterion.ipstrategy.depth=1"
       # S3 API routing (storage.khawarahemad.com)
       - "traefik.http.routers.minio.rule=Host(`storage.khawarahemad.com`)"
       - "traefik.http.routers.minio.entrypoints=websecure"
       - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
       - "traefik.http.routers.minio.service=minio-api"
+      - "traefik.http.routers.minio.middlewares=minio-rate"
       - "traefik.http.services.minio-api.loadbalancer.server.port=9000"
       # Raw MinIO Console routing (minio-console.khawarahemad.com)
       - "traefik.http.routers.minio-console.rule=Host(`minio-console.khawarahemad.com`)"
       - "traefik.http.routers.minio-console.entrypoints=websecure"
       - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
       - "traefik.http.routers.minio-console.service=minio-admin"
+      - "traefik.http.routers.minio-console.middlewares=minio-rate"
       - "traefik.http.services.minio-admin.loadbalancer.server.port=9001"
     networks:
       - kh-cloud-network
@@ -85,6 +94,17 @@ services:
       - GITHUB_APP_CLIENT_SECRET=${GITHUB_APP_CLIENT_SECRET}
       - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY}
       - GITHUB_APP_WEBHOOK_SECRET=${GITHUB_APP_WEBHOOK_SECRET}
+      # -------------------------------------------------------------------
+      # 🛡️ DDoS Protection configuration
+      # -------------------------------------------------------------------
+      - REDIS_URL=redis://redis:6379
+      - DDOS_GLOBAL_LIMIT=${DDOS_GLOBAL_LIMIT:-200}
+      - DDOS_API_LIMIT=${DDOS_API_LIMIT:-60}
+      - DDOS_AUTH_LIMIT=${DDOS_AUTH_LIMIT:-10}
+      - DDOS_BAN_THRESHOLD=${DDOS_BAN_THRESHOLD:-5}
+      - DDOS_BAN_TTL_SECONDS=${DDOS_BAN_TTL_SECONDS:-3600}
+      - DDOS_ALERT_DISCORD_WEBHOOK=${DDOS_ALERT_DISCORD_WEBHOOK}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
     volumes:
       - /var/lib/kh-cloud/db:/usr/src/app/data
       - /var/lib/kh-cloud/storage-mock:/usr/src/app/storage-mock
@@ -94,10 +114,20 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
+      # -----------------------------------------------------------------------
+      # 🛡️ DDoS — API rate-limit middleware (20 req/s avg, 50 burst per IP)
+      # Traefik enforces this at the network edge before NestJS even sees the req.
+      # NestJS DDoSGuard then applies finer per-minute sliding-window limits.
+      # -----------------------------------------------------------------------
+      - "traefik.http.middlewares.api-rate.ratelimit.average=20"
+      - "traefik.http.middlewares.api-rate.ratelimit.burst=50"
+      - "traefik.http.middlewares.api-rate.ratelimit.period=1s"
+      - "traefik.http.middlewares.api-rate.ratelimit.sourcecriterion.ipstrategy.depth=1"
       # API routing (api.khawarahemad.com)
       - "traefik.http.routers.backend.rule=Host(`api.khawarahemad.com`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend.middlewares=api-rate"
       - "traefik.http.services.backend.loadbalancer.server.port=5000"
     networks:
       - kh-cloud-network
@@ -118,10 +148,18 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
+      # -----------------------------------------------------------------------
+      # 🛡️ DDoS — Frontend rate-limit middleware (60 req/s avg, 120 burst per IP)
+      # -----------------------------------------------------------------------
+      - "traefik.http.middlewares.frontend-rate.ratelimit.average=60"
+      - "traefik.http.middlewares.frontend-rate.ratelimit.burst=120"
+      - "traefik.http.middlewares.frontend-rate.ratelimit.period=1s"
+      - "traefik.http.middlewares.frontend-rate.ratelimit.sourcecriterion.ipstrategy.depth=1"
       # Dashboard routing (cloud.khawarahemad.com, cdn.khawarahemad.com, admin.khawarahemad.com, and auth.khawarahemad.com)
       - "traefik.http.routers.frontend.rule=Host(`cloud.khawarahemad.com`) || Host(`cdn.khawarahemad.com`) || Host(`admin.khawarahemad.com`) || Host(`auth.khawarahemad.com`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend.middlewares=frontend-rate"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     networks:
       - kh-cloud-network
