@@ -380,3 +380,20 @@ model GithubInstallation {
 
   @@unique([teamId, installationId])
 }
+
+// --- Network Monitoring & Traffic Analytics Schema ---
+
+model NetworkLog {
+  id             String   @id @default(uuid())
+  ip             String
+  method         String
+  path           String
+  statusCode     Int      @default(200)
+  userAgent      String?
+  responseTimeMs Int?     @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([ip])
+  @@index([createdAt])
+  @@map("network_log")
+}

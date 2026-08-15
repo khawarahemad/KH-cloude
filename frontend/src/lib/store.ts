@@ -71,7 +71,7 @@ export const useAppStore = create<AppState>()(
       setUser: (user) => set({ user }),
       setTeams: (teams) => set({ teams, activeTeam: teams.length > 0 ? teams[0] : null }),
       setActiveTeam: (activeTeam) => set({ activeTeam, projectsCache: null, databasesCache: null, bucketsCache: null, billingCache: null, edgeFunctionsCache: null }),
-      setActiveTab: (activeTab) => set({ activeTab, selectedProjectId: null, selectedBucketId: null }),
+      setActiveTab: (activeTab) => set({ activeTab }),
       setSelectedProjectId: (selectedProjectId) => set({ selectedProjectId }),
       setSelectedBucketId: (selectedBucketId) => set({ selectedBucketId }),
 

@@ -42,11 +42,46 @@ const parseEnvText = (text: string) => {
 };
 
 export default function ProjectsTab() {
-  const { activeTeam, user, projectsCache: projects, setProjectsCache: setProjects } = useAppStore();
+  const {
+    activeTeam,
+    user,
+    projectsCache: projects,
+    setProjectsCache: setProjects,
+    selectedProjectId,
+    setSelectedProjectId,
+  } = useAppStore();
   const { alert } = useDialog();
   const [loading, setLoading] = useState(projects === null);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(selectedProjectId);
   const [projectDetails, setProjectDetails] = useState<any | null>(null);
+
+  const handleSelectProject = (id: string | null) => {
+    setActiveProjectId(id);
+    setSelectedProjectId(id);
+    if (typeof window !== 'undefined') {
+      if (id) {
+        window.history.pushState({}, '', `${window.location.pathname}?project=${id}`);
+      } else {
+        window.history.pushState({}, '', window.location.pathname);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const urlProjectId = params.get('project');
+
+    if (urlProjectId) {
+      if (activeProjectId !== urlProjectId) {
+        setActiveProjectId(urlProjectId);
+        setSelectedProjectId(urlProjectId);
+      }
+    } else if (selectedProjectId && activeProjectId !== selectedProjectId) {
+      setActiveProjectId(selectedProjectId);
+      window.history.replaceState({}, '', `${window.location.pathname}?project=${selectedProjectId}`);
+    }
+  }, [selectedProjectId]);
   
   // Wizard state
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -618,7 +653,7 @@ export default function ProjectsTab() {
       setRawEnvText('');
       
       // Select the new project immediately
-      setActiveProjectId(project.id);
+      handleSelectProject(project.id);
       fetchProjects();
     } catch (err) {
       console.error(err);
@@ -658,7 +693,7 @@ export default function ProjectsTab() {
       });
       setDeleteConfirmOpen(false);
       setDeleteConfirmInput('');
-      setActiveProjectId(null);
+      handleSelectProject(null);
       setProjectDetails(null);
       fetchProjects();
     } catch (err) {
@@ -802,7 +837,7 @@ export default function ProjectsTab() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {activeProjectId && (
             <button
-              onClick={() => setActiveProjectId(null)}
+              onClick={() => handleSelectProject(null)}
               style={{ width: '30px', height: '30px', borderRadius: '7px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ba3af', cursor: 'pointer' }}
             >
               <ArrowLeft size={13} />
@@ -849,7 +884,7 @@ export default function ProjectsTab() {
                   ? { bg: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: 'rgba(124,58,237,0.2)' }
                   : { bg: '#181b22', color: '#6b7280', border: 'rgba(255,255,255,0.07)' };
                 return (
-                  <div key={proj.id} onClick={() => setActiveProjectId(proj.id)} className="rw-card-interactive" style={{ padding: '16px', cursor: 'pointer' }}>
+                  <div key={proj.id} onClick={() => handleSelectProject(proj.id)} className="rw-card-interactive" style={{ padding: '16px', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                       <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>{proj.name}</span>
                       <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 500, backgroundColor: statusColors.bg, color: statusColors.color, border: `1px solid ${statusColors.border}`, textTransform: 'uppercase', letterSpacing: '0.04em' }}>

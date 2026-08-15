@@ -14,6 +14,7 @@ import BillingTab from '@/components/BillingTab';
 import AdminTab from '@/components/AdminTab';
 import EdgeFunctionsTab from '@/components/EdgeFunctionsTab';
 import SettingsTab from '@/components/SettingsTab';
+import NetworkMonitorTab from '@/components/NetworkMonitorTab';
 import { apiRequest } from '@/lib/api';
 import { Shield } from 'lucide-react';
 

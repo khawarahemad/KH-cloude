@@ -12,6 +12,7 @@ import {
   Zap,
   ChevronRight,
   Settings,
+  Activity,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -29,6 +30,7 @@ export default function Sidebar() {
 
   const items = [...NAV_ITEMS];
   if (user?.role === 'ADMIN') {
+    items.push({ id: 'network', label: 'Network Monitor', icon: Activity });
     items.push({ id: 'admin', label: 'Admin', icon: Shield });
   }
 
