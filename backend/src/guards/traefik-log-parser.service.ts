@@ -108,8 +108,22 @@ export class TraefikLogParserService implements OnModuleInit, OnModuleDestroy {
   private async processLogEntry(logEntry: any) {
     // Expected JSON fields from Traefik:
     // ClientHost, RequestHost, RequestMethod, RequestPath, DownstreamStatus, Duration, request_User-Agent
-    const ip = logEntry.ClientHost || '0.0.0.0';
-    const host = logEntry.RequestHost;
+    let ip = logEntry.ClientHost || '0.0.0.0';
+    if (ip.includes(':')) {
+      // Handle IPv6 vs IPv4 with port. 
+      // If it's a simple IPv4 with port like 1.2.3.4:5678, strip the port.
+      // A robust way is just split if there's only one colon. If there are multiple (IPv6), it's trickier.
+      const parts = ip.split(':');
+      if (parts.length === 2) {
+        ip = parts[0];
+      }
+    }
+    
+    let host = logEntry.RequestHost || '';
+    if (host.includes(':')) {
+      host = host.split(':')[0];
+    }
+
     const method = logEntry.RequestMethod || 'GET';
     const path = logEntry.RequestPath || '/';
     const statusCode = parseInt(logEntry.DownstreamStatus, 10) || 200;
