@@ -71,18 +71,24 @@ export class NetworkService implements OnModuleInit {
   /**
    * Fetch complete 7-day network monitoring statistics & top IPs
    */
-  async getStats() {
+  async getStats(projectId?: string) {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
+    const whereClause: any = {
+      createdAt: {
+        gte: sevenDaysAgo,
+      },
+    };
+
+    if (projectId) {
+      whereClause.projectId = projectId;
+    }
+
     // Fetch all records within the last 7 days
     const logs7d: any[] = await (this.prisma as any).networkLog.findMany({
-      where: {
-        createdAt: {
-          gte: sevenDaysAgo,
-        },
-      },
+      where: whereClause,
       orderBy: {
         createdAt: 'desc',
       },

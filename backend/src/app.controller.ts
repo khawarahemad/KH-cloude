@@ -9,6 +9,7 @@ import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { GithubAppService } from './github-app/github-app.service';
+import { NetworkService } from './guards/network.service';
 import { TeamRole, DatabaseType } from '@prisma/client';
 import { sendDirectDiscordNotification } from './utils/discord-webhook';
 
@@ -29,6 +30,7 @@ export class AppController {
     private billing: BillingService,
     private edgeFunctions: EdgeFunctionsService,
     private githubApp: GithubAppService,
+    private networkService: NetworkService,
   ) {}
 
   // --- AUTH ENDPOINTS ---

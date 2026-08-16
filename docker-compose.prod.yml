@@ -15,6 +15,9 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.email=khawariqbal123@gmail.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/kh-cloud/traefik-access.log"
+      - "--accesslog.format=json"
     environment:
       - DOCKER_API_VERSION=1.40
     ports:
@@ -23,6 +26,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/kh-cloud/traefik-acme:/letsencrypt
+      - /var/log/kh-cloud:/var/log/kh-cloud
     restart: unless-stopped
     networks:
       - kh-cloud-network
@@ -109,6 +113,7 @@ services:
       - /var/lib/kh-cloud/db:/usr/src/app/data
       - /var/lib/kh-cloud/storage-mock:/usr/src/app/storage-mock
       - /var/run/docker.sock:/var/run/docker.sock
+      - /var/log/kh-cloud:/var/log/kh-cloud
     depends_on:
       - redis
     restart: unless-stopped

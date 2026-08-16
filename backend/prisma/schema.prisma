@@ -388,12 +388,16 @@ model NetworkLog {
   ip             String
   method         String
   path           String
+  host           String?  // The domain name / hostname accessed
+  projectId      String?  // Linked project if it matches a known domain
   statusCode     Int      @default(200)
   userAgent      String?
   responseTimeMs Int?     @default(0)
   createdAt      DateTime @default(now())
 
   @@index([ip])
+  @@index([projectId])
+  @@index([host])
   @@index([createdAt])
   @@map("network_log")
 }

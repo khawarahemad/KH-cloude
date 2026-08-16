@@ -38,7 +38,7 @@ import {
 } from 'recharts';
 import { useDialog } from './CustomDialogProvider';
 
-export default function NetworkMonitorTab() {
+export default function NetworkMonitorTab({ projectId }: { projectId: string }) {
   const { user } = useAppStore();
   const { confirm, alert } = useDialog();
 
@@ -58,10 +58,10 @@ export default function NetworkMonitorTab() {
   const [cleaning, setCleaning] = useState(false);
 
   const fetchStats = async (isManual = false) => {
-    if (!user) return;
+    if (!user || !projectId) return;
     if (isManual) setRefreshing(true);
     try {
-      const data = await apiRequest(`/admin/network/stats?adminUserId=${user.id}`);
+      const data = await apiRequest(`/projects/${projectId}/network?userId=${user.id}`);
       setStats(data);
     } catch (err: any) {
       console.error('Failed to load network stats:', err);
@@ -260,14 +260,16 @@ export default function NetworkMonitorTab() {
           >
             <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} /> Refresh
           </button>
-          <button
-            onClick={handleCleanLogs}
-            disabled={cleaning}
-            className="rw-btn"
-            style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}
-          >
-            {cleaning ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Prune Logs (&gt;7d)
-          </button>
+          {user?.role === 'ADMIN' && (
+            <button
+              onClick={handleCleanLogs}
+              disabled={cleaning}
+              className="rw-btn"
+              style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
+              {cleaning ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Prune Logs (&gt;7d)
+            </button>
+          )}
         </div>
       </div>
 
@@ -521,30 +523,23 @@ export default function NetworkMonitorTab() {
                         </td>
 
                         <td style={{ padding: '12px', textAlign: 'right' }}>
-                          <button
-                            onClick={() => handleToggleBan(item.ip, isBanned)}
-                            disabled={actionIp === item.ip}
-                            className="rw-btn"
-                            style={{
-                              fontSize: '11px',
-                              padding: '4px 8px',
-                              backgroundColor: isBanned ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                              color: isBanned ? '#34d399' : '#f87171',
-                              border: isBanned ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)',
-                            }}
-                          >
-                            {actionIp === item.ip ? (
-                              <Loader2 size={11} className="animate-spin" />
-                            ) : isBanned ? (
-                              <>
-                                <Unlock size={11} /> Unban
-                              </>
-                            ) : (
-                              <>
-                                <Lock size={11} /> Ban IP
-                              </>
-                            )}
-                          </button>
+                          {user?.role === 'ADMIN' && (
+                            <button
+                              onClick={() => handleToggleBan(item.ip, isBanned)}
+                              disabled={actionIp === item.ip}
+                              className="rw-btn"
+                              style={{
+                                fontSize: '11px',
+                                padding: '4px 8px',
+                                backgroundColor: isBanned ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                color: isBanned ? '#34d399' : '#f87171',
+                                border: isBanned ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)',
+                              }}
+                            >
+                              {actionIp === item.ip ? <Loader2 size={11} className="animate-spin" /> : isBanned ? <Unlock size={11} /> : <Lock size={11} />}
+                              {isBanned ? 'Unban' : 'Ban'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

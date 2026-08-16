@@ -6,6 +6,7 @@ import { apiRequest } from '@/lib/api';
 import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock, ChevronDown, Building2, User, ExternalLink, Link2, Check, Sparkles, FolderGit2, Trash2, Search, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDialog } from './CustomDialogProvider';
+import NetworkMonitorTab from './NetworkMonitorTab';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
@@ -944,9 +945,9 @@ export default function ProjectsTab() {
 
             {/* Sub-tab Navigation - no glitch, fixed height */}
             <div style={{ backgroundColor: '#0e1015', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0', overflowX: 'auto' }}>
-              {(['deployments', 'env', 'domains', 'metrics', 'console', 'terminal', 'settings'] as const).map(tab => {
+              {(['deployments', 'env', 'domains', 'metrics', 'network', 'console', 'terminal', 'settings'] as const).map(tab => {
                 const isActive = detailsTab === tab;
-                const labels: Record<string, string> = { deployments: 'Deployments', env: 'Variables', domains: 'Domains', metrics: 'Metrics', console: 'Logs', terminal: 'Terminal', settings: 'Settings' };
+                const labels: Record<string, string> = { deployments: 'Deployments', env: 'Variables', domains: 'Domains', metrics: 'Metrics', network: 'Network', console: 'Logs', terminal: 'Terminal', settings: 'Settings' };
                 return (
                   <button
                     key={tab}
@@ -1326,6 +1327,13 @@ export default function ProjectsTab() {
                       {!metrics?.ram && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontSize: '12px' }}>No metrics data available</div>}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* ── Network Monitor ── */}
+              {detailsTab === 'network' && (
+                <div style={{ marginTop: '-24px', marginLeft: '-24px', marginRight: '-24px' }}>
+                  <NetworkMonitorTab projectId={activeProjectId!} />
                 </div>
               )}
 

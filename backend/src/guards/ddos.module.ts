@@ -39,6 +39,8 @@ const NetworkInterceptorProvider = {
   useClass: NetworkInterceptor,
 };
 
+import { TraefikLogParserService } from './traefik-log-parser.service';
+
 @Global()
 @Module({
   controllers: [DDoSAdminController, NetworkAdminController],
@@ -47,6 +49,7 @@ const NetworkInterceptorProvider = {
     DDoSGuardProvider,
     NetworkService,
     NetworkInterceptorProvider,
+    TraefikLogParserService,
   ],
   exports: [REDIS_TOKEN, NetworkService],
 })
