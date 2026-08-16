@@ -119,7 +119,7 @@ export default function ProjectsTab() {
   const [directBranch, setDirectBranch] = useState('main');
   
   // Active details tab
-  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'console' | 'terminal' | 'settings'>('deployments');
+  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'network' | 'console' | 'terminal' | 'settings'>('deployments');
   const [runtimeLogs, setRuntimeLogs] = useState('Fetching runtime logs...');
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalHistory, setTerminalHistory] = useState<string[]>([
