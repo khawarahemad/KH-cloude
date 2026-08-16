@@ -444,7 +444,7 @@ export default function NetworkMonitorTab() {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '800px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: '#4b5563', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.05em' }}>
                     <th style={{ padding: '10px 12px' }}>IP Address</th>
@@ -583,7 +583,7 @@ export default function NetworkMonitorTab() {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', minWidth: '800px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: '#4b5563', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.05em' }}>
                     <th style={{ padding: '8px 10px' }}>Time</th>
