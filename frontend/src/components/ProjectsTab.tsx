@@ -70,19 +70,35 @@ export default function ProjectsTab() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const urlProjectId = params.get('project');
+    
+    const checkUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const urlProjectId = params.get('project');
 
-    if (urlProjectId) {
-      if (activeProjectId !== urlProjectId) {
-        setActiveProjectId(urlProjectId);
-        setSelectedProjectId(urlProjectId);
+      if (urlProjectId) {
+        if (activeProjectId !== urlProjectId) {
+          setActiveProjectId(urlProjectId);
+        }
+        if (selectedProjectId !== urlProjectId) {
+          setSelectedProjectId(urlProjectId);
+        }
+      } else {
+        if (activeProjectId !== null) {
+          setActiveProjectId(null);
+        }
+        if (selectedProjectId !== null) {
+          setSelectedProjectId(null);
+        }
       }
-    } else if (selectedProjectId && activeProjectId !== selectedProjectId) {
-      setActiveProjectId(selectedProjectId);
-      window.history.replaceState({}, '', `${window.location.pathname}?project=${selectedProjectId}`);
-    }
-  }, [selectedProjectId]);
+    };
+
+    // Run on initial mount and whenever selectedProjectId changes in case of desync
+    checkUrl();
+
+    // Also listen to popstate for browser back/forward buttons
+    window.addEventListener('popstate', checkUrl);
+    return () => window.removeEventListener('popstate', checkUrl);
+  }, [selectedProjectId, activeProjectId]);
   
   // Wizard state
   const [wizardOpen, setWizardOpen] = useState(false);

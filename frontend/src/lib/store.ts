@@ -97,6 +97,12 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'kh-cloud-session',
+      partialize: (state) =>
+        Object.fromEntries(
+          Object.entries(state).filter(
+            ([key]) => !['selectedProjectId', 'selectedBucketId'].includes(key)
+          )
+        ),
     }
   )
 );
