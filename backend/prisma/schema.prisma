@@ -244,7 +244,7 @@ model DatabaseInstance {
 
 model Bucket {
   id         String   @id @default(uuid())
-  name       String   @unique // minio bucket names must be unique globally
+  name       String
   isPublic   Boolean  @default(false)
   sizeLimit  BigInt   @default(5368709120) // 5GB in bytes by default
   sizeUsed   BigInt   @default(0)
@@ -256,6 +256,8 @@ model Bucket {
 
   keys       BucketKey[]
   objects    ObjectMetadata[]
+
+  @@unique([teamId, name])
 }
 
 enum KeyPermission {

@@ -36,8 +36,10 @@ export class StoragePublicController {
     };
   }
 
-  @Get(':bucketName/*')
-  async serveObject(
+  // 1. Team-scoped URL: /:teamId/:bucketName/*
+  @Get(':teamId/:bucketName/*')
+  async serveTeamScopedObject(
+    @Param('teamId') teamId: string,
     @Param('bucketName') bucketName: string,
     @Req() req: express.Request,
     @Res() res: express.Response,
@@ -45,20 +47,63 @@ export class StoragePublicController {
     @Query('apikey') queryApiKey?: string,
     @Headers() headers?: any,
   ) {
-    // Extract everything after /:bucketName/
-    // Express wildcard route puts matched suffix in req.params[0]
     const key = (req.params as any)[0];
-    if (!key) {
-      throw new BadRequestException('Object key is required.');
-    }
+    if (!key) throw new BadRequestException('Object key is required.');
 
-    const bucket = await this.prisma.bucket.findUnique({
-      where: { name: bucketName },
+    const bucket = await this.prisma.bucket.findFirst({
+      where: {
+        OR: [
+          { teamId, name: bucketName },
+          { team: { slug: teamId }, name: bucketName },
+        ],
+      },
     });
+
     if (!bucket) {
-      throw new NotFoundException(`Bucket "${bucketName}" not found.`);
+      throw new NotFoundException(`Bucket "${bucketName}" not found in workspace "${teamId}".`);
     }
 
+    return this.deliverObject(bucket, key, req, res, token, queryApiKey, headers);
+  }
+
+  // 2. Direct bucket or legacy URL: /:bucketIdentifier/*
+  @Get(':bucketIdentifier/*')
+  async serveDirectObject(
+    @Param('bucketIdentifier') bucketIdentifier: string,
+    @Req() req: express.Request,
+    @Res() res: express.Response,
+    @Query('token') token?: string,
+    @Query('apikey') queryApiKey?: string,
+    @Headers() headers?: any,
+  ) {
+    const key = (req.params as any)[0];
+    if (!key) throw new BadRequestException('Object key is required.');
+
+    const bucket = await this.prisma.bucket.findFirst({
+      where: {
+        OR: [
+          { id: bucketIdentifier },
+          { name: bucketIdentifier },
+        ],
+      },
+    });
+
+    if (!bucket) {
+      throw new NotFoundException(`Bucket "${bucketIdentifier}" not found.`);
+    }
+
+    return this.deliverObject(bucket, key, req, res, token, queryApiKey, headers);
+  }
+
+  private async deliverObject(
+    bucket: any,
+    key: string,
+    req: express.Request,
+    res: express.Response,
+    token?: string,
+    queryApiKey?: string,
+    headers?: any,
+  ) {
     if (!bucket.isPublic) {
       const passedKey =
         queryApiKey ||

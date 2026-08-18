@@ -146,7 +146,7 @@ export default async function handler({ req, env, storage, db }) {
       const storageHelper = {
         getObject: async (bucketName: string, key: string) => {
           try {
-            const { bucket, buffer } = await this.storage.getFileByBucketName(bucketName, key);
+            const { bucket, buffer } = await this.storage.getFileByBucketName(bucketName, key, teamId);
             return {
               ok: true,
               bucket: bucket.name,
@@ -160,12 +160,12 @@ export default async function handler({ req, env, storage, db }) {
           }
         },
         listObjects: async (bucketName: string, prefix?: string) => {
-          const bucket = await this.prisma.bucket.findUnique({ where: { name: bucketName } });
+          const bucket = await this.prisma.bucket.findFirst({ where: { teamId, name: bucketName } });
           if (!bucket) return [];
           return this.storage.listFiles(bucket.id, prefix || '');
         },
         getUrl: async (bucketName: string, key: string) => {
-          const bucket = await this.prisma.bucket.findUnique({ where: { name: bucketName } });
+          const bucket = await this.prisma.bucket.findFirst({ where: { teamId, name: bucketName } });
           if (!bucket) return null;
           return this.storage.generatePresignedUrl(bucket.id, key);
         },

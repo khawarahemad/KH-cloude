@@ -109,14 +109,22 @@ export default function StorageTab() {
         const formData = new FormData();
         formData.append('file', file);
         const key = currentPrefix ? `${currentPrefix}${file.name}` : file.name;
-        await fetch(`${apiBase}/storage/buckets/${activeBucket.id}/upload?key=${encodeURIComponent(key)}&teamId=${activeTeam.id}`, { method: 'POST', body: formData });
+        const res = await fetch(`${apiBase}/storage/buckets/${activeBucket.id}/upload?key=${encodeURIComponent(key)}&teamId=${activeTeam.id}`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `Failed to upload ${file.name}`);
+        }
       }
       fetchFiles(activeBucket.id, currentPrefix);
       fetchBuckets();
-    } catch (err) {
-      alert({ title: 'Upload Failed', message: 'Failed to upload some files.', type: 'error' });
+    } catch (err: any) {
+      alert({ title: 'Upload Failed', message: err.message || 'Failed to upload files.', type: 'error' });
+    } finally {
+      setUploading(false);
     }
-    finally { setUploading(false); }
   };
 
   const handleCreateFolder = async (e: React.FormEvent) => {
@@ -125,16 +133,27 @@ export default function StorageTab() {
     setUploading(true);
     const apiBase = getUploadApiBase();
     try {
-      const folderKey = currentPrefix ? `${currentPrefix}${newFolderName}/` : `${newFolderName}/`;
-      const blob = new Blob([''], { type: 'application/x-directory' });
-      const file = new (globalThis.File || Blob)([blob], '.placeholder') as globalThis.File;
+      const folderKey = currentPrefix ? `${currentPrefix}${newFolderName.trim()}/` : `${newFolderName.trim()}/`;
+      const blob = new Blob([''], { type: 'text/plain' });
+      const file = new File([blob], '.placeholder', { type: 'text/plain' });
       const formData = new FormData();
       formData.append('file', file);
-      await fetch(`${apiBase}/storage/buckets/${activeBucket.id}/upload?key=${encodeURIComponent(folderKey)}&teamId=${activeTeam.id}`, { method: 'POST', body: formData });
-      setNewFolderName(''); setFolderCreateOpen(false);
+      const res = await fetch(`${apiBase}/storage/buckets/${activeBucket.id}/upload?key=${encodeURIComponent(folderKey)}&teamId=${activeTeam.id}`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Failed to create folder');
+      }
+      setNewFolderName('');
+      setFolderCreateOpen(false);
       fetchFiles(activeBucket.id, currentPrefix);
-    } catch (err) { console.error('Folder creation failed:', err); }
-    finally { setUploading(false); }
+    } catch (err: any) {
+      alert({ title: 'Folder Creation Failed', message: err.message || 'Failed to create folder.', type: 'error' });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleDeleteFile = async (key: string) => {
@@ -172,7 +191,7 @@ export default function StorageTab() {
       const base = typeof window !== 'undefined' && window.location.hostname.endsWith('khawarahemad.com')
         ? 'https://storage.khawarahemad.com'
         : 'http://localhost:5000';
-      handleCopy(`${base}/${activeBucket.name}/${item.key}`, item.key);
+      handleCopy(`${base}/${activeTeam?.id || activeBucket.teamId}/${activeBucket.name}/${item.key}`, item.key);
     } else {
       try {
         const res = await apiRequest(`/storage/buckets/${activeBucket.id}/presigned?key=${encodeURIComponent(item.key)}&expiresIn=86400`);
@@ -217,6 +236,7 @@ export default function StorageTab() {
 
   const getSdkSnippet = () => {
     const bName = activeBucket?.name || 'assets-bucket';
+    const teamId = activeTeam?.id || 'TEAM_ID';
     const s3Endpoint = 'https://storage.khawarahemad.com';
     const apiBase = getUploadApiBase();
     const accessKey = `kh_acc_${activeBucket?.id?.substring(0, 8)}`;
@@ -224,9 +244,9 @@ export default function StorageTab() {
 
     if (sdkLanguage === 'curl') {
       if (activeBucket?.isPublic) {
-        return `# 1. Download public file directly:\ncurl https://storage.khawarahemad.com/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${activeTeam?.id}" \\\n  -F "file=@avatar.png"`;
+        return `# 1. Download public file directly:\ncurl https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -F "file=@avatar.png"`;
       } else {
-        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_API_KEY" \\\n  https://storage.khawarahemad.com/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${activeTeam?.id}" \\\n  -H "apikey: YOUR_API_KEY" \\\n  -F "file=@avatar.png"`;
+        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_API_KEY" \\\n  https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_API_KEY" \\\n  -F "file=@avatar.png"`;
       }
     }
     if (sdkLanguage === 'node') return `import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";\n\nconst s3 = new S3Client({\n  endpoint: "${s3Endpoint}",\n  region: "us-east-1",\n  credentials: {\n    accessKeyId: "${accessKey}",\n    secretAccessKey: "${secretKey}",\n  },\n  forcePathStyle: true,\n});\n\nawait s3.send(new PutObjectCommand({\n  Bucket: "${bName}",\n  Key: "images/avatar.png",\n  Body: fileBuffer,\n  ContentType: "image/png",\n}));`;
@@ -236,43 +256,6 @@ export default function StorageTab() {
   };
 
   const displayItems = getDisplayItems();
-
-  /* ─── UPGRADE GATE ─── */
-  if (!billingLoading && billing?.subscription?.planId !== 'pro' && billing?.subscription?.planId !== 'enterprise') {
-    return (
-      <div className="rw-page">
-        <div className="rw-page-header">
-          <h1 className="rw-page-title">Object Storage</h1>
-        </div>
-        <div className="rw-page-content">
-          <div className="rw-empty" style={{ maxWidth: '440px', margin: '40px auto' }}>
-            <div style={{
-              width: '52px', height: '52px', borderRadius: '14px',
-              backgroundColor: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <HardDrive size={22} style={{ color: '#a78bfa' }} />
-            </div>
-            <h3 style={{ fontSize: '17px', fontWeight: 600, color: '#f1f3f6' }}>Object storage is a Pro feature</h3>
-            <p style={{ fontSize: '13px', color: '#6b7280', textAlign: 'center', maxWidth: '320px' }}>
-              Store and serve files, images, backups, and static assets with S3 compatibility. Upgrade to unlock high-performance Object Storage.
-            </p>
-            <div style={{ width: '100%', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '10px' }}>What you get</div>
-              {['MinIO/S3 compatible storage', 'Global CDN acceleration', 'Presigned URL generation', 'Granular API access keys'].map(f => (
-                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '7px', fontSize: '13px', color: '#9ba3af' }}>
-                  <Check size={12} style={{ color: '#7c3aed', flexShrink: 0 }} /> {f}
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setActiveTab('billing')} className="rw-btn-primary rw-btn-lg">
-              <Zap size={14} /> Upgrade to Pro
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="rw-page">
