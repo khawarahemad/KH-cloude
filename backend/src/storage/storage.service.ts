@@ -14,6 +14,44 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
+function inferContentType(key: string, fallback = 'application/octet-stream'): string {
+  const ext = path.extname(key).toLowerCase();
+  const map: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+    '.avif': 'image/avif',
+    '.ico': 'image/x-icon',
+    '.bmp': 'image/bmp',
+    '.pdf': 'application/pdf',
+    '.txt': 'text/plain; charset=utf-8',
+    '.md': 'text/markdown; charset=utf-8',
+    '.csv': 'text/csv; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.xml': 'application/xml',
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.ts': 'application/typescript; charset=utf-8',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.zip': 'application/zip',
+    '.gz': 'application/gzip',
+    '.tar': 'application/x-tar',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+  return map[ext] || fallback;
+}
+
 @Injectable()
 export class StorageService {
   private s3Client: S3Client | null = null;
@@ -26,10 +64,33 @@ export class StorageService {
   }
 
   private async initS3() {
-    const endpoint = process.env.STORAGE_ENDPOINT || 'http://minio:9000';
-    const accessKey = process.env.STORAGE_ACCESS_KEY || 'minioadmin';
-    const secretKey = process.env.STORAGE_SECRET_KEY || 'minioadmin';
-    const region = process.env.STORAGE_REGION || 'us-east-1';
+    let endpoint =
+      process.env.MINIO_INTERNAL_ENDPOINT ||
+      process.env.STORAGE_ENDPOINT ||
+      process.env.MINIO_ENDPOINT ||
+      'http://minio:9000';
+
+    // If endpoint points to external domain in production Docker, route internally to minio container
+    if (endpoint.includes('storage.khawarahemad.com') && process.env.NODE_ENV === 'production') {
+      endpoint = 'http://minio:9000';
+    }
+
+    const accessKey =
+      process.env.STORAGE_ACCESS_KEY ||
+      process.env.MINIO_ACCESS_KEY ||
+      process.env.MINIO_ROOT_USER ||
+      'khcloudroot';
+
+    const secretKey =
+      process.env.STORAGE_SECRET_KEY ||
+      process.env.MINIO_SECRET_KEY ||
+      process.env.MINIO_ROOT_PASSWORD ||
+      'khcloudrootpassword';
+
+    const region =
+      process.env.STORAGE_REGION ||
+      process.env.MINIO_REGION ||
+      'us-east-1';
 
     try {
       this.s3Client = new S3Client({
@@ -46,15 +107,14 @@ export class StorageService {
         fs.mkdirSync(this.mockStoragePath, { recursive: true });
       }
 
-      // Quick healthcheck to see if MinIO is responsive
+      // Quick healthcheck to verify S3 connection
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2000);
       await this.s3Client.send(new ListObjectsV2Command({ Bucket: 'healthcheck' }), {
         abortSignal: controller.signal,
       }).catch((e) => {
-        // NoSuchBucket is fine, it means MinIO responded
         if (e.name !== 'NoSuchBucket' && !e.message?.includes('NoSuchBucket')) {
-          this.logger.warn(`MinIO not ready, will use local mock storage fallback if needed.`);
+          this.logger.warn(`MinIO connection note: ${e.message}`);
         }
       });
       clearTimeout(timeout);
@@ -71,12 +131,10 @@ export class StorageService {
   }
 
   async createBucket(name: string, isPublic: boolean, teamId: string) {
-    // Validate bucket name
     if (!/^[a-z0-9.-]{3,63}$/.test(name)) {
       throw new BadRequestException('Bucket name must be 3-63 characters, lowercase letters, numbers, dots, or hyphens.');
     }
 
-    // Check if bucket exists for this team
     const existing = await this.prisma.bucket.findFirst({
       where: { teamId, name },
     });
@@ -84,7 +142,6 @@ export class StorageService {
       throw new BadRequestException('A bucket with this name already exists in your workspace.');
     }
 
-    // Create in database
     const bucket = await this.prisma.bucket.create({
       data: {
         name,
@@ -110,7 +167,6 @@ export class StorageService {
       }
     }
 
-    // Create Audit Log
     await this.prisma.auditLog.create({
       data: {
         teamId,
@@ -155,7 +211,6 @@ export class StorageService {
       throw new BadRequestException('Bucket not found.');
     }
 
-    // Check if bucket is empty
     const fileCount = await this.prisma.objectMetadata.count({
       where: { bucketId: id, isFolder: false },
     });
@@ -210,31 +265,13 @@ export class StorageService {
       throw new BadRequestException('Bucket not found.');
     }
 
-    let processedBuffer = fileBuffer;
     let finalContentType = contentType;
-
-    const isFolderPlaceholder = key.endsWith('/') || fileName === '.placeholder';
-
-    // Process image optimizations if image and not folder
-    if (!isFolderPlaceholder && contentType?.startsWith('image/') && !contentType.includes('svg')) {
-      try {
-        processedBuffer = await sharp(fileBuffer)
-          .resize({ width: 1200, withoutEnlargement: true })
-          .webp({ quality: 80 })
-          .toBuffer();
-        finalContentType = 'image/webp';
-        const ext = path.extname(key);
-        if (ext) {
-          key = key.substring(0, key.length - ext.length) + '.webp';
-        } else {
-          key = key + '.webp';
-        }
-      } catch (err) {
-        this.logger.warn(`Image compression failed: ${err}`);
-      }
+    if (!finalContentType || finalContentType === 'application/octet-stream') {
+      finalContentType = inferContentType(key || fileName);
     }
 
-    const fileSize = processedBuffer.length;
+    const isFolderPlaceholder = key.endsWith('/') || fileName === '.placeholder';
+    const fileSize = fileBuffer.length;
 
     const existingFile = await this.prisma.objectMetadata.findUnique({
       where: { bucketId_key: { bucketId, key } },
@@ -250,33 +287,33 @@ export class StorageService {
 
     const physicalName = this.getPhysicalBucketName(bucket);
 
-    // Save binary
+    // Save binary into S3 / MinIO or local fallback
     if (this.useMock) {
       const bucketDir = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`);
       if (!fs.existsSync(bucketDir)) {
         fs.mkdirSync(bucketDir, { recursive: true });
       }
       const filePath = path.join(bucketDir, key.replace(/\//g, '_'));
-      fs.writeFileSync(filePath, processedBuffer);
+      fs.writeFileSync(filePath, fileBuffer);
     } else {
       try {
         await this.s3Client!.send(
           new PutObjectCommand({
             Bucket: physicalName,
             Key: key,
-            Body: processedBuffer,
+            Body: fileBuffer,
             ContentType: finalContentType,
           }),
         );
       } catch (err: any) {
         this.logger.error(`MinIO putObject error for ${key}:`, err);
-        // Fallback to local storage if MinIO is not available
+        // Fallback write to local storage to guarantee 0 data loss
         const bucketDir = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`);
         if (!fs.existsSync(bucketDir)) {
           fs.mkdirSync(bucketDir, { recursive: true });
         }
         const filePath = path.join(bucketDir, key.replace(/\//g, '_'));
-        fs.writeFileSync(filePath, processedBuffer);
+        fs.writeFileSync(filePath, fileBuffer);
       }
     }
 
@@ -320,7 +357,7 @@ export class StorageService {
         action: 'BUCKET.FILE_UPLOAD',
         targetType: 'BUCKET',
         targetId: bucketId,
-        details: JSON.stringify({ key, size: fileSize }),
+        details: JSON.stringify({ key, size: fileSize, contentType: finalContentType }),
       },
     });
 
@@ -336,15 +373,10 @@ export class StorageService {
 
     const physicalName = this.getPhysicalBucketName(bucket);
 
-    if (this.useMock) {
-      const file1 = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`, key.replace(/\//g, '_'));
-      const file2 = path.join(this.mockStoragePath, bucket.name, key.replace(/\//g, '_'));
-      if (fs.existsSync(file1)) return fs.readFileSync(file1);
-      if (fs.existsSync(file2)) return fs.readFileSync(file2);
-      throw new BadRequestException('File not found in storage.');
-    } else {
+    // 1. Try S3 / MinIO if not forced mock
+    if (!this.useMock && this.s3Client) {
       try {
-        const response = await this.s3Client!.send(
+        const response = await this.s3Client.send(
           new GetObjectCommand({
             Bucket: physicalName,
             Key: key,
@@ -357,16 +389,37 @@ export class StorageService {
             stream.on('error', reject);
             stream.on('end', () => resolve(Buffer.concat(chunks)));
           });
-        return streamToBuffer(response.Body);
-      } catch (err) {
-        // Fallback to local storage check
-        const file1 = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`, key.replace(/\//g, '_'));
-        const file2 = path.join(this.mockStoragePath, bucket.name, key.replace(/\//g, '_'));
-        if (fs.existsSync(file1)) return fs.readFileSync(file1);
-        if (fs.existsSync(file2)) return fs.readFileSync(file2);
-        throw new BadRequestException(`Failed to retrieve file: ${err}`);
+        return await streamToBuffer(response.Body);
+      } catch (err: any) {
+        // Fallback to check legacy bucket name in MinIO
+        try {
+          const legacyResponse = await this.s3Client.send(
+            new GetObjectCommand({
+              Bucket: bucket.name,
+              Key: key,
+            }),
+          );
+          const streamToBuffer = (stream: any): Promise<Buffer> =>
+            new Promise((resolve, reject) => {
+              const chunks: any[] = [];
+              stream.on('data', (chunk: any) => chunks.push(chunk));
+              stream.on('error', reject);
+              stream.on('end', () => resolve(Buffer.concat(chunks)));
+            });
+          return await streamToBuffer(legacyResponse.Body);
+        } catch {
+          // Continue to local storage fallback
+        }
       }
     }
+
+    // 2. Check local storage
+    const file1 = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`, key.replace(/\//g, '_'));
+    const file2 = path.join(this.mockStoragePath, bucket.name, key.replace(/\//g, '_'));
+    if (fs.existsSync(file1)) return fs.readFileSync(file1);
+    if (fs.existsSync(file2)) return fs.readFileSync(file2);
+
+    throw new BadRequestException(`File "${key}" not found in storage.`);
   }
 
   async getFileByBucketName(bucketName: string, key: string, teamId?: string) {
@@ -400,14 +453,9 @@ export class StorageService {
 
     const physicalName = this.getPhysicalBucketName(bucket);
 
-    if (this.useMock) {
-      const file1 = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`, key.replace(/\//g, '_'));
-      const file2 = path.join(this.mockStoragePath, bucket.name, key.replace(/\//g, '_'));
-      if (fs.existsSync(file1)) fs.unlinkSync(file1);
-      if (fs.existsSync(file2)) fs.unlinkSync(file2);
-    } else {
+    if (this.s3Client) {
       try {
-        await this.s3Client!.send(
+        await this.s3Client.send(
           new DeleteObjectCommand({
             Bucket: physicalName,
             Key: key,
@@ -416,9 +464,12 @@ export class StorageService {
       } catch (err) {
         this.logger.error(`MinIO deleteObject error for ${key}:`, err);
       }
-      const file1 = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`, key.replace(/\//g, '_'));
-      if (fs.existsSync(file1)) fs.unlinkSync(file1);
     }
+
+    const file1 = path.join(this.mockStoragePath, `${bucket.teamId}_${bucket.name}`, key.replace(/\//g, '_'));
+    const file2 = path.join(this.mockStoragePath, bucket.name, key.replace(/\//g, '_'));
+    if (fs.existsSync(file1)) fs.unlinkSync(file1);
+    if (fs.existsSync(file2)) fs.unlinkSync(file2);
 
     // Update bucket size used
     const totalSize = await this.prisma.objectMetadata.aggregate({
@@ -472,7 +523,6 @@ export class StorageService {
       return `${host}/${bucket.teamId}/${bucket.name}/${encodeURIComponent(key)}`;
     }
 
-    // For private buckets, generate secure signed URL with token
     const token = this.generateMockToken(bucketId, key);
     return `${host}/${bucket.teamId}/${bucket.name}/${encodeURIComponent(key)}?token=${token}`;
   }

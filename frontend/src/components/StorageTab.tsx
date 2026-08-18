@@ -636,16 +636,23 @@ export default function StorageTab() {
               </div>
               <button onClick={() => { setPreviewFile(null); setPreviewUrl(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px' }} className="hover:text-white">✕</button>
             </div>
-            <div style={{ flex: 1, overflow: 'auto', padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '280px', backgroundColor: '#0e1015' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '280px', backgroundColor: '#0e1015' }}>
               {previewFile.contentType?.startsWith('image/') ? (
-                <img src={previewUrl} alt={previewFile.key} style={{ maxHeight: '360px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                <img src={previewUrl} alt={previewFile.key} style={{ maxHeight: '420px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+              ) : previewFile.contentType === 'application/pdf' ? (
+                <iframe src={previewUrl} title={previewFile.key} style={{ width: '100%', height: '420px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }} />
               ) : previewFile.contentType?.startsWith('video/') ? (
-                <video src={previewUrl} controls style={{ maxHeight: '360px', width: '100%', borderRadius: '8px' }} />
+                <video src={previewUrl} controls style={{ maxHeight: '380px', width: '100%', borderRadius: '8px' }} />
+              ) : previewFile.contentType?.startsWith('audio/') ? (
+                <div style={{ width: '100%', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <audio src={previewUrl} controls style={{ width: '100%' }} />
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#6b7280' }}>
-                  {previewFile.contentType === 'application/pdf' ? <BookOpen size={40} style={{ opacity: 0.3 }} /> : <FileIcon size={40} style={{ opacity: 0.3 }} />}
-                  <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>{previewFile.contentType}</span>
-                  <a href={previewUrl} download style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', color: '#fff', fontSize: '12px', fontWeight: 600 }}><Download size={12} /> Download File</a>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#6b7280', padding: '32px' }}>
+                  <FileIcon size={48} style={{ opacity: 0.3, color: '#a78bfa' }} />
+                  <span style={{ fontSize: '13px', color: '#f1f3f6', fontWeight: 500 }}>{previewFile.key}</span>
+                  <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#6b7280' }}>{previewFile.contentType}</span>
+                  <a href={previewUrl} download style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 16px', borderRadius: '7px', backgroundColor: '#7c3aed', color: '#fff', fontSize: '12px', fontWeight: 600, marginTop: '8px' }}><Download size={12} /> Download File</a>
                 </div>
               )}
             </div>
