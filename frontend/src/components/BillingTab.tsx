@@ -60,7 +60,7 @@ export default function BillingTab() {
             <span style={{ fontSize: '13px' }}>Loading billing information...</span>
           </div>
         ) : (
-          <div style={{ maxWidth: '960px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ width: '100%', maxWidth: '1280px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
             {/* Current plan banner */}
             <div style={{

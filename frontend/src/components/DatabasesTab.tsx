@@ -563,7 +563,7 @@ export default function DatabasesTab() {
             )}
 
             {dbView === 'guide' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '700px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '1100px' }}>
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Connection Guide</div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>Connect your web applications to this database instance using standard URIs.</div>
@@ -694,7 +694,7 @@ data = res.json()`}
             <button onClick={() => setProvisionOpen(true)} className="rw-btn rw-btn-primary rw-btn-lg" style={{ marginTop: '4px' }}><Plus size={14} /> Provision database</button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px', maxWidth: '960px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', width: '100%' }}>
             {(databases || []).map((db) => {
               const connStr = getConnectionString(db);
               const isRunning = db.status === 'RUNNING';

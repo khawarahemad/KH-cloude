@@ -276,7 +276,7 @@ export default function TeamsTab() {
         {/* ─── INCOMING INVITATIONS BANNER (For current user) ─── */}
         {incomingInvites.length > 0 && (
           <div style={{
-            marginBottom: '24px', maxWidth: '960px',
+            marginBottom: '24px', width: '100%',
             backgroundColor: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)',
             borderRadius: '12px', padding: '16px 20px',
           }}>
@@ -352,10 +352,10 @@ export default function TeamsTab() {
             <span style={{ fontSize: '13px' }}>Loading team data...</span>
           </div>
         ) : (
-          <div style={{ maxWidth: '960px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start' }}>
+          <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
             {/* Left column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="lg:col-span-2 flex flex-col gap-6 w-full">
 
               {/* Members List */}
               <div>
@@ -581,7 +581,7 @@ export default function TeamsTab() {
             </div>
 
             {/* Right sidebar: Invite Form */}
-            <div style={{
+            <div className="lg:col-span-1" style={{
               backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
               borderRadius: '12px', padding: '18px',
               position: 'sticky', top: '24px', display: 'flex', flexDirection: 'column', gap: '14px'

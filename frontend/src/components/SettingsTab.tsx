@@ -127,7 +127,8 @@ export default function SettingsTab() {
       <div className="rw-page-content">
         <div
           style={{
-            maxWidth: '640px',
+            width: '100%',
+            maxWidth: '900px',
             display: 'flex',
             flexDirection: 'column',
             gap: '24px',
