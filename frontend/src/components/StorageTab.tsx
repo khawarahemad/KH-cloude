@@ -35,7 +35,7 @@ export default function StorageTab() {
   const [previewFile, setPreviewFile] = useState<any | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [showSecret, setShowSecret] = useState(false);
-  const [sdkLanguage, setSdkLanguage] = useState<'node' | 'python' | 'go' | 'rust'>('node');
+  const [sdkLanguage, setSdkLanguage] = useState<'curl' | 'node' | 'python' | 'go' | 'rust'>('curl');
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   const fetchBuckets = async () => {
@@ -218,8 +218,17 @@ export default function StorageTab() {
   const getSdkSnippet = () => {
     const bName = activeBucket?.name || 'assets-bucket';
     const s3Endpoint = 'https://storage.khawarahemad.com';
+    const apiBase = getUploadApiBase();
     const accessKey = `kh_acc_${activeBucket?.id?.substring(0, 8)}`;
     const secretKey = `kh_sec_${activeBucket?.id?.substring(8, 20)}`;
+
+    if (sdkLanguage === 'curl') {
+      if (activeBucket?.isPublic) {
+        return `# 1. Download public file directly:\ncurl https://storage.khawarahemad.com/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${activeTeam?.id}" \\\n  -F "file=@avatar.png"`;
+      } else {
+        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_API_KEY" \\\n  https://storage.khawarahemad.com/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${activeTeam?.id}" \\\n  -H "apikey: YOUR_API_KEY" \\\n  -F "file=@avatar.png"`;
+      }
+    }
     if (sdkLanguage === 'node') return `import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";\n\nconst s3 = new S3Client({\n  endpoint: "${s3Endpoint}",\n  region: "us-east-1",\n  credentials: {\n    accessKeyId: "${accessKey}",\n    secretAccessKey: "${secretKey}",\n  },\n  forcePathStyle: true,\n});\n\nawait s3.send(new PutObjectCommand({\n  Bucket: "${bName}",\n  Key: "images/avatar.png",\n  Body: fileBuffer,\n  ContentType: "image/png",\n}));`;
     if (sdkLanguage === 'python') return `import boto3\n\ns3 = boto3.client(\n    's3',\n    endpoint_url='${s3Endpoint}',\n    aws_access_key_id='${accessKey}',\n    aws_secret_access_key='${secretKey}',\n    region_name='us-east-1'\n)\n\ns3.upload_file('avatar.png', '${bName}', 'images/avatar.png')`;
     if (sdkLanguage === 'go') return `cfg, _ := config.LoadDefaultConfig(context.TODO())\nclient := s3.NewFromConfig(cfg, func(o *s3.Options) {\n\to.BaseEndpoint = aws.String("${s3Endpoint}")\n\to.UsePathStyle = true\n})\n\nclient.PutObject(context.TODO(), &s3.PutObjectInput{\n\tBucket: aws.String("${bName}"),\n\tKey:    aws.String("images/avatar.png"),\n\tBody:   fileReader,\n})`;
@@ -530,7 +539,7 @@ export default function StorageTab() {
               <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>SDK Integration</div>
                 <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  {(['node', 'python', 'go', 'rust'] as const).map(lang => {
+                  {(['curl', 'node', 'python', 'go', 'rust'] as const).map(lang => {
                     const isSelected = sdkLanguage === lang;
                     return (
                       <button key={lang} onClick={() => setSdkLanguage(lang)}
@@ -538,9 +547,9 @@ export default function StorageTab() {
                           position: 'relative', height: '30px', padding: '0 8px', fontSize: '11px', fontWeight: isSelected ? 600 : 500, cursor: 'pointer', border: 'none', background: 'transparent',
                           borderBottom: isSelected ? '2px solid #7c3aed' : '2px solid transparent',
                           color: isSelected ? '#c4b5fd' : '#6b7280',
-                          textTransform: 'capitalize', transition: 'all 0.12s', outline: 'none'
+                          textTransform: 'uppercase', transition: 'all 0.12s', outline: 'none'
                         }}>
-                        {lang === 'node' ? 'Node.js' : lang}
+                        {lang === 'curl' ? 'cURL / REST' : lang === 'node' ? 'Node.js' : lang}
                       </button>
                     );
                   })}
