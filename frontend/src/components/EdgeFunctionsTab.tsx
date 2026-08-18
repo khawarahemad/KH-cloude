@@ -404,6 +404,9 @@ export default function EdgeFunctionsTab() {
                     { color: '#818cf8', title: 'A. Database (SQLite)', code: `const res = await db.query(\n  'SELECT * FROM storage_buckets'\n);\n\nconst conn = db.connect('DB_ID');\nconst rows = await conn.query('SELECT * FROM users WHERE id = ?', [1]);` },
                     { color: '#34d399', title: 'B. Storage (S3)', code: `const file = await storage.getObject(\n  'bucket-name',\n  'uploads/avatar.png'\n);\n\nconst files = await storage.listObjects(\n  'bucket-name',\n  'uploads/'\n);` },
                     { color: '#fbbf24', title: 'C. External API', code: `const res = await fetch(\n  'https://api.github.com/users'\n);\nconst data = await res.json();` },
+                    { color: '#a78bfa', title: 'D. Backend Invocation (cURL)', code: `curl -X POST "${getInvokeUrl(activeFn)}?apikey=YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"body": {"hello": "world"}}'` },
+                    { color: '#60a5fa', title: 'E. Backend Invocation (Node.js)', code: `const res = await fetch("${getInvokeUrl(activeFn)}?apikey=YOUR_API_KEY", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ body: { hello: "world" } })\n});\nconst data = await res.json();` },
+                    { color: '#38bdf8', title: 'F. Backend Invocation (Python)', code: `import requests\nres = requests.post(\n  "${getInvokeUrl(activeFn)}",\n  params={"apikey": "YOUR_API_KEY"},\n  json={"body": {"hello": "world"}}\n)\nprint(res.json())` },
                   ].map(({ color, title, code: snippet }) => (
                     <div key={title}>
                       <div style={{ fontSize: '11px', fontWeight: 600, color, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</div>
