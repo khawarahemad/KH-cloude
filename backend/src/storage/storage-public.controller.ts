@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Param,
   Query,
   Headers,
   Req,
@@ -36,60 +35,71 @@ export class StoragePublicController {
     };
   }
 
-  // 1. Team-scoped URL: /:teamId/:bucketName/*
-  @Get(':teamId/:bucketName/*')
-  async serveTeamScopedObject(
-    @Param('teamId') teamId: string,
-    @Param('bucketName') bucketName: string,
+  @Get('*')
+  async serveObject(
     @Req() req: express.Request,
     @Res() res: express.Response,
     @Query('token') token?: string,
     @Query('apikey') queryApiKey?: string,
     @Headers() headers?: any,
   ) {
-    const key = (req.params as any)[0];
-    if (!key) throw new BadRequestException('Object key is required.');
-
-    const bucket = await this.prisma.bucket.findFirst({
-      where: {
-        OR: [
-          { teamId, name: bucketName },
-          { team: { slug: teamId }, name: bucketName },
-        ],
-      },
-    });
-
-    if (!bucket) {
-      throw new NotFoundException(`Bucket "${bucketName}" not found in workspace "${teamId}".`);
+    const rawPath = decodeURIComponent(req.path).replace(/^\/+|\/+$/g, '');
+    if (!rawPath) {
+      return this.root(req);
     }
 
-    return this.deliverObject(bucket, key, req, res, token, queryApiKey, headers);
-  }
+    const segments = rawPath.split('/');
+    if (segments.length < 2) {
+      throw new BadRequestException(
+        'Invalid storage path. Expected /:teamId/:bucketName/:key or /:bucketName/:key',
+      );
+    }
 
-  // 2. Direct bucket or legacy URL: /:bucketIdentifier/*
-  @Get(':bucketIdentifier/*')
-  async serveDirectObject(
-    @Param('bucketIdentifier') bucketIdentifier: string,
-    @Req() req: express.Request,
-    @Res() res: express.Response,
-    @Query('token') token?: string,
-    @Query('apikey') queryApiKey?: string,
-    @Headers() headers?: any,
-  ) {
-    const key = (req.params as any)[0];
-    if (!key) throw new BadRequestException('Object key is required.');
+    let bucket = null;
+    let key = '';
 
-    const bucket = await this.prisma.bucket.findFirst({
-      where: {
-        OR: [
-          { id: bucketIdentifier },
-          { name: bucketIdentifier },
-        ],
-      },
-    });
+    // 1. Try matching segments[0] as teamId/slug AND segments[1] as bucketName
+    if (segments.length >= 3) {
+      const teamIdOrSlug = segments[0];
+      const candidateBucketName = segments[1];
+
+      bucket = await this.prisma.bucket.findFirst({
+        where: {
+          OR: [
+            { teamId: teamIdOrSlug, name: candidateBucketName },
+            { team: { slug: teamIdOrSlug }, name: candidateBucketName },
+          ],
+        },
+      });
+
+      if (bucket) {
+        key = segments.slice(2).join('/');
+      }
+    }
+
+    // 2. If not matched, try matching segments[0] as direct bucketName or bucketId
+    if (!bucket) {
+      const bucketIdentifier = segments[0];
+      bucket = await this.prisma.bucket.findFirst({
+        where: {
+          OR: [
+            { id: bucketIdentifier },
+            { name: bucketIdentifier },
+          ],
+        },
+      });
+
+      if (bucket) {
+        key = segments.slice(1).join('/');
+      }
+    }
 
     if (!bucket) {
-      throw new NotFoundException(`Bucket "${bucketIdentifier}" not found.`);
+      throw new NotFoundException(`Storage bucket not found for path: /${rawPath}`);
+    }
+
+    if (!key) {
+      throw new BadRequestException('Object key is required.');
     }
 
     return this.deliverObject(bucket, key, req, res, token, queryApiKey, headers);

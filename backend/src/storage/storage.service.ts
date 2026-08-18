@@ -77,8 +77,8 @@ export class StorageService {
     }
 
     // Check if bucket exists for this team
-    const existing = await this.prisma.bucket.findUnique({
-      where: { teamId_name: { teamId, name } },
+    const existing = await this.prisma.bucket.findFirst({
+      where: { teamId, name },
     });
     if (existing) {
       throw new BadRequestException('A bucket with this name already exists in your workspace.');
