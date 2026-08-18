@@ -252,8 +252,8 @@ export default function DatabasesTab() {
 
   if (activeDb) {
     return (
-      <div className="rw-page">
-        <div style={{ backgroundColor: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+      <div className="rw-page" style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ backgroundColor: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <button
               onClick={() => { setActiveDb(null); setActiveTable(null); }}
@@ -296,9 +296,9 @@ export default function DatabasesTab() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: 'calc(100vh - 160px)', backgroundColor: '#090a0d' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', flex: 1, minHeight: 0, height: 'calc(100% - 65px)', backgroundColor: '#090a0d', overflow: 'hidden' }}>
           
-          <div style={{ borderRight: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#0e1015', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ borderRight: '1px solid rgba(255,255,255,0.06)', backgroundColor: '#0e1015', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', minHeight: 0, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563' }}>Tables</span>
               <button
@@ -342,10 +342,10 @@ export default function DatabasesTab() {
             </div>
           </div>
 
-          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflowY: 'auto', overflowX: 'auto', flex: 1 }}>
             
             {dbView === 'table-editor' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, minHeight: 0 }}>
                 {!activeTable ? (
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px' }}>
                     <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', marginBottom: '16px' }}>
@@ -358,8 +358,8 @@ export default function DatabasesTab() {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', gap: '12px', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                         <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', fontFamily: 'monospace' }}>{activeTable}</span>
                         {tableSchema && <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 600, backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontFamily: 'monospace' }}>PK: {tableSchema.primaryKey}</span>}
@@ -393,7 +393,7 @@ export default function DatabasesTab() {
                       </div>
                     </div>
 
-                    <div style={{ overflowX: 'auto', maxHeight: '480px' }}>
+                    <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, minHeight: '260px', maxHeight: 'calc(100vh - 340px)' }}>
                       {tableLoading ? (
                         <div style={{ padding: '64px', textAlign: 'center', color: '#6b7280', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                           <Loader2 className="animate-spin text-violet-400" size={16} /> Loading data rows...
@@ -401,12 +401,12 @@ export default function DatabasesTab() {
                       ) : tableColumns.length === 0 ? (
                         <div style={{ padding: '48px', textAlign: 'center', color: '#4b5563', fontSize: '12px' }}>This table is empty. Click "New Row" to insert a record.</div>
                       ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-                          <thead>
-                            <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                              <th style={{ width: '70px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Actions</th>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#111318' }}>
+                            <tr style={{ backgroundColor: '#111318', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                              <th style={{ width: '70px', padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563', position: 'sticky', top: 0, backgroundColor: '#111318', zIndex: 11 }}>Actions</th>
                               {tableColumns.map(col => (
-                                <th key={col} style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: '11px', color: '#8a929e', borderRight: '1px solid rgba(255,255,255,0.03)' }}>
+                                <th key={col} style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: '11px', color: '#8a929e', borderRight: '1px solid rgba(255,255,255,0.03)', position: 'sticky', top: 0, backgroundColor: '#111318', zIndex: 11 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     {tableSchema?.columns.find(c => c.name === col)?.pk && <span style={{ fontSize: '10px' }}>🔑</span>}
                                     <span>{col}</span>
@@ -478,7 +478,7 @@ export default function DatabasesTab() {
                                           type="text"
                                           value={editingRowData[col] ?? ''}
                                           onChange={e => setEditingRowData({ ...editingRowData, [col]: e.target.value })}
-                                          style={{ width: '100%', height: '24px', padding: '0 6px', borderRadius: '4px', backgroundColor: '#0e1015', border: '1px solid rgba(124,58,237,0.3)', color: '#fff', fontSize: '11px', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+                                          style={{ width: '100%', height: '24px', padding: '0 6px', borderRadius: '4px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '11px', fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
                                         />
                                       ) : (
                                         <span>{row[col] === null ? <em style={{ color: '#4b5563' }}>null</em> : String(row[col])}</span>
@@ -492,6 +492,26 @@ export default function DatabasesTab() {
                         </table>
                       )}
                     </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: '11px', color: '#6b7280', flexShrink: 0 }}>
+                      <span>Showing {tableRows.length} of {tableTotal} records</span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          disabled={tablePage === 1 || tableLoading}
+                          onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                          style={{ height: '24px', padding: '0 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', opacity: tablePage === 1 ? 0.4 : 1 }}
+                        >
+                          <ChevronLeft size={10} /> Prev
+                        </button>
+                        <button
+                          disabled={tableRows.length < 50 || tableLoading}
+                          onClick={() => setTablePage(p => p + 1)}
+                          style={{ height: '24px', padding: '0 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', opacity: tableRows.length < 50 ? 0.4 : 1 }}
+                        >
+                          Next <ChevronRight size={10} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -502,7 +522,7 @@ export default function DatabasesTab() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>SQL Query Console</div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Execute database commands directly. Auto-commits changes.</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Execute direct SQL statements against this database instance.</div>
                   </div>
                   <button
                     onClick={() => handleExecuteQuery()}
@@ -534,12 +554,12 @@ export default function DatabasesTab() {
                       Query returned {queryResult.length || 0} rows
                     </div>
                     {queryResult.length > 0 && (
-                      <div style={{ overflowX: 'auto', maxHeight: '280px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px' }}>
-                          <thead>
-                            <tr style={{ backgroundColor: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '420px', width: '100%' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#111318' }}>
+                            <tr style={{ backgroundColor: '#111318', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                               {Object.keys(queryResult[0]).map(key => (
-                                <th key={key} style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#8a929e', fontWeight: 600 }}>{key}</th>
+                                <th key={key} style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#8a929e', fontWeight: 600, position: 'sticky', top: 0, backgroundColor: '#111318', zIndex: 11 }}>{key}</th>
                               ))}
                             </tr>
                           </thead>
