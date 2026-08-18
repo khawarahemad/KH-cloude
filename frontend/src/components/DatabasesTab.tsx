@@ -607,7 +607,7 @@ curl -X POST "https://api.khawarahemad.com/api/databases/${activeDb.id}/query" \
   -H "Content-Type: application/json" \\
   -H "apikey: YOUR_TEAM_API_KEY" \\
   -d '{
-    "teamId": "${activeTeam.id}",
+    "teamId": "${activeTeam?.id || 'YOUR_TEAM_ID'}",
     "sql": "SELECT * FROM users LIMIT 10;"
   }'`}
                   </pre>
@@ -627,7 +627,7 @@ curl -X POST "https://api.khawarahemad.com/api/databases/${activeDb.id}/query" \
     'apikey': process.env.KH_CLOUD_API_KEY,
   },
   body: JSON.stringify({
-    teamId: '${activeTeam.id}',
+    teamId: '${activeTeam?.id || 'YOUR_TEAM_ID'}',
     sql: 'SELECT * FROM users WHERE active = 1',
   }),
 });
@@ -644,7 +644,7 @@ res = requests.post(
     'https://api.khawarahemad.com/api/databases/${activeDb.id}/query',
     headers={'apikey': os.getenv('KH_CLOUD_API_KEY')},
     json={
-        'teamId': '${activeTeam.id}',
+        'teamId': '${activeTeam?.id || 'YOUR_TEAM_ID'}',
         'sql': 'SELECT * FROM users LIMIT 5'
     }
 )
