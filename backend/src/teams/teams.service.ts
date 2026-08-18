@@ -175,7 +175,192 @@ export class TeamsService {
   async getInvites(teamId: string) {
     return this.prisma.invite.findMany({
       where: { teamId, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async getUserPendingInvites(userEmail: string) {
+    if (!userEmail) return [];
+    return this.prisma.invite.findMany({
+      where: {
+        email: userEmail.toLowerCase().trim(),
+        status: 'PENDING',
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        team: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async acceptInvite(inviteId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found.');
+
+    const invite = await this.prisma.invite.findFirst({
+      where: {
+        id: inviteId,
+        status: 'PENDING',
+        expiresAt: { gt: new Date() },
+      },
+      include: { team: true },
+    });
+
+    if (!invite) {
+      throw new BadRequestException('Invitation is invalid, expired, or already processed.');
+    }
+
+    if (user.email.toLowerCase().trim() !== invite.email.toLowerCase().trim()) {
+      throw new BadRequestException(`This invitation was sent to ${invite.email}. Your current account email is ${user.email}.`);
+    }
+
+    // Upsert or create team member
+    const existingMember = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: invite.teamId, userId: user.id } },
+    });
+
+    if (!existingMember) {
+      await this.prisma.teamMember.create({
+        data: {
+          teamId: invite.teamId,
+          userId: user.id,
+          role: invite.role,
+        },
+      });
+    }
+
+    // Mark invite as ACCEPTED
+    await this.prisma.invite.update({
+      where: { id: invite.id },
+      data: { status: 'ACCEPTED' },
+    });
+
+    // Create Audit Log
+    await this.prisma.auditLog.create({
+      data: {
+        teamId: invite.teamId,
+        userId: user.id,
+        action: 'TEAM.ACCEPT_INVITE',
+        targetType: 'TEAM',
+        details: JSON.stringify({ email: user.email, role: invite.role }),
+      },
+    });
+
+    // Return the updated list of teams for this user
+    const userTeams = await this.getTeams(user.id);
+    return { success: true, team: invite.team, teams: userTeams };
+  }
+
+  async rejectInvite(inviteId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found.');
+
+    const invite = await this.prisma.invite.findFirst({
+      where: {
+        id: inviteId,
+        status: 'PENDING',
+      },
+    });
+
+    if (!invite) throw new NotFoundException('Invitation not found.');
+
+    if (user.email.toLowerCase().trim() !== invite.email.toLowerCase().trim()) {
+      throw new BadRequestException('Unauthorized to decline this invitation.');
+    }
+
+    await this.prisma.invite.update({
+      where: { id: invite.id },
+      data: { status: 'REJECTED' },
+    });
+
+    return { success: true };
+  }
+
+  async updateMemberRole(teamId: string, targetUserId: string, newRole: TeamRole, actorUserId: string) {
+    const actorMember = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId: actorUserId } },
+    });
+    if (!actorMember || (actorMember.role !== 'OWNER' && actorMember.role !== 'ADMIN')) {
+      throw new BadRequestException('Only Team Owners or Admins can update member roles.');
+    }
+
+    const targetMember = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId: targetUserId } },
+    });
+    if (!targetMember) throw new NotFoundException('Member not found in this team.');
+
+    if (targetMember.role === 'OWNER' && newRole !== 'OWNER' && actorMember.role !== 'OWNER') {
+      throw new BadRequestException('Only the team Owner can change Owner permissions.');
+    }
+
+    const updated = await this.prisma.teamMember.update({
+      where: { teamId_userId: { teamId, userId: targetUserId } },
+      data: { role: newRole },
+      include: { user: true },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        teamId,
+        userId: actorUserId,
+        action: 'TEAM.UPDATE_ROLE',
+        targetType: 'TEAM_MEMBER',
+        targetId: targetUserId,
+        details: JSON.stringify({ oldRole: targetMember.role, newRole }),
+      },
+    });
+
+    return updated;
+  }
+
+  async removeMember(teamId: string, targetUserId: string, actorUserId: string) {
+    const actorMember = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId: actorUserId } },
+    });
+    if (!actorMember) throw new BadRequestException('Unauthorized.');
+
+    const isSelf = targetUserId === actorUserId;
+
+    if (!isSelf && actorMember.role !== 'OWNER' && actorMember.role !== 'ADMIN') {
+      throw new BadRequestException('Only Team Owners or Admins can remove team members.');
+    }
+
+    const targetMember = await this.prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId: targetUserId } },
+    });
+    if (!targetMember) throw new NotFoundException('Member not found in team.');
+
+    if (targetMember.role === 'OWNER') {
+      const ownerCount = await this.prisma.teamMember.count({
+        where: { teamId, role: 'OWNER' },
+      });
+      if (ownerCount <= 1) {
+        throw new BadRequestException('Cannot remove or leave as the sole Team Owner. Transfer ownership first or delete the team.');
+      }
+    }
+
+    await this.prisma.teamMember.delete({
+      where: { teamId_userId: { teamId, userId: targetUserId } },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        teamId,
+        userId: actorUserId,
+        action: isSelf ? 'TEAM.LEAVE' : 'TEAM.REMOVE_MEMBER',
+        targetType: 'TEAM_MEMBER',
+        targetId: targetUserId,
+      },
+    });
+
+    return { success: true };
   }
 
   async deleteInvite(id: string, teamId: string, userId: string) {

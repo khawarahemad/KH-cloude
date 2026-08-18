@@ -153,6 +153,24 @@ export class AppController {
     return this.teams.getMembers(teamId);
   }
 
+  @Put('teams/:teamId/members/:userId/role')
+  async updateMemberRole(
+    @Param('teamId') teamId: string,
+    @Param('userId') userId: string,
+    @Body() body: { role: TeamRole; actorUserId: string }
+  ) {
+    return this.teams.updateMemberRole(teamId, userId, body.role, body.actorUserId);
+  }
+
+  @Delete('teams/:teamId/members/:userId')
+  async removeMember(
+    @Param('teamId') teamId: string,
+    @Param('userId') userId: string,
+    @Query('actorUserId') actorUserId: string
+  ) {
+    return this.teams.removeMember(teamId, userId, actorUserId);
+  }
+
   @Post('teams/:teamId/invites')
   async inviteMember(
     @Param('teamId') teamId: string,
@@ -164,6 +182,27 @@ export class AppController {
   @Get('teams/:teamId/invites')
   async getInvites(@Param('teamId') teamId: string) {
     return this.teams.getInvites(teamId);
+  }
+
+  @Get('user/invites')
+  async getUserInvites(@Query('email') email: string) {
+    return this.teams.getUserPendingInvites(email);
+  }
+
+  @Post('teams/invites/:inviteId/accept')
+  async acceptInvite(
+    @Param('inviteId') inviteId: string,
+    @Body() body: { userId: string }
+  ) {
+    return this.teams.acceptInvite(inviteId, body.userId);
+  }
+
+  @Post('teams/invites/:inviteId/reject')
+  async rejectInvite(
+    @Param('inviteId') inviteId: string,
+    @Body() body: { userId: string }
+  ) {
+    return this.teams.rejectInvite(inviteId, body.userId);
   }
 
   @Delete('teams/:teamId/invites/:inviteId')
