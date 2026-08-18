@@ -68,12 +68,23 @@ export default async function handler({ req, env, storage, db }) {
     const fn = await this.prisma.edgeFunction.findFirst({ where: { id, teamId } });
     if (!fn) throw new NotFoundException('Edge function not found.');
 
+    let slug = fn.slug;
+    if (data.name && data.name !== fn.name) {
+      slug = data.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 40);
+      const existing = await this.prisma.edgeFunction.findFirst({
+        where: { teamId, slug, id: { not: id } },
+      });
+      if (existing) {
+        throw new BadRequestException(`An edge function with slug "${slug}" already exists in this team.`);
+      }
+    }
+
     return this.prisma.edgeFunction.update({
       where: { id },
       data: {
         ...(data.code !== undefined && { code: data.code }),
         ...(data.envVars !== undefined && { envVars: data.envVars }),
-        ...(data.name !== undefined && { name: data.name }),
+        ...(data.name !== undefined && { name: data.name, slug }),
       },
     });
   }

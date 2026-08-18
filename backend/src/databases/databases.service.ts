@@ -13,7 +13,17 @@ export class DatabasesService {
     teamId: string;
     projectId?: string;
   }) {
-    const host = `${data.name.toLowerCase().replace(/[^a-z0-9]/g, '')}-${data.type.toLowerCase()}.db.khawarahemad.com`;
+    // Check if database with this name already exists in this team
+    const existing = await this.prisma.databaseInstance.findFirst({
+      where: { teamId: data.teamId, name: data.name },
+    });
+    if (existing) {
+      throw new BadRequestException(`A database named "${data.name}" already exists in your team workspace.`);
+    }
+
+    const teamPrefix = data.teamId ? data.teamId.substring(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '') : 'kh';
+    const cleanDbName = data.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const host = `${cleanDbName}-${teamPrefix}-${data.type.toLowerCase()}.db.khawarahemad.com`;
     const port = data.type === 'POSTGRESQL' ? 5432 : data.type === 'REDIS' ? 6379 : 3306;
     const username = data.type === 'REDIS' ? undefined : 'khclouduser';
     const password = Math.random().toString(36).substring(2, 16);
