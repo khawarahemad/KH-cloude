@@ -239,20 +239,25 @@ export default function StorageTab() {
     const teamId = activeTeam?.id || 'TEAM_ID';
     const s3Endpoint = 'https://storage.khawarahemad.com';
     const apiBase = getUploadApiBase();
-    const accessKey = `kh_acc_${activeBucket?.id?.substring(0, 8)}`;
-    const secretKey = `kh_sec_${activeBucket?.id?.substring(8, 20)}`;
+    const cleanId = (activeBucket?.id || 'bucket123').replace(/[^a-zA-Z0-9]/g, '');
+    const accessKey = `kh_acc_${cleanId.substring(0, 12)}`;
+    const secretKey = `kh_sec_${cleanId.substring(12, 32) || '9f8e7d6c5b4a312'}`;
 
     if (sdkLanguage === 'curl') {
       if (activeBucket?.isPublic) {
-        return `# 1. Download public file directly:\ncurl https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -F "file=@avatar.png"`;
+        return `# 1. Download public file directly:\ncurl https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
       } else {
-        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_API_KEY" \\\n  https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_API_KEY" \\\n  -F "file=@avatar.png"`;
+        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_TEAM_API_KEY" \\\n  https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
       }
     }
-    if (sdkLanguage === 'node') return `import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";\n\nconst s3 = new S3Client({\n  endpoint: "${s3Endpoint}",\n  region: "us-east-1",\n  credentials: {\n    accessKeyId: "${accessKey}",\n    secretAccessKey: "${secretKey}",\n  },\n  forcePathStyle: true,\n});\n\nawait s3.send(new PutObjectCommand({\n  Bucket: "${bName}",\n  Key: "images/avatar.png",\n  Body: fileBuffer,\n  ContentType: "image/png",\n}));`;
-    if (sdkLanguage === 'python') return `import boto3\n\ns3 = boto3.client(\n    's3',\n    endpoint_url='${s3Endpoint}',\n    aws_access_key_id='${accessKey}',\n    aws_secret_access_key='${secretKey}',\n    region_name='us-east-1'\n)\n\ns3.upload_file('avatar.png', '${bName}', 'images/avatar.png')`;
-    if (sdkLanguage === 'go') return `cfg, _ := config.LoadDefaultConfig(context.TODO())\nclient := s3.NewFromConfig(cfg, func(o *s3.Options) {\n\to.BaseEndpoint = aws.String("${s3Endpoint}")\n\to.UsePathStyle = true\n})\n\nclient.PutObject(context.TODO(), &s3.PutObjectInput{\n\tBucket: aws.String("${bName}"),\n\tKey:    aws.String("images/avatar.png"),\n\tBody:   fileReader,\n})`;
-    return `let config = s3::config::Builder::new()\n    .endpoint_url("${s3Endpoint}")\n    .build();\n\nlet client = s3::Client::from_conf(config);\n\nclient.put_object()\n    .bucket("${bName}")\n    .key("images/avatar.png")\n    .body(ByteStream::from(bytes))\n    .send().await?;`;
+    if (sdkLanguage === 'node') {
+      return `// Node.js (Fetch / REST API)\nconst fs = require('fs');\nconst FormData = require('form-data');\n\n// 1. Upload File\nconst form = new FormData();\nform.append('file', fs.createReadStream('./avatar.png'));\n\nawait fetch('${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}', {\n  method: 'POST',\n  headers: {\n    'apikey': process.env.KH_CLOUD_API_KEY,\n    ...form.getHeaders(),\n  },\n  body: form,\n});\n\n// 2. Download File\nconst res = await fetch('https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png', {\n  headers: { 'apikey': process.env.KH_CLOUD_API_KEY },\n});\nconst fileBuffer = Buffer.from(await res.arrayBuffer());`;
+    }
+    if (sdkLanguage === 'python') {
+      return `# Python (Requests / REST API)\nimport requests, os\n\nAPI_KEY = os.getenv('KH_CLOUD_API_KEY')\n\n# 1. Upload File\nwith open('avatar.png', 'rb') as f:\n    res = requests.post(\n        '${apiBase}/storage/buckets/${activeBucket?.id}/upload',\n        params={'key': 'avatar.png', 'teamId': '${teamId}'},\n        headers={'apikey': API_KEY},\n        files={'file': f}\n    )\nprint('Uploaded:', res.json())\n\n# 2. Download File\nres = requests.get(\n    'https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png',\n    headers={'apikey': API_KEY}\n)\nwith open('downloaded.png', 'wb') as f:\n    f.write(res.content)`;
+    }
+    if (sdkLanguage === 'go') return `// Go S3 SDK Client\ncfg, _ := config.LoadDefaultConfig(context.TODO())\nclient := s3.NewFromConfig(cfg, func(o *s3.Options) {\n\to.BaseEndpoint = aws.String("${s3Endpoint}")\n\to.UsePathStyle = true\n})\n\nclient.PutObject(context.TODO(), &s3.PutObjectInput{\n\tBucket: aws.String("${bName}"),\n\tKey:    aws.String("images/avatar.png"),\n\tBody:   fileReader,\n})`;
+    return `// Rust S3 Client\nlet config = s3::config::Builder::new()\n    .endpoint_url("${s3Endpoint}")\n    .build();\n\nlet client = s3::Client::from_conf(config);\n\nclient.put_object()\n    .bucket("${bName}")\n    .key("images/avatar.png")\n    .body(ByteStream::from(bytes))\n    .send().await?;`;
   };
 
   const displayItems = getDisplayItems();

@@ -616,9 +616,11 @@ curl -X POST "https://api.khawarahemad.com/api/databases/${activeDb.id}/query" \
                 {/* Node.js / Python ORM & Client code */}
                 <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>Backend Integration Snippets</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    
+                    {/* HTTP REST Query */}
                     <div>
-                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#818cf8' }}>Node.js / TypeScript (Fetch Query)</span>
+                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#818cf8' }}>Node.js / TypeScript (Fetch REST Query)</span>
                       <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
 {`const response = await fetch('https://api.khawarahemad.com/api/databases/${activeDb.id}/query', {
   method: 'POST',
@@ -635,8 +637,24 @@ const { rows } = await response.json();`}
                       </pre>
                     </div>
 
+                    {/* Prisma ORM */}
                     <div>
-                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#38bdf8' }}>Python (Requests)</span>
+                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#a78bfa' }}>Prisma ORM (schema.prisma & .env)</span>
+                      <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
+{`// .env
+DATABASE_URL="${getConnectionString(activeDb)}"
+
+// prisma/schema.prisma
+datasource db {
+  provider = "${activeDb.type.toLowerCase() === 'mysql' ? 'mysql' : 'postgresql'}"
+  url      = env("DATABASE_URL")
+}`}
+                      </pre>
+                    </div>
+
+                    {/* Python Requests */}
+                    <div>
+                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#38bdf8' }}>Python (Requests REST Query)</span>
                       <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
 {`import requests, os
 
@@ -651,6 +669,20 @@ res = requests.post(
 data = res.json()`}
                       </pre>
                     </div>
+
+                    {/* Python SQLAlchemy / psycopg2 */}
+                    <div>
+                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#34d399' }}>Python (SQLAlchemy Engine)</span>
+                      <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
+{`from sqlalchemy import create_engine
+
+# Connect via standard DB URI
+engine = create_engine("${getConnectionString(activeDb)}")
+with engine.connect() as conn:
+    result = conn.execute("SELECT 1")`}
+                      </pre>
+                    </div>
+
                   </div>
                 </div>
               </div>
