@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
+import { StoragePublicController } from './storage/storage-public.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { StorageService } from './storage/storage.service';
@@ -16,7 +17,7 @@ import { DDoSModule } from './guards/ddos.module';
     PrismaModule,
     DDoSModule, // 🛡️ Global DDoS protection — registers APP_GUARD across all routes
   ],
-  controllers: [AppController],
+  controllers: [AppController, StoragePublicController],
   providers: [
     AppService,
     StorageService,

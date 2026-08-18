@@ -286,16 +286,34 @@ export class DatabasesService {
     return { client: new Database(dbPath), dbPath };
   }
 
+  private validateIdentifier(name: string, label = 'Identifier') {
+    if (!name || typeof name !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(name)) {
+      throw new BadRequestException(`Invalid ${label} "${name}". Only alphanumeric characters and underscores are allowed (1-64 chars).`);
+    }
+    return `"${name.replace(/"/g, '""')}"`;
+  }
+
+  private sanitizeFilter(filter: string): string {
+    if (!filter || !filter.trim()) return '';
+    const trimmed = filter.trim();
+    // Block stacked queries, semicolons, comments, and dangerous DDL / admin keywords
+    if (/;|--|\/\*|\*\/|\b(DROP|ALTER|ATTACH|DETACH|VACUUM|REINDEX|PRAGMA)\b/i.test(trimmed)) {
+      throw new BadRequestException('Unsafe SQL filter expression. Semicolons, comments, and DDL commands are prohibited.');
+    }
+    return `WHERE ${trimmed}`;
+  }
+
   async getTableSchema(dbId: string, teamId: string, tableName: string) {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    const safeTable = this.validateIdentifier(tableName, 'table name');
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
     try {
-      const cols = client.prepare(`PRAGMA table_info(${tableName});`).all();
-      const pkCols = client.prepare(`PRAGMA table_info(${tableName});`).all()
+      const cols = client.prepare(`PRAGMA table_info(${safeTable});`).all();
+      const pkCols = cols
         .filter((c: any) => c.pk > 0)
         .map((c: any) => c.name);
       return {
@@ -318,14 +336,15 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    const safeTable = this.validateIdentifier(tableName, 'table name');
+    const whereClause = this.sanitizeFilter(filter);
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
     try {
       const offset = (page - 1) * pageSize;
-      const whereClause = filter ? `WHERE ${filter}` : '';
-      const rows = client.prepare(`SELECT * FROM ${tableName} ${whereClause} LIMIT ? OFFSET ?`).all(pageSize, offset);
-      const total = (client.prepare(`SELECT COUNT(*) as cnt FROM ${tableName} ${whereClause}`).get() as any).cnt;
+      const rows = client.prepare(`SELECT * FROM ${safeTable} ${whereClause} LIMIT ? OFFSET ?`).all(pageSize, offset);
+      const total = (client.prepare(`SELECT COUNT(*) as cnt FROM ${safeTable} ${whereClause}`).get() as any).cnt;
       return {
         rows,
         columns: rows.length > 0 ? Object.keys(rows[0]) : [],
@@ -342,15 +361,17 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    const safeTable = this.validateIdentifier(tableName, 'table name');
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
     try {
       const keys = Object.keys(data).filter(k => data[k] !== undefined && data[k] !== '');
       if (keys.length === 0) throw new BadRequestException('No data provided for insert.');
+      const safeCols = keys.map(k => this.validateIdentifier(k, 'column name')).join(', ');
       const placeholders = keys.map(() => '?').join(', ');
       const values = keys.map(k => data[k]);
-      const info = client.prepare(`INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
+      const info = client.prepare(`INSERT INTO ${safeTable} (${safeCols}) VALUES (${placeholders})`).run(...values);
       return { success: true, lastInsertRowid: info.lastInsertRowid.toString() };
     } finally {
       client.close();
@@ -361,15 +382,17 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    const safeTable = this.validateIdentifier(tableName, 'table name');
+    const safePk = this.validateIdentifier(primaryKey, 'primary key');
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
     try {
       const keys = Object.keys(data).filter(k => k !== primaryKey);
       if (keys.length === 0) throw new BadRequestException('No fields to update.');
-      const setClauses = keys.map(k => `${k} = ?`).join(', ');
+      const setClauses = keys.map(k => `${this.validateIdentifier(k, 'column name')} = ?`).join(', ');
       const values = [...keys.map(k => data[k]), pkValue];
-      const info = client.prepare(`UPDATE ${tableName} SET ${setClauses} WHERE ${primaryKey} = ?`).run(...values);
+      const info = client.prepare(`UPDATE ${safeTable} SET ${setClauses} WHERE ${safePk} = ?`).run(...values);
       return { success: true, affectedRows: info.changes };
     } finally {
       client.close();
@@ -380,11 +403,13 @@ export class DatabasesService {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
+    const safeTable = this.validateIdentifier(tableName, 'table name');
+    const safePk = this.validateIdentifier(primaryKey, 'primary key');
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
     try {
-      const info = client.prepare(`DELETE FROM ${tableName} WHERE ${primaryKey} = ?`).run(pkValue);
+      const info = client.prepare(`DELETE FROM ${safeTable} WHERE ${safePk} = ?`).run(pkValue);
       return { success: true, affectedRows: info.changes };
     } finally {
       client.close();

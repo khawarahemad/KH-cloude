@@ -157,7 +157,7 @@ export default function StorageTab() {
     setPreviewFile(file);
     try {
       const res = await apiRequest(`/storage/buckets/${activeBucket.id}/presigned?key=${encodeURIComponent(file.key)}`);
-      setPreviewUrl(res.url.startsWith('/api') ? `${getUploadApiBase()}${res.url.replace('/api', '')}` : res.url);
+      setPreviewUrl(res.url);
     } catch { setPreviewUrl(''); }
   };
 
@@ -169,12 +169,14 @@ export default function StorageTab() {
 
   const handleCopyDirectLink = async (item: any) => {
     if (activeBucket.isPublic) {
-      handleCopy(`https://storage.khawarahemad.com/${activeBucket.name}/${item.key}`, item.key);
+      const base = typeof window !== 'undefined' && window.location.hostname.endsWith('khawarahemad.com')
+        ? 'https://storage.khawarahemad.com'
+        : 'http://localhost:5000';
+      handleCopy(`${base}/${activeBucket.name}/${item.key}`, item.key);
     } else {
       try {
         const res = await apiRequest(`/storage/buckets/${activeBucket.id}/presigned?key=${encodeURIComponent(item.key)}&expiresIn=86400`);
-        const fullUrl = res.url.startsWith('/api') ? `${getUploadApiBase().replace('/api', '')}${res.url}` : res.url;
-        handleCopy(fullUrl, item.key);
+        handleCopy(res.url, item.key);
       } catch {
         alert({ title: 'Error', message: 'Failed to generate presigned URL.', type: 'error' });
       }

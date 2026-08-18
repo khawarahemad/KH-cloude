@@ -267,8 +267,9 @@ export class StorageService implements OnModuleInit {
           Body: processedBuffer,
           ContentType: finalContentType,
         }));
-      } catch (err) {
+      } catch (err: any) {
         this.logger.error(`MinIO putObject error for ${key}:`, err);
+        throw new BadRequestException(`Storage cluster upload failed: ${err.message || 'Upload error'}`);
       }
     }
 
@@ -348,6 +349,13 @@ export class StorageService implements OnModuleInit {
     }
   }
 
+  async getFileByBucketName(bucketName: string, key: string) {
+    const bucket = await this.prisma.bucket.findUnique({ where: { name: bucketName } });
+    if (!bucket) throw new BadRequestException(`Bucket "${bucketName}" not found.`);
+    const buffer = await this.getFile(bucket.id, key);
+    return { bucket, buffer };
+  }
+
   async deleteFile(bucketId: string, key: string, teamId: string) {
     const bucket = await this.prisma.bucket.findUnique({ where: { id: bucketId } });
     if (!bucket) throw new BadRequestException('Bucket not found.');
@@ -425,15 +433,15 @@ export class StorageService implements OnModuleInit {
     const bucket = await this.prisma.bucket.findUnique({ where: { id: bucketId } });
     if (!bucket) throw new BadRequestException('Bucket not found.');
 
+    const host = process.env.NODE_ENV === 'production' ? 'https://storage.khawarahemad.com' : 'http://localhost:5000';
+
     if (bucket.isPublic) {
-      // Return public direct URL (in mock mode we expose an API endpoint that handles download)
-      return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}`;
+      return `${host}/${bucket.name}/${encodeURIComponent(key)}`;
     }
 
-    // For private buckets, ALWAYS proxy through our backend using a signed token
-    // This avoids exposing internal MinIO endpoints or dealing with CORS/Host signature mismatches
+    // For private buckets, generate secure signed URL with token
     const token = this.generateMockToken(bucketId, key);
-    return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}&token=${token}`;
+    return `${host}/${bucket.name}/${encodeURIComponent(key)}?token=${token}`;
   }
 
   generateMockToken(bucketId: string, key: string): string {

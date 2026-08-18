@@ -1,12 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DatabasesService } from '../databases/databases.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class EdgeFunctionsService {
   constructor(
     private prisma: PrismaService,
     private databases: DatabasesService,
+    private storage: StorageService,
   ) {}
 
   async getFunctions(teamId: string) {
@@ -35,8 +37,8 @@ export class EdgeFunctionsService {
         code: `// KH Cloud Edge Function: ${data.name}
 // Available context: { req, env, storage, db }
 // env = your defined environment variables
-// storage = S3-compatible client helpers
-// db = Secure database query runner helper
+// storage = S3-compatible client helpers (getObject, listObjects, getUrl)
+// db = Secure database query runner helper (query, connect)
 
 export default async function handler({ req, env, storage, db }) {
   const { method, path, query, body, headers } = req;
@@ -109,71 +111,86 @@ export default async function handler({ req, env, storage, db }) {
     try {
       // Create isolated sandbox context using Node.js vm module
       const vm = require('vm');
-      const https = require('https');
 
-      // Build a sandboxed fetch implementation using Node.js https
+      // Build a sandboxed fetch implementation using Node.js http/https
       const sandboxFetch = (url: string, opts?: any) => {
         return new Promise<any>((resolve) => {
-          const mod = require(url.startsWith('https') ? 'https' : 'http');
-          const options = {
-            ...opts,
-            headers: { 'Content-Type': 'application/json', ...(opts?.headers || {}) },
-          };
-          const req = mod.request(url, options, (res: any) => {
-            let data = '';
-            res.on('data', (d: any) => (data += d));
-            res.on('end', () => {
-              resolve({
-                ok: res.statusCode < 400,
-                status: res.statusCode,
-                json: () => Promise.resolve(JSON.parse(data)),
-                text: () => Promise.resolve(data),
+          try {
+            const mod = require(url.startsWith('https') ? 'https' : 'http');
+            const options = {
+              ...opts,
+              headers: { 'Content-Type': 'application/json', ...(opts?.headers || {}) },
+            };
+            const req = mod.request(url, options, (res: any) => {
+              let data = '';
+              res.on('data', (d: any) => (data += d));
+              res.on('end', () => {
+                resolve({
+                  ok: res.statusCode < 400,
+                  status: res.statusCode,
+                  json: () => Promise.resolve(JSON.parse(data)),
+                  text: () => Promise.resolve(data),
+                });
               });
             });
-          });
-          req.on('error', (err: any) => resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: err.message }) }));
-          if (opts?.body) req.write(typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
-          req.end();
+            req.on('error', (err: any) => resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: err.message }) }));
+            if (opts?.body) req.write(typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
+            req.end();
+          } catch (e: any) {
+            resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: e.message }) });
+          }
         });
       };
 
-      // Storage helper — wraps S3 bucket API
+      // Direct in-process storage helper — ultra fast, no network latency
       const storageHelper = {
         getObject: async (bucketName: string, key: string) => {
-          const res = await sandboxFetch(
-            `https://api.khawarahemad.com/api/storage/buckets/${bucketName}/presigned?key=${encodeURIComponent(key)}`,
-          );
-          const data = await res.json();
-          return data;
+          try {
+            const { bucket, buffer } = await this.storage.getFileByBucketName(bucketName, key);
+            return {
+              ok: true,
+              bucket: bucket.name,
+              key,
+              size: buffer.length,
+              text: () => buffer.toString('utf-8'),
+              json: () => JSON.parse(buffer.toString('utf-8')),
+            };
+          } catch (err: any) {
+            return { ok: false, error: err.message };
+          }
         },
         listObjects: async (bucketName: string, prefix?: string) => {
-          const res = await sandboxFetch(
-            `https://api.khawarahemad.com/api/storage/buckets/${bucketName}/files?prefix=${prefix || ''}`,
-          );
-          return res.json();
+          const bucket = await this.prisma.bucket.findUnique({ where: { name: bucketName } });
+          if (!bucket) return [];
+          return this.storage.listFiles(bucket.id, prefix || '');
+        },
+        getUrl: async (bucketName: string, key: string) => {
+          const bucket = await this.prisma.bucket.findUnique({ where: { name: bucketName } });
+          if (!bucket) return null;
+          return this.storage.generatePresignedUrl(bucket.id, key);
         },
       };
 
-      // Database helper - wraps DatabasesService and exposes secure queries restricted to team databases
+      // Database helper - wraps DatabasesService with direct query access
       const dbHelper = {
-        query: async (sql: string, params: any[] = []) => {
+        query: async (sql: string) => {
           const runningDb = await this.prisma.databaseInstance.findFirst({
-            where: { teamId, status: 'RUNNING' }
+            where: { teamId, status: 'RUNNING' },
           });
           if (!runningDb) throw new Error('No running database instance found for this team.');
           return this.databases.runQuery(runningDb.id, teamId, sql);
         },
         connect: (dbId: string) => {
           return {
-            query: async (sql: string, params: any[] = []) => {
+            query: async (sql: string) => {
               const targetDb = await this.prisma.databaseInstance.findFirst({
-                where: { id: dbId, teamId }
+                where: { id: dbId, teamId },
               });
               if (!targetDb) throw new Error('Unauthorized or database not found.');
               return this.databases.runQuery(dbId, teamId, sql);
-            }
+            },
           };
-        }
+        },
       };
 
       // Sandbox request context
@@ -185,15 +202,28 @@ export default async function handler({ req, env, storage, db }) {
         headers: payload.headers || {},
       };
 
-      // Wrap user code so it can use ES-module-like default export
+      // Wrap user code so it safely exposes handler
+      let transformedCode = fn.code.trim();
+      if (/export\s+default\s+/.test(transformedCode)) {
+        transformedCode = transformedCode.replace(/export\s+default\s+/, 'const __handler = ');
+      } else if (/module\.exports\s*=/.test(transformedCode)) {
+        transformedCode = transformedCode.replace(/module\.exports\s*=/, 'const __handler = ');
+      } else {
+        transformedCode = `const __handler = (${transformedCode});`;
+      }
+
       const wrappedCode = `
-        ${fn.code.replace(/export\s+default\s+/, 'const __handler = ')}
+        "use strict";
+        ${transformedCode}
+        if (typeof __handler !== 'function') {
+          throw new Error('Edge function must export a default function handler.');
+        }
         __handler({ req: __req, env: __env, storage: __storage, db: __db });
       `;
 
       const sandbox = vm.createContext({
         __req: requestContext,
-        __env: envVars,
+        __env: Object.freeze({ ...envVars }),
         __storage: storageHelper,
         __db: dbHelper,
         fetch: sandboxFetch,
@@ -214,6 +244,10 @@ export default async function handler({ req, env, storage, db }) {
         Number,
         Boolean,
         Error,
+        Buffer: {
+          from: Buffer.from,
+          isBuffer: Buffer.isBuffer,
+        },
         undefined,
         null: null,
       });

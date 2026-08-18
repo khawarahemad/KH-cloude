@@ -128,8 +128,8 @@ services:
       - "traefik.http.middlewares.api-rate.ratelimit.burst=50"
       - "traefik.http.middlewares.api-rate.ratelimit.period=1s"
       - "traefik.http.middlewares.api-rate.ratelimit.sourcecriterion.ipstrategy.depth=1"
-      # API routing (api.khawarahemad.com)
-      - "traefik.http.routers.backend.rule=Host(`api.khawarahemad.com`)"
+      # API and Storage routing (api.khawarahemad.com and storage.khawarahemad.com)
+      - "traefik.http.routers.backend.rule=Host(`api.khawarahemad.com`) || Host(`storage.khawarahemad.com`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.backend.middlewares=api-rate"

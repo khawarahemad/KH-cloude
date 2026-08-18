@@ -11,6 +11,7 @@ const PRODUCTION_ORIGINS = [
   'https://auth.khawarahemad.com',
   'https://cdn.khawarahemad.com',
   'https://admin.khawarahemad.com',
+  'https://storage.khawarahemad.com',
 ];
 
 const DEV_ORIGINS = [
