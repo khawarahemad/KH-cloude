@@ -2170,6 +2170,46 @@ export class AppController {
     return this.databases.runQuery(id, db.teamId, body.sql);
   }
 
+  @Post('databases/:teamIdOrSlug/:dbName/query')
+  async runRawQueryBySlug(
+    @Param('teamIdOrSlug') teamIdOrSlug: string,
+    @Param('dbName') dbName: string,
+    @Headers() headers: Record<string, string>,
+    @Query('apikey') queryApiKey: string,
+    @Body() body: { sql: string }
+  ) {
+    const db = await this.prisma.databaseInstance.findFirst({
+      where: {
+        OR: [
+          { teamId: teamIdOrSlug, name: dbName },
+          { team: { slug: teamIdOrSlug }, name: dbName },
+        ],
+      },
+    });
+    if (!db) throw new NotFoundException('Database not found.');
+
+    let passedKey = queryApiKey || headers['apikey'] || headers['x-api-key'];
+    if (!passedKey && headers['authorization']) {
+      const parts = headers['authorization'].split(/\s+/);
+      if (parts[0]?.toLowerCase() === 'bearer') {
+        passedKey = parts[1];
+      }
+    }
+
+    if (!passedKey) {
+      throw new BadRequestException('API key required. Provide apikey header or Authorization bearer token.');
+    }
+
+    const keyMatch = await this.prisma.apiKey.findFirst({
+      where: { teamId: db.teamId, key: passedKey },
+    });
+    if (!keyMatch) {
+      throw new BadRequestException('Invalid API Key.');
+    }
+
+    return this.databases.runQuery(db.id, db.teamId, body.sql);
+  }
+
   // --- EDGE FUNCTIONS ENDPOINTS ---
 
   @Get('edge-functions')
@@ -2230,6 +2270,48 @@ export class AppController {
     }
 
     return this.edgeFunctions.invokeFunction(id, fn.teamId, body);
+  }
+
+  @Post('edge-functions/:teamIdOrSlug/:slug/invoke')
+  async invokeEdgeFunctionBySlug(
+    @Param('teamIdOrSlug') teamIdOrSlug: string,
+    @Param('slug') slug: string,
+    @Headers() headers: Record<string, string>,
+    @Query('apikey') queryApiKey: string,
+    @Body() body: { method?: string; path?: string; query?: any; body?: any; headers?: any }
+  ) {
+    const fn = await this.prisma.edgeFunction.findFirst({
+      where: {
+        OR: [
+          { teamId: teamIdOrSlug, slug },
+          { teamId: teamIdOrSlug, name: slug },
+          { team: { slug: teamIdOrSlug }, slug },
+          { team: { slug: teamIdOrSlug }, name: slug },
+        ],
+      },
+    });
+    if (!fn) throw new NotFoundException('Edge function not found.');
+
+    let passedKey = queryApiKey || headers['apikey'] || headers['x-api-key'];
+    if (!passedKey && headers['authorization']) {
+      const parts = headers['authorization'].split(/\s+/);
+      if (parts[0]?.toLowerCase() === 'bearer') {
+        passedKey = parts[1];
+      }
+    }
+
+    if (!passedKey) {
+      throw new BadRequestException('API key required. Provide apikey header or Authorization bearer token.');
+    }
+
+    const keyMatch = await this.prisma.apiKey.findFirst({
+      where: { teamId: fn.teamId, key: passedKey },
+    });
+    if (!keyMatch) {
+      throw new BadRequestException('Invalid API Key.');
+    }
+
+    return this.edgeFunctions.invokeFunction(fn.id, fn.teamId, body);
   }
 }
 
