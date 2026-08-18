@@ -438,16 +438,23 @@ export class AppController {
       }
     }
 
-    const fileBuffer = await this.storage.getFile(id, key);
-    
-    // Attempt to guess Content-Type from metadata
-    const meta = await this.prisma.objectMetadata.findFirst({
-      where: { bucketId: id, key },
-    });
-    
-    res.setHeader('Content-Type', meta?.contentType || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${pathName(key)}"`);
-    return res.send(fileBuffer);
+    try {
+      const fileBuffer = await this.storage.getFile(id, key);
+      
+      // Attempt to guess Content-Type from metadata
+      const meta = await this.prisma.objectMetadata.findFirst({
+        where: { bucketId: id, key },
+      });
+      
+      res.setHeader('Content-Type', meta?.contentType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${pathName(key)}"`);
+      return res.send(fileBuffer);
+    } catch (err: any) {
+      if (err.name === 'AccessDenied' || err.message?.includes('AccessDenied')) {
+        throw new BadRequestException(`Cloud Storage Error: Access Denied to backend. Please check MinIO credentials.`);
+      }
+      throw new BadRequestException(`Failed to read file: ${err.message}`);
+    }
   }
 
   @Delete('storage/buckets/:id/files')

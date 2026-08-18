@@ -430,19 +430,10 @@ export class StorageService implements OnModuleInit {
       return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}`;
     }
 
-    if (this.useMock) {
-      // Mock signed URL
-      const token = this.generateMockToken(bucketId, key);
-      return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}&token=${token}`;
-    } else {
-      try {
-        const command = new GetObjectCommand({ Bucket: bucket.name, Key: key });
-        return await getSignedUrl(this.s3Client!, command, { expiresIn });
-      } catch (err) {
-        const token = this.generateMockToken(bucketId, key);
-        return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}&token=${token}`;
-      }
-    }
+    // For private buckets, ALWAYS proxy through our backend using a signed token
+    // This avoids exposing internal MinIO endpoints or dealing with CORS/Host signature mismatches
+    const token = this.generateMockToken(bucketId, key);
+    return `/api/storage/buckets/${bucketId}/download?key=${encodeURIComponent(key)}&token=${token}`;
   }
 
   generateMockToken(bucketId: string, key: string): string {
