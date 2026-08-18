@@ -10,6 +10,7 @@ import { BillingService } from './billing/billing.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { GithubAppService } from './github-app/github-app.service';
 import { NetworkService } from './guards/network.service';
+import { MaintenanceService } from './maintenance/maintenance.service';
 import { TeamRole, DatabaseType } from '@prisma/client';
 import { sendDirectDiscordNotification } from './utils/discord-webhook';
 
@@ -31,6 +32,7 @@ export class AppController {
     private edgeFunctions: EdgeFunctionsService,
     private githubApp: GithubAppService,
     private networkService: NetworkService,
+    private maintenance: MaintenanceService,
   ) {}
 
   // --- AUTH ENDPOINTS ---
@@ -2312,6 +2314,23 @@ export class AppController {
     }
 
     return this.edgeFunctions.invokeFunction(fn.id, fn.teamId, body);
+  }
+
+  // --- MAINTENANCE & SYSTEM HEALTH ENDPOINTS ---
+
+  @Post('admin/maintenance/prune')
+  async triggerDockerPrune(
+    @Headers('x-admin-key') adminKey?: string,
+    @Query('adminKey') queryAdminKey?: string,
+  ) {
+    const key = adminKey || queryAdminKey;
+    const expectedKey = process.env.ADMIN_API_KEY;
+
+    if (expectedKey && key !== expectedKey) {
+      throw new BadRequestException('Unauthorized. Invalid admin key.');
+    }
+
+    return this.maintenance.runDockerPrune();
   }
 }
 

@@ -10,6 +10,7 @@ import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { GithubAppService } from './github-app/github-app.service';
+import { MaintenanceService } from './maintenance/maintenance.service';
 import { DDoSModule } from './guards/ddos.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { DDoSModule } from './guards/ddos.module';
     BillingService,
     EdgeFunctionsService,
     GithubAppService,
+    MaintenanceService,
   ],
 })
 export class AppModule {}
