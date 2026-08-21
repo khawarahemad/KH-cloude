@@ -1875,6 +1875,14 @@ export default function ProjectsTab() {
                                               >
                                                 <Settings size={11} />
                                               </button>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => handleDisconnectInstallation(inst.installationId, e)}
+                                                className="text-[9px] text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-500/10 transition-colors"
+                                                title="Disconnect this account from this workspace"
+                                              >
+                                                <Trash2 size={11} />
+                                              </button>
                                               {isSelected && (
                                                 <Check size={13} className="text-violet-400" />
                                               )}

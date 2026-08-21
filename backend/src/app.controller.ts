@@ -986,7 +986,7 @@ export class AppController {
   ) {
     if (!teamId || !installationId) throw new BadRequestException('teamId and installationId are required.');
     const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
+    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'DEVELOPER');
 
     await this.prisma.githubInstallation.deleteMany({
       where: { teamId, installationId },
