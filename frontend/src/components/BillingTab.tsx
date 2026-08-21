@@ -19,13 +19,13 @@ export default function BillingTab() {
       setBilling({
         subscription: { planId: 'hobby', currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() },
         plans: [
-          { id: 'hobby',      name: 'Hobby',      price: 0,   specs: '1 member · 3 projects · 5 GB' },
-          { id: 'pro',        name: 'Pro',         price: 29,  specs: 'Unlimited members · 25 projects · 50 GB' },
-          { id: 'enterprise', name: 'Enterprise',  price: 250, specs: 'Custom limits · Dedicated · SLA' },
+          { id: 'hobby',      name: 'Hobby',      price: 0,    specs: '1 project · 1 database · 1 edge function · no storage' },
+          { id: 'pro',        name: 'Pro',         price: 300,  specs: '10 projects · 5 databases · 10 edge functions · 10 GB storage' },
+          { id: 'enterprise', name: 'Enterprise',  price: 3000, specs: 'Unlimited everything · Dedicated servers · SLA' },
         ],
         invoices: [
-          { id: 'INV-2026-07', date: 'Jul 01, 2026', amount: '$0.00', status: 'PAID' },
-          { id: 'INV-2026-06', date: 'Jun 01, 2026', amount: '$0.00', status: 'PAID' },
+          { id: 'INV-2026-07', date: 'Jul 01, 2026', amount: '₹0.00', status: 'PAID' },
+          { id: 'INV-2026-06', date: 'Jun 01, 2026', amount: '₹0.00', status: 'PAID' },
         ],
         usage: { activeProjects: 0, databasesCount: 0, storageGB: '0.00', currentSpend: '0.00' },
       });
@@ -110,7 +110,7 @@ export default function BillingTab() {
                   { label: 'Projects',     value: billing?.usage?.activeProjects,   icon: Layers,   color: '#7c3aed' },
                   { label: 'Databases',    value: billing?.usage?.databasesCount,   icon: Database, color: '#3b82f6' },
                   { label: 'Storage',      value: `${billing?.usage?.storageGB} GB`, icon: HardDrive, color: '#22c55e' },
-                  { label: 'Month Spend',  value: `$${billing?.usage?.currentSpend}`, icon: DollarSign, color: '#f59e0b' },
+                  { label: 'Month Spend',  value: `₹${billing?.usage?.currentSpend}`, icon: DollarSign, color: '#f59e0b' },
                 ].map(({ label, value, icon: Icon, color }) => (
                   <div key={label} style={{
                     backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
@@ -158,8 +158,8 @@ export default function BillingTab() {
                           )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
-                          <span style={{ fontSize: '24px', fontWeight: 700, color: '#f1f3f6' }}>${plan.price}</span>
-                          <span style={{ fontSize: '12px', color: '#4b5563' }}>/month</span>
+                          <span style={{ fontSize: '24px', fontWeight: 700, color: '#f1f3f6' }}>{plan.price === 0 ? 'Free' : `₹${plan.price}`}</span>
+                          <span style={{ fontSize: '12px', color: '#4b5563' }}>{plan.price === 0 ? '' : '/month'}</span>
                         </div>
                         <p style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5, margin: '4px 0 0 0' }}>{plan.specs}</p>
                       </div>

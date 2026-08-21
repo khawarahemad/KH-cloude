@@ -44,8 +44,8 @@ export class BillingService {
 
     // Invoices list simulation
     const invoices = [
-      { id: `inv_${Math.random().toString(36).substring(2, 8)}`, date: 'Jul 01, 2026', amount: '$0.00', status: 'PAID' },
-      { id: `inv_${Math.random().toString(36).substring(2, 8)}`, date: 'Jun 01, 2026', amount: '$0.00', status: 'PAID' },
+      { id: `inv_${Math.random().toString(36).substring(2, 8)}`, date: 'Jul 01, 2026', amount: '₹0.00', status: 'PAID' },
+      { id: `inv_${Math.random().toString(36).substring(2, 8)}`, date: 'Jun 01, 2026', amount: '₹0.00', status: 'PAID' },
     ];
 
     const currentPlanId = subscription.planId || 'hobby';
