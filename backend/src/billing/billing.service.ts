@@ -37,9 +37,9 @@ export class BillingService {
 
     // Billing plans definition
     const plans = [
-      { id: 'hobby', name: 'Hobby', price: 0, specs: '1 project, 1 database, 1 edge function, no storage' },
-      { id: 'pro', name: 'Pro', price: 29, specs: '10 projects, 5 databases, 10 edge functions, 50GB storage' },
-      { id: 'enterprise', name: 'Enterprise', price: 250, specs: 'Unlimited everything, dedicated servers, SLA' },
+      { id: 'hobby', name: 'Hobby', price: 0, currency: 'INR', specs: '1 project, 1 database, 1 edge function, no storage' },
+      { id: 'pro', name: 'Pro', price: 300, currency: 'INR', specs: '10 projects, 5 databases, 10 edge functions, 10GB storage' },
+      { id: 'enterprise', name: 'Enterprise', price: 3000, currency: 'INR', specs: 'Unlimited everything, dedicated servers, SLA' },
     ];
 
     // Invoices list simulation

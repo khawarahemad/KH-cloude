@@ -30,7 +30,7 @@ export const PLAN_LIMITS: Record<
     maxDatabases: 5,
     maxEdgeFunctions: 10,
     storageAllowed: true,
-    maxStorageGB: 50,
+    maxStorageGB: 10,
   },
   enterprise: {
     maxProjects: Infinity,
