@@ -418,6 +418,21 @@ export class AppController {
     return this.projects.deleteProject(id, teamId);
   }
 
+  // --- ADMIN: ONE-TIME SECURITY CLEANUP ---
+
+  @Post('admin/purge-github-installations')
+  async adminPurgeGithubInstallations(@Req() req: express.Request) {
+    // Only platform admins (user.role === 'ADMIN') can run this
+    const userId = this.rbac.extractUserId(req);
+    if (!userId) throw new BadRequestException('Authentication required.');
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'ADMIN') {
+      throw new BadRequestException('Platform admin role required.');
+    }
+    const purged = await this.prisma.purgeOrphanedInstallations();
+    return { success: true, purgedRows: purged, message: purged > 0 ? `Removed ${purged} cross-tenant installation rows. All affected users must reconnect their GitHub accounts.` : 'No cross-tenant leakage found. Database is clean.' };
+  }
+
   @Post('github/webhook')
   async handleGithubWebhook(
     @Body() payload: any,

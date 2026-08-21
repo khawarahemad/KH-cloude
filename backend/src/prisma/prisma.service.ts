@@ -43,10 +43,54 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         `CREATE UNIQUE INDEX IF NOT EXISTS "GithubInstallation_teamId_installationId_key" ON "GithubInstallation"("teamId", "installationId");`,
       ).catch(() => null);
 
+      // 4. SECURITY: Purge cross-tenant installation leakage.
+      //    Any installationId shared across multiple teamIds means the old global-sync
+      //    bug wrote foreign accounts into all teams. Delete ALL copies — users must
+      //    reconnect via the GitHub App install flow for their own team.
+      await this.purgeOrphanedInstallations();
+
       this.logger.log('Database schema self-healing check complete.');
     } catch (err: any) {
       this.logger.warn(`Schema self-healing error: ${err.message}`);
     }
   }
-}
 
+  /**
+   * Remove GithubInstallation rows where the same installationId appears
+   * under more than one teamId (cross-tenant leakage from old global-sync bug).
+   */
+  async purgeOrphanedInstallations(): Promise<number> {
+    try {
+      // Find all installationIds that exist under more than 1 distinct team
+      const duplicates = (await this.$queryRawUnsafe(`
+        SELECT "installationId"
+        FROM "GithubInstallation"
+        GROUP BY "installationId"
+        HAVING COUNT(DISTINCT "teamId") > 1
+      `)) as { installationId: string }[];
+
+      if (!Array.isArray(duplicates) || duplicates.length === 0) {
+        this.logger.log('GithubInstallation tenant isolation check: no cross-tenant leakage found.');
+        return 0;
+      }
+
+      const leakedIds = duplicates.map((d) => d.installationId);
+      this.logger.warn(
+        `SECURITY: Found ${leakedIds.length} GitHub installationId(s) shared across multiple teams. ` +
+          `Purging ALL copies — affected users must reconnect via the GitHub App install flow. ` +
+          `Affected installationIds: ${leakedIds.join(', ')}`,
+      );
+
+      // Delete ALL rows with these leaked installation IDs (from all teams)
+      const deleted = await this.githubInstallation.deleteMany({
+        where: { installationId: { in: leakedIds } },
+      });
+
+      this.logger.warn(`Purged ${deleted.count} cross-tenant GithubInstallation rows.`);
+      return deleted.count;
+    } catch (err: any) {
+      this.logger.warn(`purgeOrphanedInstallations error: ${err.message}`);
+      return 0;
+    }
+  }
+}
