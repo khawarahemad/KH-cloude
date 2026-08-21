@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
+import { useTeamRole } from '@/lib/rbac';
 import {
   Zap, Plus, RefreshCw, Trash, Play, Loader2, ArrowLeft,
   Check, AlertCircle, Settings, Copy, Clock, Hash
@@ -41,6 +42,7 @@ export default async function handler({ req, env, storage }) {
 export default function EdgeFunctionsTab() {
   const { activeTeam, edgeFunctionsCache: functions, setEdgeFunctionsCache: setFunctions } = useAppStore();
   const { confirm, alert } = useDialog();
+  const { canWrite, canDelete, isViewer } = useTeamRole();
   const [loading, setLoading] = useState(functions === null);
   const [activeFn, setActiveFn] = useState<any | null>(null);
   const [code, setCode] = useState(DEFAULT_CODE);
@@ -85,6 +87,10 @@ export default function EdgeFunctionsTab() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to create edge functions.', type: 'error' });
+      return;
+    }
     if (!newFnName.trim() || !activeTeam) return;
     try {
       const fn = await apiRequest('/edge-functions', {
@@ -101,6 +107,10 @@ export default function EdgeFunctionsTab() {
   };
 
   const handleSave = async () => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to update edge functions.', type: 'error' });
+      return;
+    }
     if (!activeFn || !activeTeam) return;
     try { JSON.parse(envVarsRaw); setEnvVarsError(''); }
     catch { setEnvVarsError('Invalid JSON in environment variables.'); return; }
@@ -121,6 +131,10 @@ export default function EdgeFunctionsTab() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDelete) {
+      alert({ title: 'Permission Denied', message: 'Only Team Admins or Owners can delete edge functions.', type: 'error' });
+      return;
+    }
     if (!activeTeam) return;
     const confirmed = await confirm({
       title: 'Delete Edge Function',

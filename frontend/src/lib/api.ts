@@ -1,3 +1,5 @@
+import { useAppStore } from './store';
+
 const getApiBase = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
@@ -12,10 +14,27 @@ const API_BASE = getApiBase();
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;
-  const headers = {
+
+  // Get current user and active team from store
+  let userId: string | undefined;
+  let teamId: string | undefined;
+  try {
+    const store = useAppStore.getState();
+    userId = store.user?.id;
+    teamId = store.activeTeam?.id;
+  } catch {}
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers || {}),
+    ...(userId ? { 'x-user-id': userId } : {}),
+    ...(teamId ? { 'x-team-id': teamId } : {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
+
+  // If body is FormData, delete Content-Type so browser sets boundary automatically
+  if (options.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
 
   try {
     const res = await fetch(url, { ...options, headers });
@@ -25,7 +44,7 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
     }
     return await res.json();
   } catch (err: any) {
-    console.warn(`API call to ${path} failed, using local simulation. error:`, err);
+    console.warn(`API call to ${path} failed. error:`, err);
     throw err;
   }
 }

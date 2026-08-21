@@ -13,6 +13,8 @@ import { GithubAppService } from './github-app/github-app.service';
 import { MaintenanceService } from './maintenance/maintenance.service';
 import { DDoSModule } from './guards/ddos.module';
 
+import { RbacService } from './guards/rbac.service';
+
 @Module({
   imports: [
     PrismaModule,
@@ -29,6 +31,7 @@ import { DDoSModule } from './guards/ddos.module';
     EdgeFunctionsService,
     GithubAppService,
     MaintenanceService,
+    RbacService,
   ],
 })
 export class AppModule {}

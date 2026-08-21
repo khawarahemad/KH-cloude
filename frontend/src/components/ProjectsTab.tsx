@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
+import { useTeamRole } from '@/lib/rbac';
 import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock, ChevronDown, Building2, User, ExternalLink, Link2, Check, Sparkles, FolderGit2, Trash2, Search, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDialog } from './CustomDialogProvider';
@@ -52,6 +53,7 @@ export default function ProjectsTab() {
     setSelectedProjectId,
   } = useAppStore();
   const { alert } = useDialog();
+  const { canDeploy, canDelete, canWrite, isViewer, role } = useTeamRole();
   const [loading, setLoading] = useState(projects === null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(selectedProjectId);
   const [projectDetails, setProjectDetails] = useState<any | null>(null);
@@ -678,6 +680,10 @@ export default function ProjectsTab() {
   };
 
   const handleDeploy = async () => {
+    if (!canDeploy) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to trigger deployments.', type: 'error' });
+      return;
+    }
     if (!activeProjectId || !activeTeam) return;
     try {
       const data = await apiRequest(`/projects/${activeProjectId}/deploy`, {
@@ -692,17 +698,26 @@ export default function ProjectsTab() {
       setBuildLogs('Triggering build...');
       setLogsOpen(true);
       fetchProjectDetails(activeProjectId);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert({ title: 'Deploy Failed', message: err.message || 'Failed to trigger deployment.', type: 'error' });
     }
   };
 
   const handleDeleteProject = () => {
+    if (!canDelete) {
+      alert({ title: 'Permission Denied', message: 'Only Team Admins or Owners can delete projects.', type: 'error' });
+      return;
+    }
     setDeleteConfirmInput('');
     setDeleteConfirmOpen(true);
   };
 
   const confirmDeleteProject = async () => {
+    if (!canDelete) {
+      alert({ title: 'Permission Denied', message: 'Only Team Admins or Owners can delete projects.', type: 'error' });
+      return;
+    }
     if (!projectDetails || !activeTeam) return;
     try {
       await apiRequest(`/projects/${projectDetails.id}?teamId=${activeTeam.id}`, {
@@ -713,14 +728,18 @@ export default function ProjectsTab() {
       handleSelectProject(null);
       setProjectDetails(null);
       fetchProjects();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert({ title: 'Error', message: 'Failed to delete project.', type: 'error' });
+      alert({ title: 'Error', message: err.message || 'Failed to delete project.', type: 'error' });
     }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to update project settings.', type: 'error' });
+      return;
+    }
     if (!activeProjectId || !activeTeam) return;
     setSettingsSaving(true);
     try {
@@ -740,15 +759,19 @@ export default function ProjectsTab() {
       setProjectDetails(updated);
       alert({ title: 'Settings Saved', message: 'Project settings saved successfully! Click Redeploy to rebuild with the new commands.', type: 'success' });
       fetchProjects();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert({ title: 'Error', message: 'Failed to update project settings.', type: 'error' });
+      alert({ title: 'Error', message: err.message || 'Failed to update project settings.', type: 'error' });
     } finally {
       setSettingsSaving(false);
     }
   };
 
   const handleAddEnv = async () => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to edit environment variables.', type: 'error' });
+      return;
+    }
     if (!newEnvKey.trim() || !newEnvVal.trim() || !activeProjectId) return;
     const key = newEnvKey.trim().toUpperCase();
     if (envVars.find(v => v.key === key)) return; // no duplicates
@@ -760,12 +783,20 @@ export default function ProjectsTab() {
   };
 
   const handleRemoveEnv = async (keyToRemove: string) => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to edit environment variables.', type: 'error' });
+      return;
+    }
     const updated = envVars.filter(v => v.key !== keyToRemove);
     setEnvVars(updated);
     await saveEnvVars(updated);
   };
 
   const handleUpdateEnvValue = async (key: string, newVal: string) => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to edit environment variables.', type: 'error' });
+      return;
+    }
     const updated = envVars.map(v => v.key === key ? { ...v, value: newVal } : v);
     setEnvVars(updated);
     setEnvEditingKey(null);
@@ -773,6 +804,10 @@ export default function ProjectsTab() {
   };
 
   const handleBulkPaste = async () => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to edit environment variables.', type: 'error' });
+      return;
+    }
     const lines = envBulkText.split('\n');
     const parsed: { key: string; value: string; isSecret: boolean }[] = [];
     for (const line of lines) {
@@ -800,6 +835,10 @@ export default function ProjectsTab() {
 
   const handleAddDomain = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to add domains.', type: 'error' });
+      return;
+    }
     const h = customDomain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (!h || !activeProjectId || !activeTeam) return;
     setDomainError('');
@@ -819,6 +858,10 @@ export default function ProjectsTab() {
   };
 
   const handleRemoveDomain = async (domainId: string) => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to remove domains.', type: 'error' });
+      return;
+    }
     if (!activeProjectId || !activeTeam) return;
     setRemovingDomainId(domainId);
     try {
@@ -827,14 +870,19 @@ export default function ProjectsTab() {
         body: JSON.stringify({ teamId: activeTeam.id }),
       });
       await fetchProjectDetails(activeProjectId);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert({ title: 'Error', message: err.message || 'Failed to remove domain.', type: 'error' });
     } finally {
       setRemovingDomainId(null);
     }
   };
 
   const handleRestart = async () => {
+    if (!canDeploy) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to restart services.', type: 'error' });
+      return;
+    }
     if (!activeProjectId || !activeTeam) return;
     try {
       await apiRequest(`/projects/${activeProjectId}/restart`, {
@@ -842,8 +890,9 @@ export default function ProjectsTab() {
         body: JSON.stringify({ teamId: activeTeam.id }),
       });
       fetchProjectDetails(activeProjectId);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert({ title: 'Error', message: err.message || 'Failed to restart container.', type: 'error' });
     }
   };
 

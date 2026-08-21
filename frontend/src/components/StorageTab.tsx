@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
+import { useTeamRole } from '@/lib/rbac';
 import {
   HardDrive, Plus, Folder, File as FileIcon, ArrowLeft, Loader2, Upload, Trash,
   Copy, Check, Eye, EyeOff, Download, Code, BookOpen, Zap, Link, Calendar, Search, Lock, Globe
@@ -10,8 +11,9 @@ import {
 import { useDialog } from './CustomDialogProvider';
 
 export default function StorageTab() {
-  const { activeTeam, setActiveTab, bucketsCache: buckets, setBucketsCache: setBuckets, billingCache: billing, setBillingCache: setBilling } = useAppStore();
+  const { activeTeam, user, setActiveTab, bucketsCache: buckets, setBucketsCache: setBuckets, billingCache: billing, setBillingCache: setBilling } = useAppStore();
   const { confirm, alert } = useDialog();
+  const { canWrite, canDelete, isViewer } = useTeamRole();
 
   const [loading, setLoading] = useState(buckets === null);
   const [billingLoading, setBillingLoading] = useState(billing === null);
@@ -66,6 +68,10 @@ export default function StorageTab() {
 
   const handleCreateBucket = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to create buckets.', type: 'error' });
+      return;
+    }
     if (!bucketName.trim() || !activeTeam) return;
     try {
       await apiRequest('/storage/buckets', { method: 'POST', body: JSON.stringify({ name: bucketName, isPublic, teamId: activeTeam.id }) });
@@ -77,6 +83,10 @@ export default function StorageTab() {
   };
 
   const handleDeleteBucket = async (id: string) => {
+    if (!canDelete) {
+      alert({ title: 'Permission Denied', message: 'Only Team Admins or Owners can delete buckets.', type: 'error' });
+      return;
+    }
     if (!activeTeam) return;
     const confirmed = await confirm({
       title: 'Delete Bucket',
@@ -100,6 +110,10 @@ export default function StorageTab() {
   };
 
   const handleUploadFiles = async (fileList: FileList) => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to upload files.', type: 'error' });
+      return;
+    }
     if (!activeBucket || !activeTeam || fileList.length === 0) return;
     setUploading(true);
     const apiBase = getUploadApiBase();
@@ -111,6 +125,10 @@ export default function StorageTab() {
         const key = currentPrefix ? `${currentPrefix}${file.name}` : file.name;
         const res = await fetch(`${apiBase}/storage/buckets/${activeBucket.id}/upload?key=${encodeURIComponent(key)}&teamId=${activeTeam.id}`, {
           method: 'POST',
+          headers: {
+            ...(user?.id ? { 'x-user-id': user.id } : {}),
+            ...(activeTeam?.id ? { 'x-team-id': activeTeam.id } : {}),
+          },
           body: formData,
         });
         if (!res.ok) {
@@ -129,6 +147,10 @@ export default function StorageTab() {
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to create folders.', type: 'error' });
+      return;
+    }
     if (!newFolderName.trim() || !activeBucket || !activeTeam) return;
     setUploading(true);
     const apiBase = getUploadApiBase();
@@ -140,6 +162,10 @@ export default function StorageTab() {
       formData.append('file', file);
       const res = await fetch(`${apiBase}/storage/buckets/${activeBucket.id}/upload?key=${encodeURIComponent(folderKey)}&teamId=${activeTeam.id}`, {
         method: 'POST',
+        headers: {
+          ...(user?.id ? { 'x-user-id': user.id } : {}),
+          ...(activeTeam?.id ? { 'x-team-id': activeTeam.id } : {}),
+        },
         body: formData,
       });
       if (!res.ok) {
@@ -157,6 +183,10 @@ export default function StorageTab() {
   };
 
   const handleDeleteFile = async (key: string) => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to delete files.', type: 'error' });
+      return;
+    }
     if (!activeBucket || !activeTeam) return;
     const confirmed = await confirm({
       title: 'Delete File',
@@ -169,7 +199,10 @@ export default function StorageTab() {
       await apiRequest(`/storage/buckets/${activeBucket.id}/files?key=${encodeURIComponent(key)}&teamId=${activeTeam.id}`, { method: 'DELETE' });
       fetchFiles(activeBucket.id, currentPrefix);
       fetchBuckets();
-    } catch (err) { console.error(err); }
+    } catch (err: any) {
+      console.error(err);
+      alert({ title: 'Error', message: err.message || 'Failed to delete file.', type: 'error' });
+    }
   };
 
   const handleOpenPreview = async (file: any) => {

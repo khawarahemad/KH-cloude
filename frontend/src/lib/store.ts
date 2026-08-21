@@ -17,6 +17,8 @@ export interface Team {
   id: string;
   name: string;
   slug: string;
+  role?: string;
+  members?: any[];
 }
 
 interface AppState {

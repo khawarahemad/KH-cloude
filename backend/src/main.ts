@@ -93,8 +93,17 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin)) return callback(null, true);
       callback(new Error(`CORS blocked: origin "${origin}" is not allowed`));
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-admin-key',
+      'x-user-id',
+      'x-team-id',
+      'apikey',
+      'x-api-key',
+      'x-github-event',
+      'x-hub-signature-256',
+    ],
     credentials: true,
   });
 

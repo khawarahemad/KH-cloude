@@ -792,8 +792,8 @@ export class ProjectsService {
           where: { teamId: project.teamId },
         });
 
-        // Collect candidate App installations: repo-specific → owner match → team-linked.
-        // With the App on both personal + org accounts, this picks the right one per deploy.
+        // ONLY collect candidate App installations that belong to this project's team!
+        // Strictly isolated: never look up installations globally across other users/teams.
         type InstallCandidate = {
           installationId: string;
           accountLogin: string;
@@ -808,35 +808,26 @@ export class ProjectsService {
           candidates.push(c);
         };
 
-        try {
-          const forRepo = await this.githubApp.getRepoInstallation(repoFullName);
-          if (forRepo) {
-            pushCandidate({ ...forRepo, via: 'repo-install' });
-            appendLog(
-              `Auto-detected GitHub App for ${repoFullName} → @${forRepo.accountLogin} (${forRepo.accountType}).`,
-            );
-          }
-        } catch (err: any) {
-          appendLog(`[Warn] Repo installation lookup failed: ${err.message}`);
+        // 1. Check if an installation belonging to this team matches the repo owner
+        const matchingOwnerInst = repoOwner
+          ? teamInstallations.find(
+              (t) => t.accountLogin.toLowerCase() === repoOwner.toLowerCase(),
+            )
+          : null;
+
+        if (matchingOwnerInst) {
+          pushCandidate({
+            installationId: matchingOwnerInst.installationId,
+            accountLogin: matchingOwnerInst.accountLogin,
+            accountType: matchingOwnerInst.accountType,
+            via: 'team-owner-match',
+          });
+          appendLog(
+            `Matched team GitHub App installation @${matchingOwnerInst.accountLogin} (${matchingOwnerInst.accountType}).`,
+          );
         }
 
-        if (repoOwner) {
-          try {
-            const byOwner = await this.githubApp.findInstallationByOwner(repoOwner);
-            if (byOwner) {
-              const before = candidates.length;
-              pushCandidate({ ...byOwner, via: 'owner-match' });
-              if (candidates.length > before) {
-                appendLog(
-                  `Matched GitHub App by owner @${byOwner.accountLogin} (${byOwner.accountType}).`,
-                );
-              }
-            }
-          } catch (err: any) {
-            appendLog(`[Warn] Owner installation lookup failed: ${err.message}`);
-          }
-        }
-
+        // 2. Add any other installations linked to this team
         for (const tInst of teamInstallations) {
           pushCandidate({
             installationId: tInst.installationId,

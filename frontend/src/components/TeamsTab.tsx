@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
+import { useTeamRole } from '@/lib/rbac';
 import {
   Plus, Loader2, Mail, Clock, Key, Copy, Check, Eye, EyeOff, User, UserPlus, Shield,
   UserCheck, UserX, AlertCircle, ChevronDown, Trash2, ArrowRight, Sparkles, Building
@@ -34,6 +35,7 @@ function RoleBadge({ role }: { role: string }) {
 export default function TeamsTab() {
   const { activeTeam, setActiveTeam, teams, setTeams, user } = useAppStore();
   const { confirm, alert } = useDialog();
+  const { canManageTeam, isOwner, isAdmin, isViewer, role } = useTeamRole();
 
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
@@ -56,7 +58,7 @@ export default function TeamsTab() {
 
   // Current user's role in active team
   const currentMember = members.find(m => m.userId === user?.id || m.user?.email === user?.email);
-  const isOwnerOrAdmin = currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
+  const isOwnerOrAdmin = canManageTeam || currentMember?.role === 'OWNER' || currentMember?.role === 'ADMIN';
 
   const handleCopyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

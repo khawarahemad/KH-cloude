@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
+import { useTeamRole } from '@/lib/rbac';
 import { 
   Database, Plus, RefreshCw, Key, Copy, Check, Loader2, Trash, 
   Play, Terminal, ArrowLeft, AlertCircle, FileText, LayoutGrid,
@@ -15,6 +16,7 @@ type DbView = 'sql' | 'table-editor' | 'guide';
 export default function DatabasesTab() {
   const { activeTeam, databasesCache: databases, setDatabasesCache: setDatabases } = useAppStore();
   const { confirm, alert } = useDialog();
+  const { canWrite, canDelete, isViewer } = useTeamRole();
   const [loading, setLoading] = useState(databases === null);
   const [provisionOpen, setProvisionOpen] = useState(false);
   const [dbName, setDbName] = useState('');
@@ -121,6 +123,10 @@ export default function DatabasesTab() {
   };
 
   const handleSaveRow = async () => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to edit database rows.', type: 'error' });
+      return;
+    }
     if (!activeDb || !activeTeam || !activeTable || !tableSchema) return;
     setSaving(true);
     try {
@@ -145,6 +151,10 @@ export default function DatabasesTab() {
   };
 
   const handleInsertRow = async () => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to insert database rows.', type: 'error' });
+      return;
+    }
     if (!activeDb || !activeTeam || !activeTable) return;
     setSaving(true);
     try {
@@ -166,6 +176,10 @@ export default function DatabasesTab() {
   };
 
   const handleDeleteRow = async (pkValue: any) => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to delete database rows.', type: 'error' });
+      return;
+    }
     if (!activeDb || !activeTeam || !activeTable || !tableSchema) return;
     try {
       await apiRequest(
@@ -183,6 +197,10 @@ export default function DatabasesTab() {
 
   const handleCreateDatabase = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to provision databases.', type: 'error' });
+      return;
+    }
     if (!dbName.trim() || !activeTeam) return;
     try {
       await apiRequest('/databases', {
@@ -192,12 +210,17 @@ export default function DatabasesTab() {
       setDbName('');
       setProvisionOpen(false);
       fetchDatabases();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert({ title: 'Error', message: err.message || 'Failed to create database.', type: 'error' });
     }
   };
 
   const handleDeleteDatabase = async (id: string) => {
+    if (!canDelete) {
+      alert({ title: 'Permission Denied', message: 'Only Team Admins or Owners can delete databases.', type: 'error' });
+      return;
+    }
     if (!activeTeam) return;
     const confirmed = await confirm({
       title: 'Delete Database',
@@ -210,8 +233,9 @@ export default function DatabasesTab() {
       await apiRequest(`/databases/${id}?teamId=${activeTeam.id}`, { method: 'DELETE' });
       if (activeDb?.id === id) setActiveDb(null);
       fetchDatabases();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert({ title: 'Error', message: err.message || 'Failed to delete database.', type: 'error' });
     }
   };
 
@@ -228,6 +252,10 @@ export default function DatabasesTab() {
   };
 
   const handleExecuteQuery = async (queryText?: string) => {
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to execute SQL queries directly.', type: 'error' });
+      return;
+    }
     if (!activeDb || !activeTeam) return;
     const targetQuery = queryText || sqlQuery;
     if (!targetQuery.trim()) return;
