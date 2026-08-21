@@ -14,6 +14,7 @@ import { MaintenanceService } from './maintenance/maintenance.service';
 import { TeamRole, DatabaseType } from '@prisma/client';
 import { sendDirectDiscordNotification } from './utils/discord-webhook';
 import { RbacService } from './guards/rbac.service';
+import { PlanLimitsService } from './billing/plan-limits.service';
 
 import * as crypto from 'crypto';
 
@@ -30,6 +31,7 @@ export class AppController {
     private databases: DatabasesService,
     private teams: TeamsService,
     private billing: BillingService,
+    private planLimits: PlanLimitsService,
     private edgeFunctions: EdgeFunctionsService,
     private githubApp: GithubAppService,
     private networkService: NetworkService,
@@ -262,6 +264,7 @@ export class AppController {
   async createProject(@Body() body: any, @Req() req: express.Request) {
     const userId = this.rbac.extractUserId(req, body.userId);
     if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    await this.planLimits.enforceProjectLimit(body.teamId);
     return this.projects.createProject(body);
   }
 
@@ -483,6 +486,7 @@ export class AppController {
   ) {
     const userId = this.rbac.extractUserId(req);
     if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    await this.planLimits.enforceDatabaseLimit(body.teamId);
     return this.databases.createDatabase(body);
   }
 
@@ -535,6 +539,7 @@ export class AppController {
   ) {
     const userId = this.rbac.extractUserId(req);
     if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    await this.planLimits.enforceStorageAccess(body.teamId);
     return this.storage.createBucket(body.name, body.isPublic, body.teamId);
   }
 
@@ -579,6 +584,7 @@ export class AppController {
     if (!file) throw new BadRequestException('No file uploaded.');
     const userId = this.rbac.extractUserId(req);
     if (userId) await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
+    await this.planLimits.enforceStorageAccess(teamId);
     return this.storage.uploadFile(id, key || file.originalname, file.buffer, file.mimetype, file.originalname, teamId);
   }
 
@@ -2220,6 +2226,7 @@ export class AppController {
   ) {
     const userId = this.rbac.extractUserId(req);
     if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    await this.planLimits.enforceEdgeFunctionLimit(body.teamId);
     return this.edgeFunctions.createFunction(body);
   }
 

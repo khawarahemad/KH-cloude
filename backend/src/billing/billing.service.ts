@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PLAN_LIMITS } from './plan-limits.service';
 
 @Injectable()
 export class BillingService {
@@ -36,9 +37,9 @@ export class BillingService {
 
     // Billing plans definition
     const plans = [
-      { id: 'hobby', name: 'Hobby', price: 0, specs: '1 Team member, 3 projects, 5GB storage' },
-      { id: 'pro', name: 'Pro', price: 29, specs: 'Unlimited members, 25 projects, 50GB storage' },
-      { id: 'enterprise', name: 'Enterprise', price: 250, specs: 'Custom limits, dedicated servers, SLA' },
+      { id: 'hobby', name: 'Hobby', price: 0, specs: '1 project, 1 database, 1 edge function, no storage' },
+      { id: 'pro', name: 'Pro', price: 29, specs: '10 projects, 5 databases, 10 edge functions, 50GB storage' },
+      { id: 'enterprise', name: 'Enterprise', price: 250, specs: 'Unlimited everything, dedicated servers, SLA' },
     ];
 
     // Invoices list simulation
@@ -47,10 +48,14 @@ export class BillingService {
       { id: `inv_${Math.random().toString(36).substring(2, 8)}`, date: 'Jun 01, 2026', amount: '$0.00', status: 'PAID' },
     ];
 
+    const currentPlanId = subscription.planId || 'hobby';
+    const limits = PLAN_LIMITS[currentPlanId] ?? PLAN_LIMITS.hobby;
+
     return {
       subscription,
       plans,
       invoices,
+      planLimits: limits,
       usage: {
         activeProjects,
         databasesCount,
@@ -59,6 +64,7 @@ export class BillingService {
       },
     };
   }
+
 
   async updatePlan(teamId: string, planId: string) {
     const subscription = await this.prisma.billingSubscription.findUnique({

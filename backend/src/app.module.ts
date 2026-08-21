@@ -8,11 +8,11 @@ import { ProjectsService } from './projects/projects.service';
 import { DatabasesService } from './databases/databases.service';
 import { TeamsService } from './teams/teams.service';
 import { BillingService } from './billing/billing.service';
+import { PlanLimitsService } from './billing/plan-limits.service';
 import { EdgeFunctionsService } from './edge-functions/edge-functions.service';
 import { GithubAppService } from './github-app/github-app.service';
 import { MaintenanceService } from './maintenance/maintenance.service';
 import { DDoSModule } from './guards/ddos.module';
-
 import { RbacService } from './guards/rbac.service';
 
 @Module({
@@ -28,6 +28,7 @@ import { RbacService } from './guards/rbac.service';
     DatabasesService,
     TeamsService,
     BillingService,
+    PlanLimitsService,
     EdgeFunctionsService,
     GithubAppService,
     MaintenanceService,
@@ -35,4 +36,5 @@ import { RbacService } from './guards/rbac.service';
   ],
 })
 export class AppModule {}
+
 
