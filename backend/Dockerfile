@@ -26,8 +26,8 @@ RUN npm prune --omit=dev
 # --- Production Stage ---
 FROM node:20-alpine AS runner
 
-# Install git and docker-cli for live deployment engine
-RUN apk add --no-cache git docker-cli
+# Install git, docker-cli, and docker-cli-buildx for modern BuildKit live deployment engine
+RUN apk add --no-cache git docker-cli docker-cli-buildx
 
 WORKDIR /usr/src/app
 
@@ -43,5 +43,7 @@ EXPOSE 5000
 
 ENV PORT=5000
 ENV NODE_ENV=production
+ENV DOCKER_BUILDKIT=1
+ENV COMPOSE_DOCKER_CLI_BUILD=1
 
 CMD ["node", "dist/src/main"]

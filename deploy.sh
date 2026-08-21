@@ -19,7 +19,7 @@ if ! [ -x "$(command -v docker)" ]; then
     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
     $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update -y
-  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-buildx-plugin
 fi
 
 echo "=== [2/5] Provisioning Persistent Volume Directories ==="
@@ -34,8 +34,11 @@ sudo chmod -R 777 /var/lib/kh-cloud/
 sudo touch /var/lib/kh-cloud/traefik-acme/acme.json
 sudo chmod 600 /var/lib/kh-cloud/traefik-acme/acme.json
 
-sudo docker compose -f docker-compose.prod.yml build --no-cache
-sudo docker compose -f docker-compose.prod.yml up -d
+echo "=== [3/5] Building & Launching Containers with BuildKit ==="
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+sudo DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build --no-cache
+sudo DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d
 
 echo "=== [4/5] Running Database Schema Sync (Prisma) ==="
 # Allow backend container 5 seconds to warm up

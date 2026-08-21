@@ -637,9 +637,18 @@ export class ProjectsService {
       }).catch(() => null);
     };
 
-    const runCmd = (cmd: string, cwd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+    const runCmd = (cmd: string, cwd?: string, customEnv: Record<string, string> = {}): Promise<{ code: number; stdout: string; stderr: string }> => {
       return new Promise((resolve) => {
-        const proc = exec(cmd, { cwd, maxBuffer: 1024 * 1024 * 50 });
+        const proc = exec(cmd, {
+          cwd,
+          maxBuffer: 1024 * 1024 * 50,
+          env: {
+            ...process.env,
+            DOCKER_BUILDKIT: '1',
+            COMPOSE_DOCKER_CLI_BUILD: '1',
+            ...customEnv,
+          },
+        });
         let stdout = '';
         let stderr = '';
         proc.stdout?.on('data', (data) => {
@@ -1134,15 +1143,39 @@ export class ProjectsService {
           appendLog('Dockerfile detected in repository root. Using repository Dockerfile for deployment.');
         }
 
-        // 4. Build Docker Image
+        // 4. Build Docker Image (BuildKit Engine with Smart Layer Recovery)
         cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
         const imageTag = `kh-cloud-${cleanSlug}:${deploymentId}`;
         const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
 
-        appendLog(`Starting Docker image build: ${imageTag}`);
-        const buildRes = await runCmd(`docker build -t ${imageTag} .`, effectiveBuildDir);
+        // Pre-build health check: keep builder cache bounded before starting heavy builds
+        await runCmd('docker builder prune -f --keep-storage 2GB', buildDir).catch(() => null);
+
+        appendLog(`Starting Docker image build (BuildKit engine): ${imageTag}`);
+        let buildRes = await runCmd(`DOCKER_BUILDKIT=1 docker build -t ${imageTag} .`, effectiveBuildDir);
+
         if (buildRes.code !== 0) {
-          throw new Error('Docker build process failed');
+          const errText = `${buildRes.stderr || ''} ${buildRes.stdout || ''}`.toLowerCase();
+          const isSnapshotterOrCacheError =
+            errText.includes('failed to export layer') ||
+            errText.includes('creatediff') ||
+            errText.includes('mount callback failed') ||
+            errText.includes('no such file or directory') ||
+            errText.includes('failed to commit') ||
+            errText.includes('no space left on device') ||
+            errText.includes('context canceled');
+
+          if (isSnapshotterOrCacheError) {
+            appendLog('[Smart Builder Recovery] Detected containerd snapshotter / builder cache issue.');
+            appendLog('[Smart Builder Recovery] Clearing stale builder cache and retrying build with fresh cache...');
+            await runCmd('docker builder prune -af', buildDir).catch(() => null);
+            await new Promise((r) => setTimeout(r, 2000));
+            buildRes = await runCmd(`DOCKER_BUILDKIT=1 docker build --no-cache -t ${imageTag} .`, effectiveBuildDir);
+          }
+
+          if (buildRes.code !== 0) {
+            throw new Error('Docker build process failed');
+          }
         }
 
         // 5. Update Status to Deploying
