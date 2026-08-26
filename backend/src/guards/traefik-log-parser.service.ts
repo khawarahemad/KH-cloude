@@ -52,9 +52,10 @@ export class TraefikLogParserService implements OnModuleInit, OnModuleDestroy {
     if (this.domainCache.has(host)) {
       return this.domainCache.get(host)!;
     }
-    // Also check if it's the internal generated domain like `<project-slug>.khawarahemad.com`
-    if (host.endsWith('.khawarahemad.com')) {
-      const slug = host.replace('.khawarahemad.com', '');
+    // Also check if it's the internal generated domain like `<project-slug>.<baseDomain>`
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+    if (host.endsWith(`.${baseDomain}`)) {
+      const slug = host.replace(`.${baseDomain}`, '');
       try {
         const project = await (this.prisma as any).project.findFirst({
           where: { slug },

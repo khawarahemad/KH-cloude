@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getBaseDomain, getApiBase } from '@/lib/api';
 import { useTeamRole } from '@/lib/rbac';
 import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock, ChevronDown, Building2, User, ExternalLink, Link2, Check, Sparkles, FolderGit2, Trash2, Search, ArrowRight, ShieldCheck, Rocket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1402,7 +1402,7 @@ export default function ProjectsTab() {
                               <span style={{ fontSize: '11px', color: '#8a929e' }}>Subdomain mapping</span>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
-                              {[{ l: 'Type', v: 'CNAME', c: '#c4b5fd' }, { l: 'Name / Host', v: nameLabel, c: '#f1f3f6' }, { l: 'Value / Target', v: 'cloud.khawarahemad.com', c: '#22c55e' }].map((f, i) => (
+                              {[{ l: 'Type', v: 'CNAME', c: '#c4b5fd' }, { l: 'Name / Host', v: nameLabel, c: '#f1f3f6' }, { l: 'Value / Target', v: `cloud.${getBaseDomain()}`, c: '#22c55e' }].map((f, i) => (
                                 <div key={f.l} style={{ padding: '10px 12px', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                                   <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '4px', textTransform: 'uppercase' }}>{f.l}</div>
                                   <span style={{ color: f.c, fontWeight: 700 }}>{f.v}</span>
@@ -1424,7 +1424,7 @@ export default function ProjectsTab() {
                       </div>
                     ) : (
                       projectDetails?.domains?.map((dom: any) => {
-                        const isSystem = dom.hostname.endsWith('.khawarahemad.com');
+                        const isSystem = dom.hostname.endsWith(`.${getBaseDomain()}`);
                         const isActive = dom.status === 'ACTIVE' || !dom.status;
                         const isPending = dom.status === 'PENDING';
                         return (
@@ -1593,7 +1593,7 @@ export default function ProjectsTab() {
                     <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6 }}>Automatically trigger a rebuild on every push to your connected repository.</div>
                     <div style={{ backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563' }}>Webhook URL</div>
-                      <code style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c4b5fd' }}>https://api.khawarahemad.com/api/github/webhook</code>
+                      <code style={{ fontFamily: 'monospace', fontSize: '12px', color: '#c4b5fd' }}>{getApiBase()}/github/webhook</code>
                     </div>
                     <ol style={{ listStyleType: 'decimal', paddingLeft: '16px', fontSize: '12px', color: '#6b7280', lineHeight: 1.8, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <li>Go to your repo Settings → Webhooks → Add webhook</li>

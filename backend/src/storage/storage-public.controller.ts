@@ -26,11 +26,12 @@ export class StoragePublicController {
 
   @Get()
   root(@Req() req: express.Request) {
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
     return {
       service: 'KH Cloud S3-Compatible Object Storage',
       status: 'online',
-      host: req.headers.host || 'storage.khawarahemad.com',
-      docs: 'https://cloud.khawarahemad.com',
+      host: req.headers.host || `storage.${baseDomain}`,
+      docs: `https://cloud.${baseDomain}`,
       timestamp: new Date().toISOString(),
     };
   }

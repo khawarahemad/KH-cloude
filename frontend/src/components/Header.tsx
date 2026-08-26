@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { LogOut, ChevronDown, Plus, Check, Loader2, Shield, Layers } from 'lucide-react';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getDomainUrl } from '@/lib/api';
 
 export default function Header() {
   const { user, teams, activeTeam, setActiveTeam, activeTab, setActiveTab, logout } = useAppStore();
@@ -21,9 +21,9 @@ export default function Header() {
         setActiveTab(isAdminWorkspace ? 'projects' : 'admin');
       } else {
         if (isAdminWorkspace) {
-          window.location.href = 'https://cloud.khawarahemad.com';
+          window.location.href = getDomainUrl('cloud');
         } else {
-          window.location.href = 'https://admin.khawarahemad.com';
+          window.location.href = getDomainUrl('admin');
         }
       }
     }
@@ -34,7 +34,7 @@ export default function Header() {
     localStorage.removeItem('kh-cloud-session');
     logout();
     if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
-      window.location.href = 'https://auth.khawarahemad.com?logout=true';
+      window.location.href = `${getDomainUrl('auth')}?logout=true`;
     }
   };
 

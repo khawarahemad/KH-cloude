@@ -6,18 +6,22 @@ import * as express from 'express';
 // Allowed origins — the four production domains only.
 // In local dev (NODE_ENV !== 'production') we also allow localhost variants.
 // ---------------------------------------------------------------------------
+const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+
 const PRODUCTION_ORIGINS = [
-  'https://cloud.khawarahemad.com',
-  'https://auth.khawarahemad.com',
-  'https://cdn.khawarahemad.com',
-  'https://admin.khawarahemad.com',
-  'https://storage.khawarahemad.com',
+  `https://cloud.${baseDomain}`,
+  `https://auth.${baseDomain}`,
+  `https://cdn.${baseDomain}`,
+  `https://admin.${baseDomain}`,
+  `https://storage.${baseDomain}`,
+  `https://${baseDomain}`,
 ];
 
 const DEV_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
+  'http://localhost:5000',
 ];
 
 const allowedOrigins =
@@ -90,7 +94,9 @@ async function bootstrap() {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (allowedOrigins.includes(origin) || origin.endsWith(`.${baseDomain}`) || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return callback(null, true);
+      }
       callback(new Error(`CORS blocked: origin "${origin}" is not allowed`));
     },
     allowedHeaders: [

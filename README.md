@@ -1,6 +1,8 @@
 # KH Cloud ⚡
 An open-source, self-hosted, full-stack cloud platform and lightweight alternative to Vercel, Supabase, Railway, and Netlify. Built on **NestJS**, **Next.js 15**, **Docker**, **Traefik v3**, **Redis**, **Prisma**, and **MinIO**.
 
+Deploy full-stack web applications with automatic GitOps CI/CD, managed databases (Postgres, MySQL, Redis), S3-compatible object storage, edge functions, and DDoS protection—all under **your own custom domain** with zero code changes.
+
 ---
 
 ## 🗺️ System Architecture
@@ -10,9 +12,11 @@ graph TD
     Client[User / Developer Browser] -->|HTTPS (Port 443)| Traefik[Traefik Edge Router & SSL Engine]
     
     subgraph Core Platform
-        Traefik -->|cloud.domain.com| Frontend[Next.js 15 Dashboard]
-        Traefik -->|api.domain.com| Backend[NestJS Cloud API Engine]
-        Traefik -->|storage.domain.com| StorageCtrl[Object Storage Router]
+        Traefik -->|cloud.yourdomain.com| Frontend[Next.js 15 Dashboard]
+        Traefik -->|api.yourdomain.com| Backend[NestJS Cloud API Engine]
+        Traefik -->|storage.yourdomain.com| StorageCtrl[Object Storage Router]
+        Traefik -->|auth.yourdomain.com| Frontend
+        Traefik -->|admin.yourdomain.com| Frontend
         Backend -->|Internal| Redis[(Redis Rate Limiter & Cache)]
         Backend -->|Internal| DB[(SQLite / Prisma Database)]
         Backend -->|Internal :9000| MinIO[(MinIO Object Storage Cluster)]
@@ -35,7 +39,7 @@ graph TD
 - **Vercel-style GitHub App Integration**: Selectively import private/public repositories without exposing your entire GitHub account.
 - **Automated Builds & Rolling Deployments**: Push commits to `main` and KH Cloud will automatically clone, build, assign isolated ports, and route SSL domains via Traefik.
 - **Custom Domains & SSL**: Automatic zero-config SSL certificates via Let's Encrypt for all apex domains and subdomains.
-- **Environment Variables & Secrets**: Encrypted environment variable management per project.
+- **Build & Runtime Environment Variables**: Native `.env` injection into Docker BuildKit and `--env-file` runtime container isolation with real-time UI redeploy triggers.
 
 ### 2. 🗃️ Managed Databases (PostgreSQL, MySQL, Redis)
 - **One-Click Provisioning**: Spin up dedicated database instances instantly.
@@ -49,7 +53,7 @@ graph TD
 - **In-Dashboard Previews**: Interactive inline PDF reader, HTML5 media player, and image viewers.
 - **Team-Scoped Public & Signed URLs**:
   ```
-  https://storage.khawarahemad.com/:teamId/:bucketName/:objectKey
+  https://storage.yourdomain.com/:teamId/:bucketName/:objectKey
   ```
 - **S3 & REST API Compatibility**: Seamless integration with AWS SDK v3, `boto3`, cURL, or native `fetch`.
 
@@ -71,13 +75,25 @@ graph TD
 
 ---
 
-## 🛠️ VPS Prerequisites & Server Setup
+## 🛠️ Step-by-Step Self-Hosting Guide
 
+### Step 1: DNS Records Setup
+Point your root domain and wildcard subdomain to your VPS IP address in Cloudflare or your DNS registrar:
+
+| Type | Name / Host | Target / Value | Proxy Status |
+| :--- | :--- | :--- | :--- |
+| **A** | `@` (Apex Domain) | `YOUR_VPS_IP` | **DNS Only** (Grey Cloud) |
+| **A** | `*` (Wildcard) | `YOUR_VPS_IP` | **DNS Only** (Grey Cloud) |
+
+> [!IMPORTANT]
+> If you are using Cloudflare, make sure the proxy status is set to **DNS Only (Grey Cloud)** so Traefik can automatically obtain Let's Encrypt TLS/SSL certificates.
+
+---
+
+### Step 2: VPS Prerequisites & Firewall
 Recommended OS: **Ubuntu 22.04 LTS** or **Ubuntu 24.04 LTS**.
 
-### 1. Firewall Configuration (UFW)
-Only expose ports 22 (SSH), 80 (HTTP), and 443 (HTTPS). Internal databases and containers remain shielded:
-
+#### 1. Configure UFW Firewall:
 ```bash
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
@@ -85,128 +101,124 @@ sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw enable
-sudo ufw status verbose
 ```
 
-### 2. Install Docker & Docker Compose
+#### 2. Install Docker & Docker Compose:
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 docker compose version
 ```
 
-### 3. DNS Records Setup
-Point your root domain and wildcard to your VPS IP on Cloudflare or your DNS registrar:
-
-| Type | Name / Host | Target / IP | Proxy Status |
-| :--- | :--- | :--- | :--- |
-| **A** | `@` (Root) | `YOUR_VPS_IP` | DNS Only (Grey Cloud) |
-| **A** | `*` (Wildcard) | `YOUR_VPS_IP` | DNS Only (Grey Cloud) |
-
 ---
 
-## 🔑 Credentials & OAuth Setup
-
-### 1. Google OAuth (User Login)
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) > **APIs & Services** > **Credentials**.
-2. Create an **OAuth Client ID** (Web Application).
-3. Set **Authorized JavaScript Origins**: `https://auth.yourdomain.com`, `https://cloud.yourdomain.com`.
-4. Set **Authorized Redirect URIs**: `https://auth.yourdomain.com`.
-
-### 2. GitHub App (Automated Deployments)
-1. Navigate to GitHub > **Settings** > **Developer Settings** > **GitHub Apps** > **New GitHub App**.
-2. Configure settings:
-   - **App Name**: `KH Cloud Platform`
-   - **Homepage URL**: `https://cloud.yourdomain.com`
-   - **Callback URL**: `https://cloud.yourdomain.com`
-   - **Setup URL**: `https://cloud.yourdomain.com` (Check **"Redirect on update"**)
-   - **Webhook URL**: `https://api.yourdomain.com/api/github/webhook`
-   - **Webhook Secret**: Enter a secure random string.
-3. Permissions:
-   - `Contents`: Read-only
-   - `Metadata`: Read-only
-   - `Webhooks`: Read & write
-4. Subscribe to Events: Check **`Push`**.
-5. Set **Where can this app be installed?** to **"Any account"**.
-6. Generate and download a **Private Key (`.pem`)**.
-
----
-
-## ⚙️ Environment Configuration
-
-Copy `.env.example` to `.env` on your VPS:
+### Step 3: Clone Repository & Configure `.env`
 
 ```bash
+git clone https://github.com/khawarahemad/KH-cloude.git
+cd KH-cloude
 cp .env.example .env
 nano .env
 ```
 
-Populate the required values:
-
+#### Configure your domain settings in `.env`:
 ```env
-BASE_DOMAIN=khawarahemad.com
+# Set your domain and Let's Encrypt email (no code edits needed!)
+BASE_DOMAIN=yourdomain.com
+ACME_EMAIL=admin@yourdomain.com
 
-# Google OAuth
+# Google OAuth (for user login)
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
-# GitHub App Integration
+# GitHub OAuth (optional sign-in)
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# GitHub App Integration (for GitOps auto-deployments)
 GITHUB_APP_ID=123456
-GITHUB_APP_SLUG=kh-cloud-app
-GITHUB_APP_CLIENT_ID=Iv23liDQkhKe8l...
+GITHUB_APP_SLUG=your-app-slug
+GITHUB_APP_CLIENT_ID=Iv23li...
 GITHUB_APP_CLIENT_SECRET=your_github_app_client_secret
 GITHUB_APP_WEBHOOK_SECRET=your_webhook_secret
-
-# Multi-line PEM private key (replace real newlines with '\n')
 GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEA...-----END RSA PRIVATE KEY-----"
 
-# MinIO S3 Object Storage
+# MinIO S3 Object Storage Credentials
 MINIO_ROOT_USER=khcloudroot
-MINIO_ROOT_PASSWORD=khcloudrootpassword
-STORAGE_ENDPOINT=http://minio:9000
-STORAGE_ACCESS_KEY=khcloudroot
-STORAGE_SECRET_KEY=khcloudrootpassword
+MINIO_ROOT_PASSWORD=choose-a-secure-password
 
-# DDoS & Redis Configuration
+# Redis & DDoS Protection
 REDIS_URL=redis://redis:6379
 DDOS_AUTH_LIMIT=10
 DDOS_API_LIMIT=60
 DDOS_GLOBAL_LIMIT=200
 DDOS_BAN_THRESHOLD=5
 DDOS_BAN_TTL_SECONDS=3600
-ADMIN_API_KEY=your-strong-random-admin-key
+ADMIN_API_KEY=generate-a-strong-random-admin-key
 ```
 
 ---
 
-## 🚀 One-Command Deployment
+### Step 4: OAuth & GitHub App Setup
 
-Run the automated deployment script on your VPS:
+#### A. Google OAuth Setup
+1. Go to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials).
+2. Create an **OAuth 2.0 Client ID** (Application type: *Web application*).
+3. Set **Authorized JavaScript origins**:
+   - `https://auth.yourdomain.com`
+   - `https://cloud.yourdomain.com`
+4. Set **Authorized redirect URIs**:
+   - `https://auth.yourdomain.com`
+5. Paste `Client ID` and `Client Secret` into `.env`.
+
+#### B. GitHub App Setup (for Continuous GitOps Deployments)
+1. Go to GitHub > **Settings** > **Developer Settings** > **GitHub Apps** > [New GitHub App](https://github.com/settings/apps/new).
+2. Fill in the required URLs (replace `yourdomain.com` with your `BASE_DOMAIN`):
+   - **App Name**: `My Cloud Platform`
+   - **Homepage URL**: `https://cloud.yourdomain.com`
+   - **Callback URL**: `https://cloud.yourdomain.com`
+   - **Setup URL**: `https://cloud.yourdomain.com` (Check **"Redirect on update"**)
+   - **Webhook URL**: `https://api.yourdomain.com/api/github/webhook`
+   - **Webhook Secret**: Enter a secret string (and copy it to `GITHUB_APP_WEBHOOK_SECRET`).
+3. Set permissions:
+   - `Repository permissions` → `Contents`: **Read-only**
+   - `Repository permissions` → `Metadata`: **Read-only**
+   - `Repository permissions` → `Webhooks`: **Read & write**
+4. Subscribe to events: Check **`Push`**.
+5. Where can this GitHub App be installed?: Select **"Any account"**.
+6. Generate a **Private key (`.pem`)**, format newlines as `\n`, and save to `GITHUB_APP_PRIVATE_KEY` in `.env`.
+
+---
+
+### Step 5: Launch & Deploy
+
+Run the automated deployment script:
 
 ```bash
 chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### Manual Deploy / Updates:
+Or deploy manually via Docker Compose:
 ```bash
-git pull origin main
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml exec -T backend npx prisma db push --accept-data-loss
+sudo DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d --build
+sudo docker compose -f docker-compose.prod.yml exec -T backend npx prisma db push --accept-data-loss
 ```
 
 ---
 
-## 🌐 Deployed Subdomains Overview
+## 🌐 Deployed Endpoints Overview
 
-| Subdomain | Purpose |
-| :--- | :--- |
-| `https://cloud.yourdomain.com` | Primary Dashboard & Control Plane |
-| `https://auth.yourdomain.com` | Dedicated OAuth & Session Authentication Hub |
-| `https://api.yourdomain.com` | Backend REST API & Webhook Ingestion Engine |
-| `https://storage.yourdomain.com` | Public S3 CDN & Object Serving Gateway |
-| `https://admin.yourdomain.com` | System Admin & Traefik Control Center |
-| `https://*.yourdomain.com` | Dynamic user-deployed projects & applications |
+Once deployed, the following subdomains are automatically routed with SSL certificates:
+
+| Endpoint | Subdomain | Purpose |
+| :--- | :--- | :--- |
+| **Control Plane** | `https://cloud.yourdomain.com` | Next.js 15 Web Dashboard & Project Manager |
+| **Auth Hub** | `https://auth.yourdomain.com` | Dedicated OAuth Session & Login Gateway |
+| **API Engine** | `https://api.yourdomain.com` | Backend REST API & GitHub Webhook Receiver |
+| **Object Storage** | `https://storage.yourdomain.com` | Public S3 Gateway & Media Streaming CDN |
+| **Admin Console** | `https://admin.yourdomain.com` | System Administrator Portal & Metrics |
+| **User Projects** | `https://<project-slug>.yourdomain.com` | Deployed Docker web apps & services |
 
 ---
 

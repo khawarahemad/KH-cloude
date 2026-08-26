@@ -71,7 +71,8 @@ export class StorageService {
       'http://minio:9000';
 
     // If endpoint points to external domain in production Docker, route internally to minio container
-    if (endpoint.includes('storage.khawarahemad.com') && process.env.NODE_ENV === 'production') {
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+    if ((endpoint.includes(`storage.${baseDomain}`) || endpoint.includes('storage.khawarahemad.com')) && process.env.NODE_ENV === 'production') {
       endpoint = 'http://minio:9000';
     }
 
@@ -514,9 +515,10 @@ export class StorageService {
     const bucket = await this.prisma.bucket.findUnique({ where: { id: bucketId } });
     if (!bucket) throw new BadRequestException('Bucket not found.');
 
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
     const host =
       process.env.NODE_ENV === 'production'
-        ? 'https://storage.khawarahemad.com'
+        ? `https://storage.${baseDomain}`
         : 'http://localhost:5000';
 
     if (bucket.isPublic) {

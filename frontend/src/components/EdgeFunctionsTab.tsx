@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getApiBase } from '@/lib/api';
 import { useTeamRole } from '@/lib/rbac';
 import {
   Zap, Plus, RefreshCw, Trash, Play, Loader2, ArrowLeft,
@@ -184,11 +184,7 @@ export default function EdgeFunctionsTab() {
   };
 
   const getInvokeUrl = (fn: any) => {
-    if (typeof window === 'undefined') return '';
-    const host = window.location.hostname.endsWith('khawarahemad.com')
-      ? 'https://api.khawarahemad.com'
-      : 'http://localhost:5000';
-    return `${host}/api/edge-functions/${fn.id}/invoke`;
+    return `${getApiBase()}/edge-functions/${fn.id}/invoke`;
   };
 
   /* ─── EDITOR VIEW ─── */

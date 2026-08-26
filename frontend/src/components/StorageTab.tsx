@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/store';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getDomainUrl, getBaseDomain, getApiBase } from '@/lib/api';
 import { useTeamRole } from '@/lib/rbac';
 import {
   HardDrive, Plus, Folder, File as FileIcon, ArrowLeft, Loader2, Upload, Trash,
@@ -104,9 +104,7 @@ export default function StorageTab() {
   };
 
   const getUploadApiBase = () => {
-    if (typeof window !== 'undefined' && window.location.hostname.endsWith('khawarahemad.com'))
-      return 'https://api.khawarahemad.com/api';
-    return 'http://localhost:5000/api';
+    return getApiBase();
   };
 
   const handleUploadFiles = async (fileList: FileList) => {
@@ -221,9 +219,7 @@ export default function StorageTab() {
 
   const handleCopyDirectLink = async (item: any) => {
     if (activeBucket.isPublic) {
-      const base = typeof window !== 'undefined' && window.location.hostname.endsWith('khawarahemad.com')
-        ? 'https://storage.khawarahemad.com'
-        : 'http://localhost:5000';
+      const base = getDomainUrl('storage');
       handleCopy(`${base}/${activeTeam?.id || activeBucket.teamId}/${activeBucket.name}/${item.key}`, item.key);
     } else {
       try {
@@ -270,7 +266,7 @@ export default function StorageTab() {
   const getSdkSnippet = () => {
     const bName = activeBucket?.name || 'assets-bucket';
     const teamId = activeTeam?.id || 'TEAM_ID';
-    const s3Endpoint = 'https://storage.khawarahemad.com';
+    const s3Endpoint = getDomainUrl('storage');
     const apiBase = getUploadApiBase();
     const cleanId = (activeBucket?.id || 'bucket123').replace(/[^a-zA-Z0-9]/g, '');
     const accessKey = `kh_acc_${cleanId.substring(0, 12)}`;
@@ -278,16 +274,16 @@ export default function StorageTab() {
 
     if (sdkLanguage === 'curl') {
       if (activeBucket?.isPublic) {
-        return `# 1. Download public file directly:\ncurl https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
+        return `# 1. Download public file directly:\ncurl ${s3Endpoint}/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
       } else {
-        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_TEAM_API_KEY" \\\n  https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
+        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_TEAM_API_KEY" \\\n  ${s3Endpoint}/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
       }
     }
     if (sdkLanguage === 'node') {
-      return `// Node.js (Fetch / REST API)\nconst fs = require('fs');\nconst FormData = require('form-data');\n\n// 1. Upload File\nconst form = new FormData();\nform.append('file', fs.createReadStream('./avatar.png'));\n\nawait fetch('${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}', {\n  method: 'POST',\n  headers: {\n    'apikey': process.env.KH_CLOUD_API_KEY,\n    ...form.getHeaders(),\n  },\n  body: form,\n});\n\n// 2. Download File\nconst res = await fetch('https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png', {\n  headers: { 'apikey': process.env.KH_CLOUD_API_KEY },\n});\nconst fileBuffer = Buffer.from(await res.arrayBuffer());`;
+      return `// Node.js (Fetch / REST API)\nconst fs = require('fs');\nconst FormData = require('form-data');\n\n// 1. Upload File\nconst form = new FormData();\nform.append('file', fs.createReadStream('./avatar.png'));\n\nawait fetch('${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}', {\n  method: 'POST',\n  headers: {\n    'apikey': process.env.KH_CLOUD_API_KEY,\n    ...form.getHeaders(),\n  },\n  body: form,\n});\n\n// 2. Download File\nconst res = await fetch('${s3Endpoint}/${teamId}/${bName}/avatar.png', {\n  headers: { 'apikey': process.env.KH_CLOUD_API_KEY },\n});\nconst fileBuffer = Buffer.from(await res.arrayBuffer());`;
     }
     if (sdkLanguage === 'python') {
-      return `# Python (Requests / REST API)\nimport requests, os\n\nAPI_KEY = os.getenv('KH_CLOUD_API_KEY')\n\n# 1. Upload File\nwith open('avatar.png', 'rb') as f:\n    res = requests.post(\n        '${apiBase}/storage/buckets/${activeBucket?.id}/upload',\n        params={'key': 'avatar.png', 'teamId': '${teamId}'},\n        headers={'apikey': API_KEY},\n        files={'file': f}\n    )\nprint('Uploaded:', res.json())\n\n# 2. Download File\nres = requests.get(\n    'https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png',\n    headers={'apikey': API_KEY}\n)\nwith open('downloaded.png', 'wb') as f:\n    f.write(res.content)`;
+      return `# Python (Requests / REST API)\nimport requests, os\n\nAPI_KEY = os.getenv('KH_CLOUD_API_KEY')\n\n# 1. Upload File\nwith open('avatar.png', 'rb') as f:\n    res = requests.post(\n        '${apiBase}/storage/buckets/${activeBucket?.id}/upload',\n        params={'key': 'avatar.png', 'teamId': '${teamId}'},\n        headers={'apikey': API_KEY},\n        files={'file': f}\n    )\nprint('Uploaded:', res.json())\n\n# 2. Download File\nres = requests.get(\n    '${s3Endpoint}/${teamId}/${bName}/avatar.png',\n    headers={'apikey': API_KEY}\n)\nwith open('downloaded.png', 'wb') as f:\n    f.write(res.content)`;
     }
     if (sdkLanguage === 'go') return `// Go S3 SDK Client\ncfg, _ := config.LoadDefaultConfig(context.TODO())\nclient := s3.NewFromConfig(cfg, func(o *s3.Options) {\n\to.BaseEndpoint = aws.String("${s3Endpoint}")\n\to.UsePathStyle = true\n})\n\nclient.PutObject(context.TODO(), &s3.PutObjectInput{\n\tBucket: aws.String("${bName}"),\n\tKey:    aws.String("images/avatar.png"),\n\tBody:   fileReader,\n})`;
     return `// Rust S3 Client\nlet config = s3::config::Builder::new()\n    .endpoint_url("${s3Endpoint}")\n    .build();\n\nlet client = s3::Client::from_conf(config);\n\nclient.put_object()\n    .bucket("${bName}")\n    .key("images/avatar.png")\n    .body(ByteStream::from(bytes))\n    .send().await?;`;
@@ -364,7 +360,7 @@ export default function StorageTab() {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</div>
-                        <div style={{ fontSize: '10px', color: '#4b5563', marginTop: '1px', fontFamily: 'monospace' }}>s3.khawarahemad.com</div>
+                        <div style={{ fontSize: '10px', color: '#4b5563', marginTop: '1px', fontFamily: 'monospace' }}>storage.{getBaseDomain()}</div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
@@ -528,7 +524,7 @@ export default function StorageTab() {
                   <Code size={14} style={{ color: '#a78bfa' }} /> S3 Credentials
                 </div>
                 {[
-                  { label: 'Endpoint', value: 'https://storage.khawarahemad.com', id: 'endpoint' },
+                  { label: 'Endpoint', value: getDomainUrl('storage'), id: 'endpoint' },
                   { label: 'Access Key', value: `kh_acc_${activeBucket.id.substring(0, 8)}`, id: 'accessKey' },
                 ].map(({ label, value, id }) => (
                   <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
