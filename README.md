@@ -132,61 +132,36 @@ flowchart TD
 - **Edge Layer Protection**: Traefik network rate-limiting intercepts and throttles traffic before it reaches application processes.
 - **Application Layer Sliding-Window**: Redis-backed token bucket algorithm in NestJS handles granular route rate-limiting.
 - **Intelligent Auto-Ban Engine**: Automatically isolates abusive IP addresses with configurable TTL durations.
-- **Live Traffic Visualizer**: Real-time traffic inspection, HTTP status telemetry, and automated Discord security webhook alerts.
+### 7. 🛡️ Automated Disaster Recovery & Encrypted Remote Backups
+- **AES-256-CBC PBKDF2 Encryption**: Complete snapshots bundling SQLite DB, MinIO object storage files, SSL certificates (`acme.json`), and platform configuration (`.env`).
+- **Automated Remote Sync**: Daily or on-demand push to a **Private GitHub Backup Repository** (via GitHub Releases API) or **Remote S3 / Cloudflare R2 / AWS S3**.
+- **1-Command VPS Restore**: Restore your entire cloud onto a brand-new VPS with zero data loss in under 3 minutes:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/restore.sh | bash
+  ```
 
 ---
 
-## 🛠️ Self-Hosting Guide
+## 🚑 Disaster Recovery & Migration Guide
 
-### Step 1: DNS Records Setup
+If your VPS ever crashes, is destroyed, or you wish to migrate to a new hosting provider, KH Cloud makes restoration effortless.
 
-Create the following DNS records pointing to your server's public IP address:
-
-| Record Type | Host / Name | Target / Value | Cloudflare Proxy |
-| :--- | :--- | :--- | :--- |
-| **A** | `@` (Apex) | `YOUR_SERVER_IP` | **DNS Only (Grey Cloud)** |
-| **A** | `*` (Wildcard) | `YOUR_SERVER_IP` | **DNS Only (Grey Cloud)** |
-
-> [!IMPORTANT]
-> When using Cloudflare, set proxy status to **DNS Only (Grey Cloud)** to enable Traefik to complete Let's Encrypt HTTP-01 ACME challenges.
-
----
-
-### Step 2: VPS Security & Firewall Setup
-
-Recommended OS: **Ubuntu 22.04 LTS** or **Ubuntu 24.04 LTS**.
-
+### Option 1: 1-Command Restore on a Fresh VPS
+On your replacement Ubuntu/Debian server:
 ```bash
-# Configure UFW Firewall
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
+curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/restore.sh | bash
 ```
+The wizard will:
+1. Automatically install Docker & Compose.
+2. Fetch your encrypted snapshot from your **Private GitHub Repo**, **Cloudflare R2/S3**, or a local file.
+3. Prompt for your `BACKUP_ENCRYPTION_KEY` to decrypt the snapshot.
+4. Restore all databases, MinIO files, SSL certificates, and `.env`.
+5. Pull pre-built GHCR images and launch the cluster!
 
----
-
-### Step 3: Manual Deployment (Docker Compose)
-
-If you prefer deploying manually without the 1-command installer:
-
+### Option 2: CLI On-Demand Snapshot
+To create an encrypted snapshot from the command line on your active server:
 ```bash
-# Clone the repository
-git clone https://github.com/khawarahemad/KH-cloude.git /opt/kh-cloud
-cd /opt/kh-cloud
-
-# Configure environment variables
-cp .env.example .env
-nano .env
-
-# Pull pre-built images and launch cluster
-sudo docker compose -f docker-compose.prod.yml pull
-sudo DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d --build
-
-# Run database schema migrations
-sudo docker compose -f docker-compose.prod.yml exec -T backend npx prisma db push --accept-data-loss
+./backup.sh
 ```
 
 ---
@@ -198,6 +173,11 @@ sudo docker compose -f docker-compose.prod.yml exec -T backend npx prisma db pus
 | `BASE_DOMAIN` | Root domain for routing and SSL certificates | `yourdomain.com` |
 | `ACME_EMAIL` | Email address registered with Let's Encrypt | `admin@yourdomain.com` |
 | `ADMIN_API_KEY` | Secret bearer token for admin API endpoints | *(Generate strong random string)* |
+| `BACKUP_ENCRYPTION_KEY` | Master AES-256 key for encrypting backup snapshots | *(Generate strong 32-byte string)* |
+| `BACKUP_GITHUB_REPO` | Optional: Private GitHub backup target repo | `your-username/my-khcloud-backups` |
+| `BACKUP_GITHUB_TOKEN` | Optional: GitHub Personal Access Token (PAT) | `ghp_...` |
+| `BACKUP_S3_ENDPOINT` | Optional: Cloudflare R2 or AWS S3 endpoint URL | `https://<id>.r2.cloudflarestorage.com` |
+| `BACKUP_S3_BUCKET` | Optional: Remote S3 backup bucket name | `my-khcloud-backups` |
 | `MINIO_ROOT_USER` | S3 storage administrator username | `khcloudroot` |
 | `MINIO_ROOT_PASSWORD` | S3 storage administrator password | *(Generate strong random string)* |
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID for dashboard authentication | `*.apps.googleusercontent.com` |

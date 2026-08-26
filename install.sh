@@ -155,6 +155,7 @@ echo ""
 echo -e "${BOLD}4. Platform Security & S3 Storage Credentials${NC}"
 GEN_ADMIN_KEY=$(openssl rand -hex 24 2>/dev/null || date +%s | sha256sum | base64 | head -c 32)
 GEN_MINIO_PWD=$(openssl rand -hex 16 2>/dev/null || date +%s | sha256sum | base64 | head -c 24)
+GEN_BACKUP_KEY=$(openssl rand -hex 32 2>/dev/null || date +%s | sha256sum | base64 | head -c 32)
 
 read -r -p "   Custom Admin API Key [Enter to auto-generate secure key]: " CUSTOM_ADMIN_KEY
 ADMIN_API_KEY="${CUSTOM_ADMIN_KEY:-$GEN_ADMIN_KEY}"
@@ -162,6 +163,7 @@ ADMIN_API_KEY="${CUSTOM_ADMIN_KEY:-$GEN_ADMIN_KEY}"
 read -r -p "   MinIO S3 Root Password [Enter to auto-generate secure password]: " CUSTOM_MINIO_PWD
 MINIO_ROOT_PASSWORD="${CUSTOM_MINIO_PWD:-$GEN_MINIO_PWD}"
 MINIO_ROOT_USER="khcloudroot"
+BACKUP_ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY:-$GEN_BACKUP_KEY}"
 
 echo ""
 echo -e "${GREEN}==> Writing secure configuration to .env...${NC}"
@@ -177,6 +179,7 @@ $SUDO_CMD bash -c "cat > .env" <<EOF
 BASE_DOMAIN=${BASE_DOMAIN}
 ACME_EMAIL=${ACME_EMAIL}
 ADMIN_API_KEY=${ADMIN_API_KEY}
+BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
 
 # MinIO S3-Compatible Object Storage Credentials
 MINIO_ROOT_USER=${MINIO_ROOT_USER}
