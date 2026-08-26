@@ -43,7 +43,7 @@ services:
     container_name: kh-cloud-minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-khcloudroot}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-khcloudrootpassword}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - /var/lib/kh-cloud/minio:/data
     command: server /data --console-address ":9001"
@@ -88,10 +88,10 @@ services:
       - DATABASE_URL=file:/usr/src/app/data/dev.db
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-https://storage.${BASE_DOMAIN:-khawarahemad.com}}
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-khcloudroot}
-      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-khcloudrootpassword}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
       - STORAGE_ENDPOINT=http://minio:9000
       - STORAGE_ACCESS_KEY=${MINIO_ROOT_USER:-khcloudroot}
-      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD:-khcloudrootpassword}
+      - STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}

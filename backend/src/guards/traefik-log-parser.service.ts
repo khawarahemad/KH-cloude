@@ -50,12 +50,19 @@ export class TraefikLogParserService implements OnModuleInit, OnModuleDestroy {
     await this.updateDomainCache();
     // Direct match
     if (this.domainCache.has(host)) {
-      return this.domainCache.get(host)!;
+      const cached = this.domainCache.get(host);
+      return cached || null;
     }
     // Also check if it's the internal generated domain like `<project-slug>.<baseDomain>`
     const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+    const SYSTEM_SUBDOMAINS = new Set(['cloud', 'api', 'auth', 'admin', 'storage', 'cdn', 'minio-console', 'minio']);
+
     if (host.endsWith(`.${baseDomain}`)) {
       const slug = host.replace(`.${baseDomain}`, '');
+      if (SYSTEM_SUBDOMAINS.has(slug)) {
+        this.domainCache.set(host, ''); // Negative cache for system subdomains
+        return null;
+      }
       try {
         const project = await (this.prisma as any).project.findFirst({
           where: { slug },
@@ -64,6 +71,8 @@ export class TraefikLogParserService implements OnModuleInit, OnModuleDestroy {
         if (project) {
           this.domainCache.set(host, project.id);
           return project.id;
+        } else {
+          this.domainCache.set(host, ''); // Negative cache for non-existent projects
         }
       } catch {}
     }

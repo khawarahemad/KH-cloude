@@ -21,7 +21,8 @@ export const getDomainUrl = (subdomain: 'cloud' | 'api' | 'auth' | 'admin' | 'st
     const hostname = window.location.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       if (subdomain === 'api') return 'http://localhost:5000/api';
-      if (subdomain === 'storage' || subdomain === 's3') return 'http://localhost:9000';
+      if (subdomain === 'storage') return 'http://localhost:5000';
+      if (subdomain === 's3') return 'http://localhost:9000';
       return 'http://localhost:3000';
     }
     const base = getBaseDomain();
