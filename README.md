@@ -85,6 +85,22 @@ curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/install
 
 ---
 
+## 🔄 Updating to the Latest Release
+
+To update an existing KH Cloud server to the newest release with zero data loss (your `.env`, databases, and storage files remain 100% untouched), run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/update.sh | bash
+```
+
+Or run directly from your server's installation directory:
+```bash
+cd /opt/kh-cloud
+./update.sh
+```
+
+---
+
 ## 🛠️ Step-by-Step Self-Hosting Guide
 
 ### Step 1: DNS Records Setup
