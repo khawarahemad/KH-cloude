@@ -1,7 +1,66 @@
-# KH Cloud ⚡
-An open-source, self-hosted, full-stack cloud platform and lightweight alternative to Vercel, Supabase, Railway, and Netlify. Built on **NestJS**, **Next.js 15**, **Docker**, **Traefik v3**, **Redis**, **Prisma**, and **MinIO**.
+<div align="center">
 
-Deploy full-stack web applications with automatic GitOps CI/CD, managed databases (Postgres, MySQL, Redis), S3-compatible object storage, edge functions, and DDoS protection—all under **your own custom domain** with zero code changes.
+# ⚡ KH Cloud
+
+**Enterprise-Grade, Open-Source Self-Hosted Cloud Platform**  
+*A complete self-hosted alternative to Vercel, Supabase, Railway, and Netlify.*
+
+[![CI & Build Verification](https://github.com/khawarahemad/KH-cloude/actions/workflows/ci.yml/badge.svg)](https://github.com/khawarahemad/KH-cloude/actions/workflows/ci.yml)
+[![Docker GHCR Package](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker&logoColor=white)](https://github.com/khawarahemad/KH-cloude/pkgs/container/kh-cloud-backend)
+[![Latest Release](https://img.shields.io/github/v/release/khawarahemad/KH-cloude?color=emerald&logo=github)](https://github.com/khawarahemad/KH-cloude/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen?logo=node.js)](https://nodejs.org)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15.1-black?logo=next.js)](https://nextjs.org)
+[![NestJS](https://img.shields.io/badge/NestJS-10.x-red?logo=nestjs)](https://nestjs.com)
+
+<p align="center">
+  <a href="#-quickstart-1-command-installation">Quickstart</a> •
+  <a href="#-system-architecture">Architecture</a> •
+  <a href="#-features--capabilities">Features</a> •
+  <a href="#-self-hosting-guide">Deployment Guide</a> •
+  <a href="#-updating--maintenance">Upgrades</a> •
+  <a href="#-environment-configuration">Configuration</a>
+</p>
+
+</div>
+
+---
+
+## 📌 Overview
+
+**KH Cloud** is a modern, full-stack cloud platform designed for developers, teams, and organizations who want the developer experience of **Vercel**, the database & storage capabilities of **Supabase**, and the infrastructure flexibility of **Railway**—hosted entirely on their own infrastructure with **zero vendor lock-in**.
+
+Deploy full-stack applications with automatic GitOps CI/CD, managed databases (PostgreSQL, MySQL, Redis), S3-compatible object storage, sandboxed edge functions, and multi-tier DDoS protection under your own custom domains with zero source code modifications.
+
+---
+
+## ⚡ Quickstart: 1-Command Installation
+
+Deploy a complete, production-ready KH Cloud cluster on any Ubuntu/Debian VPS in under 3 minutes:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/install.sh | bash
+```
+
+> **What the installer automates:**
+> 1. Detects OS and installs Docker Engine & Docker Compose (if missing).
+> 2. Prompts for your root domain (`yourdomain.com`) and Let's Encrypt email.
+> 3. Generates cryptographically secure API keys and database credentials.
+> 4. Sets up persistent storage directories and permissions under `/var/lib/kh-cloud/`.
+> 5. Pulls pre-built multi-arch images from GitHub Container Registry (`ghcr.io`).
+> 6. Configures Traefik v3 edge routing with automated TLS/SSL certificate issuance.
+
+---
+
+## 🔄 Updating & Maintenance
+
+To update an existing installation to the latest release with **zero downtime and zero data loss**:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/update.sh | bash
+```
+
+*All persistent volumes (`/var/lib/kh-cloud/`), databases, storage files, and `.env` configuration remain completely intact across updates.*
 
 ---
 
@@ -9,23 +68,23 @@ Deploy full-stack web applications with automatic GitOps CI/CD, managed database
 
 ```mermaid
 flowchart TD
-    Client["User / Developer Browser"] -->|"HTTPS (Port 443)"| Traefik["Traefik Edge Router & SSL Engine"]
+    Client["Client / Developer Browser"] -->|"HTTPS (Port 443)"| Traefik["Traefik v3 Edge Router & SSL Engine"]
     
-    subgraph CorePlatform["Core Platform"]
-        Traefik -->|"cloud.yourdomain.com"| Frontend["Next.js 15 Dashboard"]
+    subgraph CorePlatform["Core Platform Services"]
+        Traefik -->|"cloud.yourdomain.com"| Frontend["Next.js 15 Control Plane"]
         Traefik -->|"api.yourdomain.com"| Backend["NestJS Cloud API Engine"]
-        Traefik -->|"storage.yourdomain.com"| StorageCtrl["Object Storage Router"]
+        Traefik -->|"storage.yourdomain.com"| StorageCtrl["Object Storage Gateway"]
         Traefik -->|"auth.yourdomain.com"| Frontend
         Traefik -->|"admin.yourdomain.com"| Frontend
         Backend -->|"Internal TCP"| Redis[("Redis Rate Limiter & Cache")]
-        Backend -->|"Internal"| DB[("SQLite / Prisma Database")]
-        Backend -->|"Internal :9000"| MinIO[("MinIO Object Storage Cluster")]
+        Backend -->|"Internal SQLite/Prisma"| DB[("System State Database")]
+        Backend -->|"Internal :9000"| MinIO[("MinIO S3 Storage Cluster")]
     end
 
-    subgraph ManagedServices["Managed Cloud Services"]
-        Backend -->|"Docker Socket"| Containers["Deployed Web Apps"]
-        Backend -->|"Managed Instances"| ManagedDatabases["PostgreSQL / MySQL / Redis"]
-        Backend -->|"VM Sandbox"| EdgeFunctions["Edge Functions Runtime"]
+    subgraph ManagedServices["Managed Cloud Workloads"]
+        Backend -->|"Docker Engine Socket"| Containers["Deployed User Web Apps"]
+        Backend -->|"Managed Containers"| ManagedDatabases["PostgreSQL / MySQL / Redis Instances"]
+        Backend -->|"In-Process VM Sandbox"| EdgeFunctions["Edge Functions Runtime"]
     end
 
     GitHub["GitHub Webhooks"] -->|"GitOps Push Events"| Backend
@@ -33,94 +92,71 @@ flowchart TD
 
 ---
 
-## 🚀 Key Features
+## 🚀 Features & Capabilities
 
-### 1. 🌐 Web App Hosting & GitOps CI/CD
-- **Vercel-style GitHub App Integration**: Selectively import private/public repositories without exposing your entire GitHub account.
-- **Automated Builds & Rolling Deployments**: Push commits to `main` and KH Cloud will automatically clone, build, assign isolated ports, and route SSL domains via Traefik.
-- **Custom Domains & SSL**: Automatic zero-config SSL certificates via Let's Encrypt for all apex domains and subdomains.
-- **Build & Runtime Environment Variables**: Native `.env` injection into Docker BuildKit and `--env-file` runtime container isolation with real-time UI redeploy triggers.
+### 1. 🌐 Web App Hosting & Automated GitOps CI/CD
+- **Native GitHub App Integration**: Selectively grant repository permissions without exposing account-wide tokens.
+- **Automated Docker BuildKit Pipeline**: Push commits to your default branch to trigger automated container builds with isolated port allocation and zero-downtime rolling updates.
+- **Automatic SSL Provisioning**: Automated Let's Encrypt TLS certificate generation and renewal for all apex domains and wildcard subdomains.
+- **Secure Environment Injection**: Build-time `.env` synthesis for static client apps (Next.js, Vite, React) and runtime Docker `--env-file` isolation with instant one-click redeploy triggers.
 
 ### 2. 🗃️ Managed Databases (PostgreSQL, MySQL, Redis)
-- **One-Click Provisioning**: Spin up dedicated database instances instantly.
-- **Interactive Table Editor**: 2D-scrollable table viewer with sticky headers, pagination, and inline record CRUD.
-- **Direct SQL Console**: Execute arbitrary queries and examine formatted tabular results.
-- **HTTP REST Query API**: Query databases directly over secure HTTP with Team API keys (`kh_service_...` or `kh_anon_...`).
-- **Connection Guides**: Pre-configured snippets for **Prisma ORM**, **SQLAlchemy**, **Node.js (`pg`, `mysql2`, `ioredis`)**, and **Python (`requests`)**.
+- **One-Click Provisioning**: Spin up isolated, containerized database instances instantly.
+- **Interactive 2D Table Editor**: Spreadsheet-like data grid featuring sticky headers, column sorting, pagination, and inline CRUD record mutations.
+- **Embedded SQL Console**: Execute raw SQL queries with formatted tabular result sets and execution timing.
+- **HTTP REST Query Engine**: Securely perform database operations via RESTful endpoints authenticated by Team API keys (`kh_service_...` or `kh_anon_...`).
+- **SDK Connection Snippets**: Ready-to-use boilerplate for Prisma ORM, SQLAlchemy, Node.js (`pg`, `mysql2`, `ioredis`), and Python (`requests`).
 
 ### 3. 📦 Universal S3-Compatible Object Storage
-- **Multi-Format Support**: Upload, store, and stream **PDFs**, **Images (JPG, PNG, WebP, SVG)**, **Videos (MP4, WebM)**, **Audio (MP3, WAV)**, **Documents (DOCX, XLSX, TXT, CSV, JSON)**, and **ZIP archives**.
-- **In-Dashboard Previews**: Interactive inline PDF reader, HTML5 media player, and image viewers.
-- **Team-Scoped Public & Signed URLs**:
+- **Universal File Support**: Upload, organize, and stream PDFs, images (JPG, PNG, WebP, SVG), video (MP4, WebM), audio (MP3, WAV), documents, and ZIP archives.
+- **Integrated Previews**: In-dashboard PDF reader, HTML5 media player, and lossless image zoom viewer.
+- **Deterministic URL Routing**:
   ```
   https://storage.yourdomain.com/:teamId/:bucketName/:objectKey
   ```
-- **S3 & REST API Compatibility**: Seamless integration with AWS SDK v3, `boto3`, cURL, or native `fetch`.
+- **Standard S3 Protocol Compatibility**: Works out-of-the-box with AWS SDK v3, `boto3`, MinIO Client (`mc`), and standard HTTP clients.
 
-### 4. ⚡ Edge Functions (Serverless Compute)
-- **Zero-Latency In-Process Execution**: Fast execution with sub-millisecond cold starts.
-- **Built-In Global Helpers**: Direct sandbox context with `req`, `env`, `storage` (S3 get/list helpers), `db` (query runner), and `fetch`.
-- **Public & Authenticated Invocations**: Trigger functions via REST with Team API keys.
+### 4. ⚡ Serverless Edge Functions
+- **Zero-Latency Compute**: Sub-millisecond cold starts powered by an isolated Node.js VM context.
+- **Pre-Bound Global Utilities**: Sandbox environment includes `req`, `env`, `storage` (S3 helpers), `db` (query runner), and `fetch`.
+- **Flexible Invocations**: Call edge functions publicly or restrict access via Team API keys.
 
 ### 5. 👥 Multi-Tenant Team System & RBAC
-- **Isolated Workspaces**: Different teams can create resources with the same names (e.g. `avatars`, `production-db`, `auth-webhook`) without collisions.
-- **Role-Based Access Control**: `OWNER`, `ADMIN`, `DEVELOPER`, and `VIEWER` roles with strict permissions.
-- **Team Invitations**: Send, accept, or decline invites with dedicated role assignment.
-- **Team API Keys**: Distinct `anon` (client-safe) and `service_role` (admin) keys.
+- **Isolated Team Namespaces**: Multi-tenant architecture prevents naming collisions across teams.
+- **Role-Based Access Control (RBAC)**: Enforces `OWNER`, `ADMIN`, `DEVELOPER`, and `VIEWER` permission hierarchies.
+- **Team Invitations**: Manage team growth with secure email invites and role pre-assignment.
+- **Scoped API Tokens**: Granular `anon` (client-safe) and `service_role` (elevated admin) tokens.
 
-### 6. 🛡️ DDoS Protection & Real-Time Traffic Analytics
-- **Two-Tier Defense**: Traefik edge rate-limiting (network layer) + NestJS sliding-window token bucket in Redis (application layer).
-- **Auto-Ban Engine**: Automatically bans abusive IPs with configurable TTLs and thresholds.
-- **Live Traffic Visualizer**: Real-time request logging, status distributions, and instant Discord alerts.
-
----
-
-## ⚡ Quickstart: 1-Command Automated Installation
-
-Run this single command on your Ubuntu/Debian VPS to automatically install Docker, set up persistent volumes, configure domain SSL certificates, and launch the complete KH Cloud platform:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/install.sh | bash
-```
+### 6. 🛡️ Two-Tier DDoS Protection & Security Engine
+- **Edge Layer Protection**: Traefik network rate-limiting intercepts and throttles traffic before it reaches application processes.
+- **Application Layer Sliding-Window**: Redis-backed token bucket algorithm in NestJS handles granular route rate-limiting.
+- **Intelligent Auto-Ban Engine**: Automatically isolates abusive IP addresses with configurable TTL durations.
+- **Live Traffic Visualizer**: Real-time traffic inspection, HTTP status telemetry, and automated Discord security webhook alerts.
 
 ---
 
-## 🔄 Updating to the Latest Release
-
-To update an existing KH Cloud server to the newest release with zero data loss (your `.env`, databases, and storage files remain 100% untouched), run:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/update.sh | bash
-```
-
-Or run directly from your server's installation directory:
-```bash
-cd /opt/kh-cloud
-./update.sh
-```
-
----
-
-## 🛠️ Step-by-Step Self-Hosting Guide
+## 🛠️ Self-Hosting Guide
 
 ### Step 1: DNS Records Setup
-Point your root domain and wildcard subdomain to your VPS IP address in Cloudflare or your DNS registrar:
 
-| Type | Name / Host | Target / Value | Proxy Status |
+Create the following DNS records pointing to your server's public IP address:
+
+| Record Type | Host / Name | Target / Value | Cloudflare Proxy |
 | :--- | :--- | :--- | :--- |
-| **A** | `@` (Apex Domain) | `YOUR_VPS_IP` | **DNS Only** (Grey Cloud) |
-| **A** | `*` (Wildcard) | `YOUR_VPS_IP` | **DNS Only** (Grey Cloud) |
+| **A** | `@` (Apex) | `YOUR_SERVER_IP` | **DNS Only (Grey Cloud)** |
+| **A** | `*` (Wildcard) | `YOUR_SERVER_IP` | **DNS Only (Grey Cloud)** |
 
 > [!IMPORTANT]
-> If you are using Cloudflare, make sure the proxy status is set to **DNS Only (Grey Cloud)** so Traefik can automatically obtain Let's Encrypt TLS/SSL certificates.
+> When using Cloudflare, set proxy status to **DNS Only (Grey Cloud)** to enable Traefik to complete Let's Encrypt HTTP-01 ACME challenges.
 
 ---
 
-### Step 2: VPS Prerequisites & Firewall
+### Step 2: VPS Security & Firewall Setup
+
 Recommended OS: **Ubuntu 22.04 LTS** or **Ubuntu 24.04 LTS**.
 
-#### 1. Configure UFW Firewall:
 ```bash
+# Configure UFW Firewall
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow 22/tcp
@@ -129,124 +165,69 @@ sudo ufw allow 443/tcp
 sudo ufw enable
 ```
 
-#### 2. Install Docker & Docker Compose:
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-docker compose version
-```
-
 ---
 
-### Step 3: Clone Repository & Configure `.env`
+### Step 3: Manual Deployment (Docker Compose)
+
+If you prefer deploying manually without the 1-command installer:
 
 ```bash
-git clone https://github.com/khawarahemad/KH-cloude.git
-cd KH-cloude
+# Clone the repository
+git clone https://github.com/khawarahemad/KH-cloude.git /opt/kh-cloud
+cd /opt/kh-cloud
+
+# Configure environment variables
 cp .env.example .env
 nano .env
-```
 
-#### Configure your domain settings in `.env`:
-```env
-# Set your domain and Let's Encrypt email (no code edits needed!)
-BASE_DOMAIN=yourdomain.com
-ACME_EMAIL=admin@yourdomain.com
-
-# Google OAuth (for user login)
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# GitHub OAuth (optional sign-in)
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
-
-# GitHub App Integration (for GitOps auto-deployments)
-GITHUB_APP_ID=123456
-GITHUB_APP_SLUG=your-app-slug
-GITHUB_APP_CLIENT_ID=Iv23li...
-GITHUB_APP_CLIENT_SECRET=your_github_app_client_secret
-GITHUB_APP_WEBHOOK_SECRET=your_webhook_secret
-GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEA...-----END RSA PRIVATE KEY-----"
-
-# MinIO S3 Object Storage Credentials
-MINIO_ROOT_USER=khcloudroot
-MINIO_ROOT_PASSWORD=choose-a-secure-password
-
-# Redis & DDoS Protection
-REDIS_URL=redis://redis:6379
-DDOS_AUTH_LIMIT=10
-DDOS_API_LIMIT=60
-DDOS_GLOBAL_LIMIT=200
-DDOS_BAN_THRESHOLD=5
-DDOS_BAN_TTL_SECONDS=3600
-ADMIN_API_KEY=generate-a-strong-random-admin-key
-```
-
----
-
-### Step 4: OAuth & GitHub App Setup
-
-#### A. Google OAuth Setup
-1. Go to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials).
-2. Create an **OAuth 2.0 Client ID** (Application type: *Web application*).
-3. Set **Authorized JavaScript origins**:
-   - `https://auth.yourdomain.com`
-   - `https://cloud.yourdomain.com`
-4. Set **Authorized redirect URIs**:
-   - `https://auth.yourdomain.com`
-5. Paste `Client ID` and `Client Secret` into `.env`.
-
-#### B. GitHub App Setup (for Continuous GitOps Deployments)
-1. Go to GitHub > **Settings** > **Developer Settings** > **GitHub Apps** > [New GitHub App](https://github.com/settings/apps/new).
-2. Fill in the required URLs (replace `yourdomain.com` with your `BASE_DOMAIN`):
-   - **App Name**: `My Cloud Platform`
-   - **Homepage URL**: `https://cloud.yourdomain.com`
-   - **Callback URL**: `https://cloud.yourdomain.com`
-   - **Setup URL**: `https://cloud.yourdomain.com` (Check **"Redirect on update"**)
-   - **Webhook URL**: `https://api.yourdomain.com/api/github/webhook`
-   - **Webhook Secret**: Enter a secret string (and copy it to `GITHUB_APP_WEBHOOK_SECRET`).
-3. Set permissions:
-   - `Repository permissions` → `Contents`: **Read-only**
-   - `Repository permissions` → `Metadata`: **Read-only**
-   - `Repository permissions` → `Webhooks`: **Read & write**
-4. Subscribe to events: Check **`Push`**.
-5. Where can this GitHub App be installed?: Select **"Any account"**.
-6. Generate a **Private key (`.pem`)**, format newlines as `\n`, and save to `GITHUB_APP_PRIVATE_KEY` in `.env`.
-
----
-
-### Step 5: Launch & Deploy
-
-Run the automated deployment script:
-
-```bash
-chmod +x deploy.sh
-./deploy.sh
-```
-
-Or deploy manually via Docker Compose:
-```bash
+# Pull pre-built images and launch cluster
+sudo docker compose -f docker-compose.prod.yml pull
 sudo DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d --build
+
+# Run database schema migrations
 sudo docker compose -f docker-compose.prod.yml exec -T backend npx prisma db push --accept-data-loss
 ```
 
 ---
 
-## 🌐 Deployed Endpoints Overview
+## ⚙️ Environment Configuration Reference
 
-Once deployed, the following subdomains are automatically routed with SSL certificates:
-
-| Endpoint | Subdomain | Purpose |
+| Variable | Description | Default / Example |
 | :--- | :--- | :--- |
-| **Control Plane** | `https://cloud.yourdomain.com` | Next.js 15 Web Dashboard & Project Manager |
-| **Auth Hub** | `https://auth.yourdomain.com` | Dedicated OAuth Session & Login Gateway |
-| **API Engine** | `https://api.yourdomain.com` | Backend REST API & GitHub Webhook Receiver |
-| **Object Storage** | `https://storage.yourdomain.com` | Public S3 Gateway & Media Streaming CDN |
-| **Admin Console** | `https://admin.yourdomain.com` | System Administrator Portal & Metrics |
-| **User Projects** | `https://<project-slug>.yourdomain.com` | Deployed Docker web apps & services |
+| `BASE_DOMAIN` | Root domain for routing and SSL certificates | `yourdomain.com` |
+| `ACME_EMAIL` | Email address registered with Let's Encrypt | `admin@yourdomain.com` |
+| `ADMIN_API_KEY` | Secret bearer token for admin API endpoints | *(Generate strong random string)* |
+| `MINIO_ROOT_USER` | S3 storage administrator username | `khcloudroot` |
+| `MINIO_ROOT_PASSWORD` | S3 storage administrator password | *(Generate strong random string)* |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID for dashboard authentication | `*.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET`| Google OAuth Client Secret | `GOCSPX-...` |
+| `GITHUB_APP_ID` | GitHub App ID for GitOps deployments | `123456` |
+| `GITHUB_APP_PRIVATE_KEY`| GitHub App PEM private key (newlines as `\n`) | `"-----BEGIN RSA...-----"` |
+| `GITHUB_APP_WEBHOOK_SECRET` | Secret for verifying GitHub webhook HMAC signatures | `your_webhook_secret` |
+| `DDOS_GLOBAL_LIMIT` | Global requests per minute before rate-limiting | `200` |
+| `DDOS_API_LIMIT` | API requests per minute before rate-limiting | `60` |
+| `DDOS_BAN_THRESHOLD` | Violations before IP auto-ban is enforced | `5` |
+| `DDOS_BAN_TTL_SECONDS` | Duration in seconds for temporary IP bans | `3600` |
 
 ---
 
-## 📄 License
-This project is open-source under the [MIT License](LICENSE).
+## 🌐 Platform Endpoints Reference
+
+Once deployed with your `BASE_DOMAIN`, the following endpoints are automatically routed with SSL certificates:
+
+| Endpoint | Subdomain | Purpose |
+| :--- | :--- | :--- |
+| **Control Plane** | `https://cloud.yourdomain.com` | Next.js 15 Web Dashboard & Project Workspace |
+| **Auth Hub** | `https://auth.yourdomain.com` | Dedicated OAuth Gateway & Session Router |
+| **Backend API** | `https://api.yourdomain.com` | NestJS REST API & GitHub Webhook Receiver |
+| **Object Storage** | `https://storage.yourdomain.com` | S3 Gateway & Media Streaming CDN |
+| **Admin Console** | `https://admin.yourdomain.com` | Platform Administration, Logs, & Security Metrics |
+| **User Deployments**| `https://<project-slug>.yourdomain.com` | Deployed user web applications |
+
+---
+
+## 📄 License & Community
+
+- **License**: Released under the [MIT License](LICENSE).
+- **Contributing**: Contributions, issues, and feature requests are welcome. Please open an issue or pull request on GitHub.
+- **Repository**: [https://github.com/khawarahemad/KH-cloude](https://github.com/khawarahemad/KH-cloude)
