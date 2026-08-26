@@ -37,8 +37,8 @@ sudo chmod 600 /var/lib/kh-cloud/traefik-acme/acme.json
 echo "=== [3/5] Building & Launching Containers with BuildKit ==="
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
-sudo DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml build --no-cache
-sudo DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml pull || true
+docker compose -f docker-compose.prod.yml up -d --build
 
 echo "=== [4/5] Running Database Schema Sync (Prisma) ==="
 # Allow backend container 5 seconds to warm up

@@ -142,7 +142,7 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
 $SUDO_CMD docker compose -f docker-compose.prod.yml pull || true
-$SUDO_CMD DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d --build
+$SUDO_CMD docker compose -f docker-compose.prod.yml up -d --build
 
 echo "    Waiting for services to initialize..."
 sleep 6
