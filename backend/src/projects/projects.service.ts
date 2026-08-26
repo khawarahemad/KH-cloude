@@ -1259,30 +1259,27 @@ export class ProjectsService {
           data: { status: 'DEPLOYING' },
         });
 
-        // 6. Stop and Remove previous container version (force + wait — avoids name conflicts)
-        const containerExists = (name: string): Promise<boolean> =>
-          new Promise((resolve) => {
-            exec(
-              `docker inspect ${name}`,
-              { cwd: buildDir, maxBuffer: 1024 * 1024 },
-              (err) => resolve(!err),
-            );
-          });
-
-        const forceRemoveContainer = async (name: string) => {
-          appendLog(`Stopping and removing any existing container version: ${name}`);
-          await runCmd(`docker rm -f ${name}`, buildDir).catch(() => null);
-          // Wait until Docker releases the name (rm can be async/"already in progress")
-          for (let attempt = 0; attempt < 15; attempt++) {
-            if (!(await containerExists(name))) return;
-            appendLog(`Waiting for container ${name} to be fully removed... (${attempt + 1}/15)`);
-            await new Promise((r) => setTimeout(r, 1000));
-            await runCmd(`docker rm -f ${name}`, buildDir).catch(() => null);
+        // 6. Zero-Downtime Blue-Green Staging: Put current running container in standby
+        const isContainerRunning = async (name: string): Promise<boolean> => {
+          try {
+            const res = await runCmd(`docker inspect -f '{{.State.Running}}' ${name}`, buildDir);
+            return res.stdout.trim() === 'true';
+          } catch {
+            return false;
           }
-          appendLog(`[Warn] Container ${name} may still exist after force-remove attempts.`);
         };
 
-        await forceRemoveContainer(containerName);
+        const standbyContainerName = `${containerName}-standby`;
+        const hadActiveContainer = await isContainerRunning(containerName);
+
+        if (hadActiveContainer) {
+          appendLog(`[Zero-Downtime] Active container is online. Staging it to standby (${standbyContainerName}) during deployment.`);
+          await runCmd(`docker rm -f ${standbyContainerName}`, buildDir).catch(() => null);
+          await runCmd(`docker rename ${containerName} ${standbyContainerName}`, buildDir).catch(() => null);
+        } else {
+          // Clean up any stopped or residual container with this name
+          await runCmd(`docker rm -f ${containerName}`, buildDir).catch(() => null);
+        }
 
         // 7. Start container with Traefik routing labels and environment variables
         
@@ -1342,12 +1339,12 @@ export class ProjectsService {
         if (runRes.code !== 0) {
           const conflictHint = `${runRes.stderr || ''} ${runRes.stdout || ''}`.toLowerCase();
           if (conflictHint.includes('already in use') || conflictHint.includes('conflict')) {
-            appendLog('Container name conflict detected — force-removing and retrying once...');
-            await forceRemoveContainer(containerName);
+            appendLog('Container name conflict detected — cleaning up residual name and retrying once...');
+            await runCmd(`docker rm -f ${containerName}`, buildDir).catch(() => null);
             runRes = await runCmd(runCmdString, buildDir);
           }
           if (runRes.code !== 0) {
-            throw new Error('Failed to run container');
+            throw new Error(`Failed to run container: ${runRes.stderr || 'Unknown Docker error'}`);
           }
         }
 
@@ -1389,8 +1386,8 @@ export class ProjectsService {
             data: { port: detectedPort }
           });
 
-          // Stop and remove old mismatched container
-          await forceRemoveContainer(containerName);
+          // Stop and remove current container to re-run with correct port
+          await runCmd(`docker rm -f ${containerName}`, buildDir).catch(() => null);
 
           // Rebuild run string with the auto-detected port
           containerPort = detectedPort;
@@ -1424,6 +1421,12 @@ export class ProjectsService {
 
         if (!isRunning) {
           throw new Error('Container failed health probes (not running)');
+        }
+
+        // Successfully deployed and verified: retire standby container
+        if (hadActiveContainer) {
+          appendLog(`[Zero-Downtime] New container verified healthy! Retiring previous standby container with zero downtime.`);
+          await runCmd(`docker rm -f ${standbyContainerName}`, buildDir).catch(() => null);
         }
 
         appendLog(`Deployment successful! App is online at https://${targetDomain}`);
@@ -1468,14 +1471,44 @@ export class ProjectsService {
 
       } catch (err: any) {
         appendLog(`[ERROR] Deployment failed: ${err.message}`);
+
+        // Zero-Downtime Rollback: If a standby container exists, restore it immediately
+        const activeContainerName = cleanSlug ? `kh-cloud-app-${cleanSlug}-${projectId.substring(0, 8)}` : '';
+        const standbyContainerName = activeContainerName ? `${activeContainerName}-standby` : '';
+        if (standbyContainerName) {
+          const hasStandby = (await runCmd(`docker inspect ${standbyContainerName}`, buildDir).catch(() => ({ code: 1 }))).code === 0;
+          if (hasStandby) {
+            appendLog(`[Zero-Downtime Rollback] Restoring previous healthy container from standby...`);
+            await runCmd(`docker rm -f ${activeContainerName}`, buildDir).catch(() => null);
+            await runCmd(`docker rename ${standbyContainerName} ${activeContainerName}`, buildDir).catch(() => null);
+            appendLog(`[Zero-Downtime Rollback] Previous healthy container restored. Live site remains online.`);
+          }
+        }
+
+        // Check if active container is currently running and serving traffic
+        let isStillRunning = false;
+        if (activeContainerName) {
+          const checkRes = await runCmd(`docker inspect -f '{{.State.Running}}' ${activeContainerName}`, buildDir).catch(() => ({ stdout: '' }));
+          isStillRunning = checkRes.stdout.trim() === 'true';
+        }
+
         await this.prisma.deployment.update({
           where: { id: deploymentId },
           data: { status: 'FAILED', endedAt: new Date() },
         });
-        await this.prisma.project.update({
-          where: { id: projectId },
-          data: { status: 'INACTIVE' },
-        });
+
+        if (isStillRunning) {
+          appendLog(`[Zero-Downtime] Project status remains READY because the previous release is active and serving traffic.`);
+          await this.prisma.project.update({
+            where: { id: projectId },
+            data: { status: 'READY' },
+          });
+        } else {
+          await this.prisma.project.update({
+            where: { id: projectId },
+            data: { status: 'INACTIVE' },
+          });
+        }
 
         sendDiscordNotification(project?.teamId || '', 'error', {
           title: `❌ Deployment Failed: ${project?.name || 'Unknown Project'}`,
