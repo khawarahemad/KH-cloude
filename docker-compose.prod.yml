@@ -171,7 +171,7 @@ services:
       - "traefik.http.middlewares.frontend-rate.ratelimit.period=1s"
       - "traefik.http.middlewares.frontend-rate.ratelimit.sourcecriterion.ipstrategy.depth=1"
       # Dashboard routing (cloud.<BASE_DOMAIN>, cdn.<BASE_DOMAIN>, admin.<BASE_DOMAIN>, and auth.<BASE_DOMAIN>)
-      - "traefik.http.routers.frontend.rule=Host(`cloud.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`cdn.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`admin.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`auth.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`${BASE_DOMAIN:-khawarahemad.com}`)"
+      - "traefik.http.routers.frontend.rule=Host(`cloud.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`cdn.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`admin.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`auth.${BASE_DOMAIN:-khawarahemad.com}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.frontend.middlewares=frontend-rate"
