@@ -8,27 +8,27 @@ Deploy full-stack web applications with automatic GitOps CI/CD, managed database
 ## 🗺️ System Architecture
 
 ```mermaid
-graph TD
-    Client[User / Developer Browser] -->|HTTPS (Port 443)| Traefik[Traefik Edge Router & SSL Engine]
+flowchart TD
+    Client["User / Developer Browser"] -->|"HTTPS (Port 443)"| Traefik["Traefik Edge Router & SSL Engine"]
     
-    subgraph Core Platform
-        Traefik -->|cloud.yourdomain.com| Frontend[Next.js 15 Dashboard]
-        Traefik -->|api.yourdomain.com| Backend[NestJS Cloud API Engine]
-        Traefik -->|storage.yourdomain.com| StorageCtrl[Object Storage Router]
-        Traefik -->|auth.yourdomain.com| Frontend
-        Traefik -->|admin.yourdomain.com| Frontend
-        Backend -->|Internal| Redis[(Redis Rate Limiter & Cache)]
-        Backend -->|Internal| DB[(SQLite / Prisma Database)]
-        Backend -->|Internal :9000| MinIO[(MinIO Object Storage Cluster)]
+    subgraph CorePlatform["Core Platform"]
+        Traefik -->|"cloud.yourdomain.com"| Frontend["Next.js 15 Dashboard"]
+        Traefik -->|"api.yourdomain.com"| Backend["NestJS Cloud API Engine"]
+        Traefik -->|"storage.yourdomain.com"| StorageCtrl["Object Storage Router"]
+        Traefik -->|"auth.yourdomain.com"| Frontend
+        Traefik -->|"admin.yourdomain.com"| Frontend
+        Backend -->|"Internal TCP"| Redis[("Redis Rate Limiter & Cache")]
+        Backend -->|"Internal"| DB[("SQLite / Prisma Database")]
+        Backend -->|"Internal :9000"| MinIO[("MinIO Object Storage Cluster")]
     end
 
-    subgraph Managed Cloud Services
-        Backend -->|Docker Socket| Containers[Deployed Web Apps]
-        Backend -->|Managed Instances| ManagedDatabases[PostgreSQL / MySQL / Redis]
-        Backend -->|In-Process VM Sandbox| EdgeFunctions[Edge Functions Runtime]
+    subgraph ManagedServices["Managed Cloud Services"]
+        Backend -->|"Docker Socket"| Containers["Deployed Web Apps"]
+        Backend -->|"Managed Instances"| ManagedDatabases["PostgreSQL / MySQL / Redis"]
+        Backend -->|"VM Sandbox"| EdgeFunctions["Edge Functions Runtime"]
     end
 
-    GitHub[GitHub Webhooks] -->|GitOps Push Events| Backend
+    GitHub["GitHub Webhooks"] -->|"GitOps Push Events"| Backend
 ```
 
 ---
