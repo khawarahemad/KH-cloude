@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getApiBase } from '@/lib/api';
 import { useTeamRole } from '@/lib/rbac';
 import { 
   Database, Plus, RefreshCw, Key, Copy, Check, Loader2, Trash, 
@@ -651,7 +651,7 @@ export default function DatabasesTab() {
                   <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>Execute raw SQL from any backend, webhook, or serverless function.</p>
                   <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: '#c4b5fd', whiteSpace: 'pre-wrap', overflow: 'auto', margin: 0 }}>
 {`# Execute SQL query via REST
-curl -X POST "https://api.khawarahemad.com/api/databases/${activeDb.id}/query" \\
+curl -X POST "${getApiBase()}/databases/${activeDb.id}/query" \\
   -H "Content-Type: application/json" \\
   -H "apikey: YOUR_TEAM_API_KEY" \\
   -d '{
@@ -670,7 +670,7 @@ curl -X POST "https://api.khawarahemad.com/api/databases/${activeDb.id}/query" \
                     <div>
                       <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#818cf8' }}>Node.js / TypeScript (Fetch REST Query)</span>
                       <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
-{`const response = await fetch('https://api.khawarahemad.com/api/databases/${activeDb.id}/query', {
+{`const response = await fetch('${getApiBase()}/databases/${activeDb.id}/query', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -707,7 +707,7 @@ datasource db {
 {`import requests, os
 
 res = requests.post(
-    'https://api.khawarahemad.com/api/databases/${activeDb.id}/query',
+    '${getApiBase()}/databases/${activeDb.id}/query',
     headers={'apikey': os.getenv('KH_CLOUD_API_KEY')},
     json={
         'teamId': '${activeTeam?.id || 'YOUR_TEAM_ID'}',

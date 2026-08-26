@@ -19,6 +19,10 @@ export class ProjectsService {
     private githubApp: GithubAppService,
   ) {}
 
+  private getBaseDomain(): string {
+    return process.env.BASE_DOMAIN || 'khawarahemad.com';
+  }
+
   private getEnvFilePaths(projectId: string) {
     const isProdContainer = fs.existsSync('/usr/src/app/storage-mock');
     const localDir = isProdContainer ? '/usr/src/app/storage-mock/envs' : path.join(process.cwd(), 'storage-mock', 'envs');
@@ -115,11 +119,11 @@ export class ProjectsService {
       },
     });
 
-    // Automatically create a default khawarahemad.com domain for the project
+    // Automatically create a default base domain for the project
     await this.prisma.domain.create({
       data: {
         projectId: project.id,
-        hostname: `${slug}.khawarahemad.com`,
+        hostname: `${slug}.${this.getBaseDomain()}`,
         isCustom: false,
         status: 'ACTIVE',
         sslStatus: 'ACTIVE',
@@ -420,7 +424,7 @@ export class ProjectsService {
 
         // Get all domains including the new one
         const allDomains = await this.prisma.domain.findMany({ where: { projectId } });
-        const targetDomain = `${project.slug}.khawarahemad.com`;
+        const targetDomain = `${project.slug}.${this.getBaseDomain()}`;
         const hostnames = Array.from(new Set([targetDomain, ...allDomains.map(d => d.hostname)]));
         const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
@@ -522,7 +526,7 @@ export class ProjectsService {
 
         // Get remaining domains
         const allDomains = await this.prisma.domain.findMany({ where: { projectId } });
-        const targetDomain = `${project.slug}.khawarahemad.com`;
+        const targetDomain = `${project.slug}.${this.getBaseDomain()}`;
         const hostnames = Array.from(new Set([targetDomain, ...allDomains.map(d => d.hostname)]));
         const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
@@ -1275,7 +1279,7 @@ export class ProjectsService {
         const projectDomains = await this.prisma.domain.findMany({
           where: { projectId },
         });
-        const targetDomain = `${project.slug}.khawarahemad.com`;
+        const targetDomain = `${project.slug}.${this.getBaseDomain()}`;
         const hostnames = Array.from(new Set([targetDomain, ...projectDomains.map(d => d.hostname)]));
         const hostRules = hostnames.map(hn => `Host(\\"${hn}\\")`).join(' || ');
 

@@ -14,7 +14,7 @@ import BillingTab from '@/components/BillingTab';
 import AdminTab from '@/components/AdminTab';
 import EdgeFunctionsTab from '@/components/EdgeFunctionsTab';
 import SettingsTab from '@/components/SettingsTab';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getDomainUrl, getBaseDomain, getApiBase } from '@/lib/api';
 import { Shield } from 'lucide-react';
 
 type ViewMode = 'landing' | 'auth' | 'dashboard';
@@ -131,7 +131,7 @@ export default function Home() {
           .replace(/\//g, '_')
           .replace(/=+$/, '');
 
-        const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com').replace(/\/$/, '');
+        const apiBase = getApiBase().replace(/\/api$/, '');
         const url = `${apiBase}/api/github-app/callback?installation_id=${encodeURIComponent(installationId)}&state=${encodeURIComponent(state)}`;
 
         try {
@@ -173,7 +173,7 @@ export default function Home() {
       if (isAuthSubdomain) {
         if (user) {
           const params = new URLSearchParams(window.location.search);
-          const redirectDest = params.get('redirect') || 'https://cloud.khawarahemad.com';
+          const redirectDest = params.get('redirect') || getDomainUrl('cloud');
           const sessionPayload = encodeURIComponent(JSON.stringify({ user, teams: useAppStore.getState().teams }));
           window.location.href = `${redirectDest}?session_data=${sessionPayload}`;
         } else {
@@ -191,9 +191,9 @@ export default function Home() {
             const isLoggingOut = localStorage.getItem('logout_initiated') === 'true';
             localStorage.removeItem('logout_initiated');
             if (isLoggingOut) {
-              window.location.href = `https://auth.khawarahemad.com?logout=true&redirect=${encodeURIComponent(currentOrigin)}`;
+              window.location.href = `${getDomainUrl('auth')}?logout=true&redirect=${encodeURIComponent(currentOrigin)}`;
             } else {
-              window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+              window.location.href = `${getDomainUrl('auth')}?redirect=${encodeURIComponent(currentOrigin)}`;
             }
           } else {
             setView('landing');
@@ -297,7 +297,7 @@ export default function Home() {
           <div className="space-y-2">
             <h3 className="text-2xl font-semibold tracking-tight text-white">Access denied</h3>
             <p className="text-sm leading-6 text-slate-300">
-              The domain <strong className="text-zinc-200">admin.khawarahemad.com</strong> is reserved for system administrators. Your account does not have admin privileges.
+              The domain <strong className="text-zinc-200">admin.{getBaseDomain()}</strong> is reserved for system administrators. Your account does not have admin privileges.
             </p>
           </div>
           <button
@@ -306,7 +306,7 @@ export default function Home() {
               localStorage.removeItem('kh-cloud-session');
               useAppStore.getState().logout();
               if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
-                window.location.href = 'https://auth.khawarahemad.com?logout=true';
+                window.location.href = `${getDomainUrl('auth')}?logout=true`;
               }
             }}
             className="app-button-primary"
@@ -324,7 +324,7 @@ export default function Home() {
         onEnterApp={() => {
           if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
             const currentOrigin = window.location.origin;
-            window.location.href = `https://auth.khawarahemad.com?redirect=${encodeURIComponent(currentOrigin)}`;
+            window.location.href = `${getDomainUrl('auth')}?redirect=${encodeURIComponent(currentOrigin)}`;
           } else {
             setView('auth');
           }

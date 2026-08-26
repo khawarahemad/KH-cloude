@@ -3,21 +3,27 @@ import { AppModule } from './app.module';
 import * as express from 'express';
 
 // ---------------------------------------------------------------------------
-// Allowed origins — the four production domains only.
-// In local dev (NODE_ENV !== 'production') we also allow localhost variants.
+// Allowed CORS origins — configured dynamically via BASE_DOMAIN.
+// Allows system subdomains (cloud, auth, cdn, admin, storage), apex domain,
+// and user project subdomains (*.<BASE_DOMAIN>).
+// In local development (NODE_ENV !== 'production'), localhost origins are also permitted.
 // ---------------------------------------------------------------------------
+const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+
 const PRODUCTION_ORIGINS = [
-  'https://cloud.khawarahemad.com',
-  'https://auth.khawarahemad.com',
-  'https://cdn.khawarahemad.com',
-  'https://admin.khawarahemad.com',
-  'https://storage.khawarahemad.com',
+  `https://cloud.${baseDomain}`,
+  `https://auth.${baseDomain}`,
+  `https://cdn.${baseDomain}`,
+  `https://admin.${baseDomain}`,
+  `https://storage.${baseDomain}`,
+  `https://${baseDomain}`,
 ];
 
 const DEV_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
+  'http://localhost:5000',
 ];
 
 const allowedOrigins =
@@ -84,13 +90,35 @@ async function bootstrap() {
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
   // -------------------------------------------------------------------------
-  // CORS — locked to known production domains (+ localhost in dev)
+  // CORS — locked to configured BASE_DOMAIN ecosystem (+ localhost in dev)
   // -------------------------------------------------------------------------
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      try {
+        const url = new URL(origin);
+        const host = url.hostname;
+
+        // Allow localhost and 127.0.0.1 strictly in non-production environments
+        if (process.env.NODE_ENV !== 'production' && (host === 'localhost' || host === '127.0.0.1')) {
+          return callback(null, true);
+        }
+
+        // Allow apex domain and any subdomain under baseDomain
+        if (host === baseDomain || host.endsWith(`.${baseDomain}`)) {
+          return callback(null, true);
+        }
+
+        // Check explicit allowedOrigins list
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+      } catch {
+        // Invalid origin URL format
+      }
+
       callback(new Error(`CORS blocked: origin "${origin}" is not allowed`));
     },
     allowedHeaders: [

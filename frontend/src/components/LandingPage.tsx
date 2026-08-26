@@ -6,6 +6,7 @@ import {
   ArrowRight, Server, Database, Layers, Zap, HardDrive, Network,
   Check, Globe, Terminal
 } from 'lucide-react';
+import { getBaseDomain } from '@/lib/api';
 
 interface LandingProps {
   onEnterApp: () => void;
@@ -355,7 +356,7 @@ export default function LandingPage({ onEnterApp }: LandingProps) {
               display: 'flex', alignItems: 'center', padding: '0 12px',
               fontSize: '11px', color: '#4b5563',
             }}>
-              cloud.khawarahemad.com
+              cloud.{getBaseDomain()}
             </div>
           </div>
 

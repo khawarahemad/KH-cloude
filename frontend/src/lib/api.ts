@@ -1,16 +1,56 @@
 import { useAppStore } from './store';
 
-const getApiBase = () => {
+export const getBaseDomain = (): string => {
+  if (process.env.NEXT_PUBLIC_BASE_DOMAIN) {
+    return process.env.NEXT_PUBLIC_BASE_DOMAIN;
+  }
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (hostname.endsWith('khawarahemad.com')) {
-      return 'https://api.khawarahemad.com/api';
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return 'localhost';
+    const parts = hostname.split('.');
+    if (parts.length >= 2) {
+      return parts.slice(-2).join('.');
     }
+    return hostname;
+  }
+  return 'khawarahemad.com';
+};
+
+export const getDomainUrl = (subdomain: 'cloud' | 'api' | 'auth' | 'admin' | 'storage' | 's3' | 'cdn'): string => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      if (subdomain === 'api') return 'http://localhost:5000/api';
+      if (subdomain === 'storage') return 'http://localhost:5000';
+      if (subdomain === 's3') return 'http://localhost:9000';
+      return 'http://localhost:3000';
+    }
+    const base = getBaseDomain();
+    if (subdomain === 'api') return `https://api.${base}/api`;
+    return `https://${subdomain}.${base}`;
+  }
+  const base = process.env.NEXT_PUBLIC_BASE_DOMAIN || 'khawarahemad.com';
+  if (subdomain === 'api') return `https://api.${base}/api`;
+  return `https://${subdomain}.${base}`;
+};
+
+export const getApiBase = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    const raw = process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+    return raw.endsWith('/api') ? raw : `${raw}/api`;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
+    const base = getBaseDomain();
+    return `https://api.${base}/api`;
   }
   return 'http://localhost:5000/api';
 };
 
-const API_BASE = getApiBase();
+export const API_BASE = getApiBase();
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;

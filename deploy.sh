@@ -47,9 +47,24 @@ sleep 5
 # Synchronize database tables inside the running backend container
 sudo docker compose -f docker-compose.prod.yml exec -T backend npx prisma db push --accept-data-loss
 
+# Load .env if present
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
+DOMAIN="${BASE_DOMAIN:-khawarahemad.com}"
+SERVER_IP=$(curl -s https://api.ipify.org || echo "YOUR_VPS_IP")
+
 echo "=== [5/5] Deployment Successful! ==="
-echo "KH Cloud services are now online on VPS 204.168.147.13!"
-echo "Please make sure your DNS records for khawarahemad.com subdomains point to this IP."
-echo "Access Dashboard at: https://cloud.khawarahemad.com"
-echo "Access S3 API Endpoint at: https://storage.khawarahemad.com"
-echo "Access Traefik admin dashboard at: https://admin.khawarahemad.com"
+echo "KH Cloud services are now online on VPS IP: $SERVER_IP"
+echo "Please make sure your DNS records (@ and *) for $DOMAIN point to $SERVER_IP."
+echo ""
+echo "🚀 Access Points:"
+echo "  • Dashboard:        https://cloud.$DOMAIN"
+echo "  • Auth Gateway:     https://auth.$DOMAIN"
+echo "  • Backend API:      https://api.$DOMAIN"
+echo "  • Object Storage:   https://storage.$DOMAIN"
+echo "  • Traefik Admin:    https://admin.$DOMAIN"
+echo "  • Deployed Apps:    https://<project-slug>.$DOMAIN"
