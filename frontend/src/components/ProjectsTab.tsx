@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { useTeamRole } from '@/lib/rbac';
-import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock, ChevronDown, Building2, User, ExternalLink, Link2, Check, Sparkles, FolderGit2, Trash2, Search, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server, Play, ArrowLeft, Loader2, Database, Lock, Unlock, ChevronDown, Building2, User, ExternalLink, Link2, Check, Sparkles, FolderGit2, Trash2, Search, ArrowRight, ShieldCheck, Rocket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDialog } from './CustomDialogProvider';
 import NetworkMonitorTab from './NetworkMonitorTab';
@@ -168,6 +168,7 @@ export default function ProjectsTab() {
   // Env vars UI state
   const [envSaving, setEnvSaving] = useState(false);
   const [envSaved, setEnvSaved] = useState(false);
+  const [showRedeployPrompt, setShowRedeployPrompt] = useState(false);
   const [envRevealedKeys, setEnvRevealedKeys] = useState<Set<string>>(new Set());
   const [envEditingKey, setEnvEditingKey] = useState<string | null>(null);
   const [envEditVal, setEnvEditVal] = useState('');
@@ -192,6 +193,7 @@ export default function ProjectsTab() {
         body: JSON.stringify({ vars }),
       });
       setEnvSaved(true);
+      setShowRedeployPrompt(true);
       setTimeout(() => setEnvSaved(false), 3000);
     } catch (err) {
       console.error(err);
@@ -474,35 +476,39 @@ export default function ProjectsTab() {
     }
   };
 
-  const fetchProjectDetails = async (id: string) => {
+  const fetchProjectDetails = async (id: string, silent = false) => {
     if (!activeTeam) return;
     try {
       const data = await apiRequest(`/projects/${id}?teamId=${activeTeam.id}`);
       setProjectDetails(data);
-      setEnvVars(data.envVars || []);
+      if (!silent) {
+        setEnvVars(data.envVars || []);
+      }
       // If there's an active building deployment, auto-select it for logs
       const building = data.deployments?.find((d: any) => d.status === 'BUILDING' || d.status === 'DEPLOYING' || d.status === 'QUEUED');
-      if (building) {
+      if (building && (!activeDeploymentId || activeDeploymentId !== building.id)) {
         setActiveDeploymentId(building.id);
       }
     } catch (err) {
-      // Fallback mock details
-      setProjectDetails({
-        id,
-        name: id === 'proj-1' ? 'Acme Website' : 'Data Pipeline',
-        slug: id === 'proj-1' ? 'acme-website' : 'data-pipeline',
-        githubRepo: id === 'proj-1' ? 'acme/website' : 'acme/pipeline',
-        githubBranch: 'main',
-        buildCommand: 'npm run build',
-        startCommand: 'npm run start',
-        port: 3000,
-        status: id === 'proj-1' ? 'READY' : 'INACTIVE',
-        domains: [{ hostname: id === 'proj-1' ? 'acme-website.khcloud.app' : 'data-pipeline.khcloud.app' }],
-        envVars: [{ key: 'DATABASE_URL', value: 'postgres://...', isSecret: true }],
-        deployments: [
-          { id: 'dep-1', branch: 'main', status: 'READY', commitMessage: 'Initial commit', createdAt: new Date().toISOString() }
-        ]
-      });
+      if (!silent) {
+        // Fallback mock details
+        setProjectDetails({
+          id,
+          name: id === 'proj-1' ? 'Acme Website' : 'Data Pipeline',
+          slug: id === 'proj-1' ? 'acme-website' : 'data-pipeline',
+          githubRepo: id === 'proj-1' ? 'acme/website' : 'acme/pipeline',
+          githubBranch: 'main',
+          buildCommand: 'npm run build',
+          startCommand: 'npm run start',
+          port: 3000,
+          status: id === 'proj-1' ? 'READY' : 'INACTIVE',
+          domains: [{ hostname: id === 'proj-1' ? 'acme-website.khcloud.app' : 'data-pipeline.khcloud.app' }],
+          envVars: [{ key: 'DATABASE_URL', value: 'postgres://...', isSecret: true }],
+          deployments: [
+            { id: 'dep-1', branch: 'main', status: 'READY', commitMessage: 'Initial commit', createdAt: new Date().toISOString() }
+          ]
+        });
+      }
     }
   };
 
@@ -532,7 +538,7 @@ export default function ProjectsTab() {
         if (data.status === 'READY' || data.status === 'FAILED' || data.status === 'CANCELLED') {
           setActiveDeploymentId(null);
           // Refresh details
-          if (activeProjectId) fetchProjectDetails(activeProjectId);
+          if (activeProjectId) fetchProjectDetails(activeProjectId, true);
           fetchProjects();
         }
       } catch (err) {
@@ -543,14 +549,26 @@ export default function ProjectsTab() {
     return () => clearInterval(interval);
   }, [activeDeploymentId]);
 
+  // Real-time periodic polling of all projects (5s)
   useEffect(() => {
     fetchProjects();
+    const interval = setInterval(() => {
+      fetchProjects();
+    }, 5000);
+    return () => clearInterval(interval);
   }, [activeTeam]);
 
+  // Real-time periodic polling of active project details & deployments (3s)
   useEffect(() => {
     if (activeProjectId) {
       fetchProjectDetails(activeProjectId);
       fetchMetrics(activeProjectId);
+
+      const interval = setInterval(() => {
+        fetchProjectDetails(activeProjectId, true);
+      }, 3000);
+
+      return () => clearInterval(interval);
     }
   }, [activeProjectId]);
 
@@ -685,6 +703,7 @@ export default function ProjectsTab() {
       return;
     }
     if (!activeProjectId || !activeTeam) return;
+    setShowRedeployPrompt(false);
     try {
       const data = await apiRequest(`/projects/${activeProjectId}/deploy`, {
         method: 'POST',
@@ -694,10 +713,12 @@ export default function ProjectsTab() {
           userId: user?.id,
         }),
       });
+      setDetailsTab('deployments');
       setActiveDeploymentId(data.id);
       setBuildLogs('Triggering build...');
       setLogsOpen(true);
-      fetchProjectDetails(activeProjectId);
+      fetchProjectDetails(activeProjectId, true);
+      fetchProjects();
     } catch (err: any) {
       console.error(err);
       alert({ title: 'Deploy Failed', message: err.message || 'Failed to trigger deployment.', type: 'error' });
@@ -1135,7 +1156,7 @@ export default function ProjectsTab() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '3px' }}>Environment Variables</div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Injected into your app containers at runtime. Redeploy is required to apply updates.</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Injected into your app containers at runtime & during build. Redeploy is required to apply updates.</div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => { setEnvBulkMode(!envBulkMode); setEnvBulkText(''); }}
@@ -1150,6 +1171,86 @@ export default function ProjectsTab() {
                       )}
                     </div>
                   </div>
+
+                  {/* ⚡ Instant Redeploy Prompt Banner */}
+                  {showRedeployPrompt && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 18px',
+                      borderRadius: '10px',
+                      backgroundColor: 'rgba(124, 58, 237, 0.12)',
+                      border: '1px solid rgba(124, 58, 237, 0.35)',
+                      boxShadow: '0 4px 20px rgba(124, 58, 237, 0.15)',
+                      gap: '16px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '240px' }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          backgroundColor: '#7c3aed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <Rocket size={18} style={{ color: '#fff' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#f3f4f6' }}>
+                            Environment variables updated & saved
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#c4b5fd', marginTop: '2px' }}>
+                            Changes are stored in the platform database. Hit <strong>Redeploy</strong> to inject them into your live container and build assets.
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <button
+                          onClick={handleDeploy}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            height: '34px',
+                            padding: '0 16px',
+                            borderRadius: '7px',
+                            backgroundColor: '#7c3aed',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: '#fff',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <Play size={13} fill="currentColor" /> Redeploy Now
+                        </button>
+                        <button
+                          onClick={() => setShowRedeployPrompt(false)}
+                          style={{
+                            height: '34px',
+                            width: '34px',
+                            borderRadius: '7px',
+                            backgroundColor: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: '#9ba3af',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title="Dismiss"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {envBulkMode ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

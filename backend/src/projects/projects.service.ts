@@ -19,6 +19,54 @@ export class ProjectsService {
     private githubApp: GithubAppService,
   ) {}
 
+  private getEnvFilePaths(projectId: string) {
+    const isProdContainer = fs.existsSync('/usr/src/app/storage-mock');
+    const localDir = isProdContainer ? '/usr/src/app/storage-mock/envs' : path.join(process.cwd(), 'storage-mock', 'envs');
+    const localPath = path.join(localDir, `${projectId}.env`);
+    const hostPath = isProdContainer ? `/var/lib/kh-cloud/storage-mock/envs/${projectId}.env` : localPath;
+    return { localDir, localPath, hostPath };
+  }
+
+  private serializeEnvVars(vars: { key: string; value: string }[]): string {
+    return vars
+      .map(({ key, value }) => {
+        const cleanKey = key.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+        if (!cleanKey) return '';
+        const rawVal = value ?? '';
+        return `${cleanKey}=${rawVal}`;
+      })
+      .filter(Boolean)
+      .join('\n') + '\n';
+  }
+
+  async syncProjectEnvFile(projectId: string, effectiveBuildDir?: string): Promise<{ localPath: string; hostPath: string; envVars: any[] }> {
+    const { localDir, localPath, hostPath } = this.getEnvFilePaths(projectId);
+    try {
+      fs.mkdirSync(localDir, { recursive: true });
+    } catch { /* ignore */ }
+
+    const envVars = await this.prisma.envVar.findMany({ where: { projectId } });
+    const content = this.serializeEnvVars(envVars);
+
+    try {
+      fs.writeFileSync(localPath, content, 'utf8');
+    } catch (err) {
+      this.logger.warn(`Failed to write local env file at ${localPath}: ${err}`);
+    }
+
+    if (effectiveBuildDir && fs.existsSync(effectiveBuildDir)) {
+      try {
+        fs.writeFileSync(path.join(effectiveBuildDir, '.env'), content, 'utf8');
+        fs.writeFileSync(path.join(effectiveBuildDir, '.env.production'), content, 'utf8');
+        fs.writeFileSync(path.join(effectiveBuildDir, '.env.local'), content, 'utf8');
+      } catch (err) {
+        this.logger.warn(`Failed to write build dir .env files: ${err}`);
+      }
+    }
+
+    return { localPath, hostPath, envVars };
+  }
+
   async createProject(data: {
     name: string;
     description?: string;
@@ -136,13 +184,16 @@ export class ProjectsService {
         this.prisma.envVar.create({
           data: {
             projectId,
-            key: v.key,
+            key: v.key.trim().toUpperCase().replace(/[^A-Z0-9_]/g, ''),
             value: v.value,
             isSecret: v.isSecret,
           },
         })
       )
     );
+
+    // Sync environment file to disk immediately
+    await this.syncProjectEnvFile(projectId);
 
     return created;
   }
@@ -256,6 +307,9 @@ export class ProjectsService {
       where: { id: projectId, teamId },
     });
     if (!project) throw new NotFoundException('Project not found.');
+
+    // Ensure environment variables are synchronized to disk before restart
+    await this.syncProjectEnvFile(projectId);
 
     const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
     const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
@@ -371,13 +425,14 @@ export class ProjectsService {
         const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
 
-        // Get env vars
-        const envVars = await this.prisma.envVar.findMany({ where: { projectId } });
+        // Sync and get env file
+        const { hostPath, localPath } = await this.syncProjectEnvFile(projectId);
+        const envFileFlag = fs.existsSync(localPath) ? `--env-file ${hostPath}` : '';
         const envFlags = [
           '-e HOST=0.0.0.0',
           `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
-          ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
-        ].join(' ');
+          envFileFlag,
+        ].filter(Boolean).join(' ');
 
         // Stop old container
         await runCmd(`docker stop ${containerName}`).catch(() => null);
@@ -472,13 +527,14 @@ export class ProjectsService {
         const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
 
-        // Get env vars
-        const envVars = await this.prisma.envVar.findMany({ where: { projectId } });
+        // Sync and get env file
+        const { hostPath, localPath } = await this.syncProjectEnvFile(projectId);
+        const envFileFlag = fs.existsSync(localPath) ? `--env-file ${hostPath}` : '';
         const envFlags = [
           '-e HOST=0.0.0.0',
           `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
-          ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
-        ].join(' ');
+          envFileFlag,
+        ].filter(Boolean).join(' ');
 
         // Stop old container
         await runCmd(`docker stop ${containerName}`).catch(() => null);
@@ -1143,6 +1199,10 @@ export class ProjectsService {
           appendLog('Dockerfile detected in repository root. Using repository Dockerfile for deployment.');
         }
 
+        // 3.5 Synchronize environment variables to build directory (.env, .env.production, .env.local) and persistent host storage
+        const { hostPath, localPath, envVars } = await this.syncProjectEnvFile(projectId, effectiveBuildDir);
+        appendLog(`[Env Engine] Injected ${envVars.length} environment variables into build workspace (.env) and runtime config.`);
+
         // 4. Build Docker Image (BuildKit Engine with Smart Layer Recovery)
         cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
         const imageTag = `kh-cloud-${cleanSlug}:${deploymentId}`;
@@ -1225,11 +1285,6 @@ export class ProjectsService {
           // If we auto-generated nginx, the containerPort is 80
           containerPort = 80;
         }
-
-        // Fetch custom environment variables configured for this project
-        const envVars = await this.prisma.envVar.findMany({
-          where: { projectId },
-        });
         
         // Auto-inject HOST=0.0.0.0 for Node/Python/web framework routing safety
         const isNodeProject = fs.existsSync(path.join(effectiveBuildDir, 'package.json'));
@@ -1239,14 +1294,14 @@ export class ProjectsService {
         // Auto-inject Vite allowedHosts parameter to bypass host checks in Vite 6+
         const allowedHostsVal = hostnames.join(',');
         const viteAllowedHostsFlag = isNodeProject ? `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${allowedHostsVal}"` : '';
-
         const pythonEnvFlags = isPythonProject ? '-e PYTHONUNBUFFERED=1' : '';
+        const envFileFlag = fs.existsSync(localPath) ? `--env-file ${hostPath}` : '';
 
         const envFlags = [
           autoEnvFlags,
           pythonEnvFlags,
           viteAllowedHostsFlag,
-          ...envVars.map(ev => `-e ${ev.key}="${ev.value.replace(/"/g, '\\"')}"`)
+          envFileFlag,
         ].filter(Boolean).join(' ');
 
         const middlewareName = `${containerName}-hosthdr`;
