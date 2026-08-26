@@ -1,0 +1,63 @@
+name: Release KH Cloud
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install & Build Backend
+        run: |
+          cd backend
+          npm ci
+          npx prisma generate
+          npm run build
+          cd ..
+
+      - name: Install & Build Frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          cd ..
+
+      - name: Package Release Bundle
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          mkdir -p dist
+          tar --exclude='./.git' \
+              --exclude='./backend/node_modules' \
+              --exclude='./frontend/node_modules' \
+              --exclude='./frontend/.next' \
+              -czf dist/kh-cloud-${VERSION}.tar.gz .
+          ls -lh dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/kh-cloud-*.tar.gz
+          generate_release_notes: true
+          draft: false
+          prerelease: false
