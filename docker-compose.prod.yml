@@ -75,6 +75,7 @@ services:
       - kh-cloud-network
 
   backend:
+    image: ghcr.io/khawarahemad/kh-cloud-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -142,6 +143,7 @@ services:
       - kh-cloud-network
 
   frontend:
+    image: ghcr.io/khawarahemad/kh-cloud-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
