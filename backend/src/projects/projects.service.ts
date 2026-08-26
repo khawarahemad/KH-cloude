@@ -43,7 +43,19 @@ export class ProjectsService {
       .join('\n') + '\n';
   }
 
-  async syncProjectEnvFile(projectId: string, effectiveBuildDir?: string): Promise<{ localPath: string; hostPath: string; envVars: any[] }> {
+  private formatDockerEnvArgs(envVars: { key: string; value: string }[]): string {
+    return envVars
+      .map(({ key, value }) => {
+        const cleanKey = key.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+        if (!cleanKey) return '';
+        const escapedVal = (value ?? '').replace(/(["\\$`])/g, '\\$1');
+        return `-e ${cleanKey}="${escapedVal}"`;
+      })
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  async syncProjectEnvFile(projectId: string, effectiveBuildDir?: string): Promise<{ localPath: string; hostPath: string; envVars: any[]; dockerEnvFlags: string }> {
     const { localDir, localPath, hostPath } = this.getEnvFilePaths(projectId);
     try {
       fs.mkdirSync(localDir, { recursive: true });
@@ -51,6 +63,7 @@ export class ProjectsService {
 
     const envVars = await this.prisma.envVar.findMany({ where: { projectId } });
     const content = this.serializeEnvVars(envVars);
+    const dockerEnvFlags = this.formatDockerEnvArgs(envVars);
 
     try {
       fs.writeFileSync(localPath, content, 'utf8');
@@ -68,7 +81,7 @@ export class ProjectsService {
       }
     }
 
-    return { localPath, hostPath, envVars };
+    return { localPath, hostPath, envVars, dockerEnvFlags };
   }
 
   async createProject(data: {
@@ -429,13 +442,12 @@ export class ProjectsService {
         const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
 
-        // Sync and get env file
-        const { hostPath, localPath } = await this.syncProjectEnvFile(projectId);
-        const envFileFlag = fs.existsSync(localPath) ? `--env-file ${hostPath}` : '';
+        // Sync and get env flags
+        const { dockerEnvFlags } = await this.syncProjectEnvFile(projectId);
         const envFlags = [
           '-e HOST=0.0.0.0',
           `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
-          envFileFlag,
+          dockerEnvFlags,
         ].filter(Boolean).join(' ');
 
         // Stop old container
@@ -531,13 +543,12 @@ export class ProjectsService {
         const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
 
-        // Sync and get env file
-        const { hostPath, localPath } = await this.syncProjectEnvFile(projectId);
-        const envFileFlag = fs.existsSync(localPath) ? `--env-file ${hostPath}` : '';
+        // Sync and get env flags
+        const { dockerEnvFlags } = await this.syncProjectEnvFile(projectId);
         const envFlags = [
           '-e HOST=0.0.0.0',
           `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
-          envFileFlag,
+          dockerEnvFlags,
         ].filter(Boolean).join(' ');
 
         // Stop old container
@@ -1204,7 +1215,7 @@ export class ProjectsService {
         }
 
         // 3.5 Synchronize environment variables to build directory (.env, .env.production, .env.local) and persistent host storage
-        const { hostPath, localPath, envVars } = await this.syncProjectEnvFile(projectId, effectiveBuildDir);
+        const { dockerEnvFlags, envVars } = await this.syncProjectEnvFile(projectId, effectiveBuildDir);
         appendLog(`[Env Engine] Injected ${envVars.length} environment variables into build workspace (.env) and runtime config.`);
 
         // 4. Build Docker Image (BuildKit Engine with Smart Layer Recovery)
@@ -1299,13 +1310,12 @@ export class ProjectsService {
         const allowedHostsVal = hostnames.join(',');
         const viteAllowedHostsFlag = isNodeProject ? `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${allowedHostsVal}"` : '';
         const pythonEnvFlags = isPythonProject ? '-e PYTHONUNBUFFERED=1' : '';
-        const envFileFlag = fs.existsSync(localPath) ? `--env-file ${hostPath}` : '';
 
         const envFlags = [
           autoEnvFlags,
           pythonEnvFlags,
           viteAllowedHostsFlag,
-          envFileFlag,
+          dockerEnvFlags,
         ].filter(Boolean).join(' ');
 
         const middlewareName = `${containerName}-hosthdr`;
