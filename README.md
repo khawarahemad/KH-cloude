@@ -75,6 +75,16 @@ flowchart TD
 
 ---
 
+## ⚡ Quickstart: 1-Command Automated Installation
+
+Run this single command on your Ubuntu/Debian VPS to automatically install Docker, set up persistent volumes, configure domain SSL certificates, and launch the complete KH Cloud platform:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/install.sh | bash
+```
+
+---
+
 ## 🛠️ Step-by-Step Self-Hosting Guide
 
 ### Step 1: DNS Records Setup
