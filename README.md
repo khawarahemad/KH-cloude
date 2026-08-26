@@ -6,11 +6,12 @@
 *A complete self-hosted alternative to Vercel, Supabase, Railway, and Netlify.*
 
 [![CI & Build Verification](https://github.com/khawarahemad/KH-cloude/actions/workflows/ci.yml/badge.svg)](https://github.com/khawarahemad/KH-cloude/actions/workflows/ci.yml)
-[![Docker GHCR Package](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker&logoColor=white)](https://github.com/khawarahemad/KH-cloude/pkgs/container/kh-cloud-backend)
+[![Docker GHCR Backend](https://img.shields.io/badge/GHCR-Backend_Image-blue?logo=docker&logoColor=white)](https://github.com/khawarahemad/KH-cloude/pkgs/container/kh-cloud-backend)
+[![Docker GHCR Frontend](https://img.shields.io/badge/GHCR-Frontend_Image-blue?logo=docker&logoColor=white)](https://github.com/khawarahemad/KH-cloude/pkgs/container/kh-cloud-frontend)
 [![Latest Release](https://img.shields.io/github/v/release/khawarahemad/KH-cloude?color=emerald&logo=github)](https://github.com/khawarahemad/KH-cloude/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen?logo=node.js)](https://nodejs.org)
-[![Next.js 15](https://img.shields.io/badge/Next.js-15.1-black?logo=next.js)](https://nextjs.org)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js)](https://nextjs.org)
 [![NestJS](https://img.shields.io/badge/NestJS-10.x-red?logo=nestjs)](https://nestjs.com)
 
 <p align="center">
