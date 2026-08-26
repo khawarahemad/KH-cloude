@@ -64,10 +64,11 @@ if [ -f /var/lib/kh-cloud/traefik-acme/acme.json ]; then
 fi
 
 # Step 3: Rebuild and restart containers with BuildKit
-echo -e "${CYAN}==> [3/4] Rebuilding & Restarting Services (Rolling Update)...${NC}"
+echo -e "${CYAN}==> [3/4] Pulling Pre-Built Images & Restarting Services (Rolling Update)...${NC}"
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
+$SUDO_CMD docker compose -f docker-compose.prod.yml pull || true
 $SUDO_CMD DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d --build
 
 echo "    Waiting for services to warm up..."

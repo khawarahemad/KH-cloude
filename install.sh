@@ -137,10 +137,11 @@ $SUDO_CMD touch /var/lib/kh-cloud/traefik-acme/acme.json
 $SUDO_CMD chmod 600 /var/lib/kh-cloud/traefik-acme/acme.json
 
 # Step 6: Build and Launch Containers
-echo -e "${CYAN}==> [6/6] Building & Launching KH Cloud Cluster with BuildKit...${NC}"
+echo -e "${CYAN}==> [6/6] Launching KH Cloud Cluster (Fast GHCR Pull & Launch)...${NC}"
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
+$SUDO_CMD docker compose -f docker-compose.prod.yml pull || true
 $SUDO_CMD DOCKER_BUILDKIT=1 docker compose -f docker-compose.prod.yml up -d --build
 
 echo "    Waiting for services to initialize..."
