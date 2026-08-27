@@ -85,19 +85,25 @@ export class TeamsService {
     });
 
     if (existing.length > 0) {
-      return existing;
+      return existing.map(k => {
+        const { key, ...safeKey } = k;
+        return safeKey;
+      });
     }
 
     const crypto = require('crypto');
-    const anonKey = 'kh_anon_' + crypto.randomBytes(32).toString('hex');
-    const serviceKey = 'kh_service_' + crypto.randomBytes(32).toString('hex');
+    const anonRaw = 'kh_anon_' + crypto.randomBytes(32).toString('hex');
+    const serviceRaw = 'kh_service_' + crypto.randomBytes(32).toString('hex');
 
-    const created = await Promise.all([
+    const anonHash = crypto.createHash('sha256').update(anonRaw).digest('hex');
+    const serviceHash = crypto.createHash('sha256').update(serviceRaw).digest('hex');
+
+    await Promise.all([
       this.prisma.apiKey.create({
         data: {
           teamId,
           name: 'anon',
-          key: anonKey,
+          key: anonHash,
           role: 'ANON',
         },
       }),
@@ -105,13 +111,17 @@ export class TeamsService {
         data: {
           teamId,
           name: 'service_role',
-          key: serviceKey,
+          key: serviceHash,
           role: 'SERVICE_ROLE',
         },
       }),
     ]);
 
-    return created;
+    // Only return the raw keys once upon creation
+    return [
+      { name: 'anon', key: anonRaw, role: 'ANON' },
+      { name: 'service_role', key: serviceRaw, role: 'SERVICE_ROLE' }
+    ];
   }
 
   async getTeams(userId: string) {
@@ -130,10 +140,15 @@ export class TeamsService {
   }
 
   async getMembers(teamId: string) {
-    return this.prisma.teamMember.findMany({
+    const members = await this.prisma.teamMember.findMany({
       where: { teamId },
       include: { user: true },
     });
+    const { UserDto } = require('../auth/dto/user.dto');
+    return members.map((m: any) => ({
+      ...m,
+      user: m.user ? UserDto.from(m.user) : null,
+    }));
   }
 
   async inviteMember(teamId: string, email: string, role: TeamRole, inviterUserId: string) {
@@ -148,7 +163,8 @@ export class TeamsService {
       }
     }
 
-    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
     const invite = await this.prisma.invite.create({
       data: {
         teamId,

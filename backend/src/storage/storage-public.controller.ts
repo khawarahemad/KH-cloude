@@ -17,6 +17,8 @@ function pathName(key: string): string {
   return parts[parts.length - 1] || 'file';
 }
 
+import { Public } from '../auth/public.decorator';
+
 @Controller()
 export class StoragePublicController {
   constructor(
@@ -24,6 +26,7 @@ export class StoragePublicController {
     private readonly prisma: PrismaService,
   ) {}
 
+  @Public()
   @Get()
   root(@Req() req: express.Request) {
     const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
@@ -36,6 +39,7 @@ export class StoragePublicController {
     };
   }
 
+  @Public()
   @Get('*')
   async serveObject(
     @Req() req: express.Request,
@@ -126,15 +130,16 @@ export class StoragePublicController {
       let isAuthorized = false;
 
       if (passedKey) {
+        const crypto = require('crypto');
+        const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
         const keyMatch = await this.prisma.apiKey.findFirst({
-          where: { teamId: bucket.teamId, key: passedKey },
+          where: { teamId: bucket.teamId, key: hashedKey },
         });
         if (keyMatch) isAuthorized = true;
       }
 
       if (!isAuthorized && token) {
-        const expectedToken = this.storage.generateMockToken(bucket.id, key);
-        if (token === expectedToken) isAuthorized = true;
+        if (this.storage.verifyMockToken(bucket.id, key, token as string)) isAuthorized = true;
       }
 
       if (!isAuthorized) {
@@ -159,7 +164,11 @@ export class StoragePublicController {
         'Content-Disposition',
         `inline; filename="${pathName(key)}"`,
       );
-      res.setHeader('Cache-Control', 'public, max-age=86400');
+      if (bucket.isPublic) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      } else {
+        res.setHeader('Cache-Control', 'private, no-store');
+      }
       return res.send(fileBuffer);
     } catch (err: any) {
       if (err.name === 'AccessDenied' || err.message?.includes('AccessDenied')) {

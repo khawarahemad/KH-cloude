@@ -108,6 +108,10 @@ export class ProjectsService {
       throw new BadRequestException('A project with this name already exists in your team.');
     }
 
+    if (data.githubBranch && !/^[a-zA-Z0-9._\/-]{1,255}$/.test(data.githubBranch)) {
+      throw new BadRequestException('Invalid GitHub branch name.');
+    }
+
     const project = await this.prisma.project.create({
       data: {
         name: data.name,
@@ -387,12 +391,35 @@ export class ProjectsService {
     return rollback;
   }
 
+  /**
+   * @security Apex Domain Isolation
+   * Binds a custom domain to a customer's project.
+   * Explicitly denies claiming the core platform apex domain or its subdomains
+   * to prevent tenant misconfigurations from routing platform traffic to user containers.
+   */
   async addCustomDomain(projectId: string, hostname: string, teamId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId },
       include: { domains: true },
     });
     if (!project) throw new NotFoundException('Project not found.');
+
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/.test(hostname)) {
+      throw new BadRequestException('Invalid hostname format.');
+    }
+
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+    if (hostname.toLowerCase() === baseDomain || hostname.toLowerCase().endsWith(`.${baseDomain}`)) {
+      throw new BadRequestException(`Cannot use core platform domain (${baseDomain}) as a custom domain.`);
+    }
+
+    const existingDomain = await this.prisma.domain.findUnique({
+      where: { hostname },
+    });
+    if (existingDomain) {
+      const { ConflictException } = require('@nestjs/common');
+      throw new ConflictException(`The domain ${hostname} is already in use by another project.`);
+    }
 
     const domain = await this.prisma.domain.create({
       data: {
@@ -408,14 +435,21 @@ export class ProjectsService {
     // so that the new hostname gets SSL certificate from Let's Encrypt
     setImmediate(async () => {
       try {
-        const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+        /**
+         * @security Command Injection Mitigation
+         * Executes Docker CLI commands safely.
+         * Uses child_process.execFile with array arguments instead of exec() with a concatenated shell string.
+         * This strictly passes arguments directly to the executable, preventing subshell operators like $() from being evaluated by the host shell.
+         */
+        const runCmd = (file: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> => {
           return new Promise((resolve) => {
-            const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
+            const { execFile } = require('child_process');
+            const proc = execFile(file, args, { maxBuffer: 1024 * 1024 * 10 });
             let stdout = '';
             let stderr = '';
-            proc.stdout?.on('data', (d) => { stdout += d.toString(); });
-            proc.stderr?.on('data', (d) => { stderr += d.toString(); });
-            proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+            proc.stdout?.on('data', (d: any) => { stdout += d.toString(); });
+            proc.stderr?.on('data', (d: any) => { stderr += d.toString(); });
+            proc.on('close', (code: number) => resolve({ code: code ?? 0, stdout, stderr }));
           });
         };
 
@@ -423,9 +457,7 @@ export class ProjectsService {
         const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
 
         // Inspect running container to get its image tag
-        const inspectRes = await runCmd(
-          `docker inspect --format '{{.Config.Image}}' ${containerName}`
-        );
+        const inspectRes = await runCmd('docker', ['inspect', '--format', '{{.Config.Image}}', containerName]);
         if (inspectRes.code !== 0 || !inspectRes.stdout.trim()) {
           this.logger.warn(`[Domain Route] Container ${containerName} not found, skipping re-route.`);
           await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } });
@@ -439,41 +471,41 @@ export class ProjectsService {
         const allDomains = await this.prisma.domain.findMany({ where: { projectId } });
         const targetDomain = `${project.slug}.${this.getBaseDomain()}`;
         const hostnames = Array.from(new Set([targetDomain, ...allDomains.map(d => d.hostname)]));
-        const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
+        const hostRules = hostnames.map(hn => `Host("${hn}")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
 
         // Sync and get env flags
         const { dockerEnvFlags } = await this.syncProjectEnvFile(projectId);
-        const envFlags = [
-          '-e HOST=0.0.0.0',
-          `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
-          dockerEnvFlags,
-        ].filter(Boolean).join(' ');
+        
+        let envArgs: string[] = ['-e', 'HOST=0.0.0.0', '-e', `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=${hostnames.join(',')}`];
+        if (dockerEnvFlags) {
+           envArgs = envArgs.concat(dockerEnvFlags.split(' '));
+        }
 
         // Stop old container
-        await runCmd(`docker stop ${containerName}`).catch(() => null);
-        await runCmd(`docker rm ${containerName}`).catch(() => null);
+        await runCmd('docker', ['stop', containerName]).catch(() => null);
+        await runCmd('docker', ['rm', containerName]).catch(() => null);
 
         // Start new container with updated Traefik labels
-        const runCmdStr = [
-          'docker run -d',
-          `--name ${containerName}`,
-          `--network kh-cloud-network`,
-          `-e PORT=${containerPort}`,
-          envFlags,
-          `--restart unless-stopped`,
-          `-l "traefik.enable=true"`,
-          `-l "traefik.docker.network=kh-cloud-network"`,
-          `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
-          `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
-          `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
-          `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
-          `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
-          `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+        const runArgs = [
+          'run', '-d',
+          '--name', containerName,
+          '--network', 'kh-cloud-network',
+          '-e', `PORT=${containerPort}`,
+          ...envArgs,
+          '--restart', 'unless-stopped',
+          '-l', `traefik.enable=true`,
+          '-l', `traefik.docker.network=kh-cloud-network`,
+          '-l', `traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost`,
+          '-l', `traefik.http.routers.${containerName}.rule=${hostRules}`,
+          '-l', `traefik.http.routers.${containerName}.entrypoints=websecure`,
+          '-l', `traefik.http.routers.${containerName}.tls.certresolver=letsencrypt`,
+          '-l', `traefik.http.routers.${containerName}.middlewares=${middlewareName}`,
+          '-l', `traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}`,
           imageTag
-        ].filter(Boolean).join(' ');
+        ];
 
-        const rerunRes = await runCmd(runCmdStr);
+        const rerunRes = await runCmd('docker', runArgs);
         if (rerunRes.code === 0) {
           this.logger.log(`[Domain Route] Container ${containerName} re-launched with ${hostname} in Traefik routing.`);
           await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } });
@@ -510,14 +542,15 @@ export class ProjectsService {
     // Re-route the live Docker container with updated Traefik labels (removing the deleted hostname)
     setImmediate(async () => {
       try {
-        const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
+        const runCmd = (file: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> => {
           return new Promise((resolve) => {
-            const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
+            const { execFile } = require('child_process');
+            const proc = execFile(file, args, { maxBuffer: 1024 * 1024 * 10 });
             let stdout = '';
             let stderr = '';
-            proc.stdout?.on('data', (d) => { stdout += d.toString(); });
-            proc.stderr?.on('data', (d) => { stderr += d.toString(); });
-            proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+            proc.stdout?.on('data', (d: any) => { stdout += d.toString(); });
+            proc.stderr?.on('data', (d: any) => { stderr += d.toString(); });
+            proc.on('close', (code: number) => resolve({ code: code ?? 0, stdout, stderr }));
           });
         };
 
@@ -525,9 +558,7 @@ export class ProjectsService {
         const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
 
         // Inspect running container to get its image tag
-        const inspectRes = await runCmd(
-          `docker inspect --format '{{.Config.Image}}' ${containerName}`
-        );
+        const inspectRes = await runCmd('docker', ['inspect', '--format', '{{.Config.Image}}', containerName]);
         if (inspectRes.code !== 0 || !inspectRes.stdout.trim()) {
           this.logger.warn(`[Domain Remove] Container ${containerName} not found, skipping re-route.`);
           return;
@@ -540,43 +571,43 @@ export class ProjectsService {
         const allDomains = await this.prisma.domain.findMany({ where: { projectId } });
         const targetDomain = `${project.slug}.${this.getBaseDomain()}`;
         const hostnames = Array.from(new Set([targetDomain, ...allDomains.map(d => d.hostname)]));
-        const hostRules = hostnames.map(hn => `Host(\\\"${hn}\\\")`).join(' || ');
+        const hostRules = hostnames.map(hn => `Host("${hn}")`).join(' || ');
         const middlewareName = `${containerName}-hosthdr`;
 
         // Sync and get env flags
         const { dockerEnvFlags } = await this.syncProjectEnvFile(projectId);
-        const envFlags = [
-          '-e HOST=0.0.0.0',
-          `-e __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="${hostnames.join(',')}"`,
-          dockerEnvFlags,
-        ].filter(Boolean).join(' ');
+        
+        let envArgs: string[] = ['-e', 'HOST=0.0.0.0', '-e', `__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=${hostnames.join(',')}`];
+        if (dockerEnvFlags) {
+           envArgs = envArgs.concat(dockerEnvFlags.split(' '));
+        }
 
         // Stop old container
-        await runCmd(`docker stop ${containerName}`).catch(() => null);
-        await runCmd(`docker rm ${containerName}`).catch(() => null);
+        await runCmd('docker', ['stop', containerName]).catch(() => null);
+        await runCmd('docker', ['rm', containerName]).catch(() => null);
 
         // Start new container with updated Traefik labels
-        const runCmdStr = [
-          'docker run -d',
-          `--name ${containerName}`,
-          `--network kh-cloud-network`,
-          `-e PORT=${containerPort}`,
-          envFlags,
-          `--restart unless-stopped`,
-          `-l "traefik.enable=true"`,
-          `-l "traefik.docker.network=kh-cloud-network"`,
-          `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
-          `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
-          `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
-          `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
-          `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
-          `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+        const runArgs = [
+          'run', '-d',
+          '--name', containerName,
+          '--network', 'kh-cloud-network',
+          '-e', `PORT=${containerPort}`,
+          ...envArgs,
+          '--restart', 'unless-stopped',
+          '-l', `traefik.enable=true`,
+          '-l', `traefik.docker.network=kh-cloud-network`,
+          '-l', `traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost`,
+          '-l', `traefik.http.routers.${containerName}.rule=${hostRules}`,
+          '-l', `traefik.http.routers.${containerName}.entrypoints=websecure`,
+          '-l', `traefik.http.routers.${containerName}.tls.certresolver=letsencrypt`,
+          '-l', `traefik.http.routers.${containerName}.middlewares=${middlewareName}`,
+          '-l', `traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}`,
           imageTag
-        ].filter(Boolean).join(' ');
+        ];
 
-        const rerunRes = await runCmd(runCmdStr);
+        const rerunRes = await runCmd('docker', runArgs);
         if (rerunRes.code === 0) {
-          this.logger.log(`[Domain Remove] Container ${containerName} re-launched without ${domain.hostname} in Traefik routing.`);
+          this.logger.log(`[Domain Remove] Container ${containerName} re-launched after removing domain in Traefik routing.`);
         } else {
           this.logger.error(`[Domain Remove] Failed to re-launch container: ${rerunRes.stderr}`);
         }
@@ -660,6 +691,10 @@ export class ProjectsService {
       where: { id: projectId, teamId: data.teamId },
     });
     if (!project) throw new NotFoundException('Project not found.');
+
+    if (data.githubBranch && !/^[a-zA-Z0-9._\/-]{1,255}$/.test(data.githubBranch)) {
+      throw new BadRequestException('Invalid GitHub branch name.');
+    }
 
     const updated = await this.prisma.project.update({
       where: { id: projectId },
@@ -1558,44 +1593,6 @@ export class ProjectsService {
 
     const logsRes = await runCmd(`docker logs --tail 150 ${containerName}`).catch(() => ({ stdout: '', stderr: 'Container not running or not found.' }));
     return { logs: (logsRes.stdout || '') + '\n' + (logsRes.stderr || '') };
-  }
-
-  async executeTerminalCommand(projectId: string, command: string, teamId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, teamId },
-    });
-    if (!project) throw new NotFoundException('Project not found.');
-
-    const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
-
-    const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
-      return new Promise((resolve) => {
-        const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
-        let stdout = '';
-        let stderr = '';
-        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
-        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
-        proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
-      });
-    };
-
-    const inspectRes = await runCmd(`docker inspect -f "{{.State.Running}}" ${containerName}`).catch(() => ({ stdout: 'false' }));
-    const isRunning = inspectRes.stdout.trim() === 'true';
-
-    if (!isRunning) {
-      return { output: 'Error: Container is not running.' };
-    }
-
-    const escapedCmd = command.replace(/"/g, '\\"');
-    const execRes = await runCmd(`docker exec ${containerName} sh -c "${escapedCmd}"`).catch((err) => ({
-      code: 1,
-      stdout: '',
-      stderr: `Execution failed: ${err.message}`
-    }));
-
-    const output = (execRes.stdout || '') + (execRes.stderr || '');
-    return { output: output || '(No output)' };
   }
 
   /**

@@ -36,6 +36,13 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     this.ensureBackupDir();
+
+    const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || process.env.ADMIN_API_KEY || '';
+    if (!encryptionKey || encryptionKey === 'khcloud-default-secret-key' || encryptionKey.length < 16) {
+      this.logger.error('CRITICAL: BACKUP_ENCRYPTION_KEY must be set to a secure string (>= 16 chars) to enable automated backups. Exiting to prevent insecure backups.');
+      process.exit(1);
+    }
+
     this.scheduleAutomatedBackups();
   }
 
@@ -86,7 +93,7 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
     const backupName = `kh-cloud-backup-${timestamp}.enc.tar.gz`;
     const tempDir = `/tmp/kh-backup-${Date.now()}`;
     const destinationPath = path.join(this.backupDir, backupName);
-    const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || process.env.ADMIN_API_KEY || 'khcloud-default-secret-key';
+    const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || process.env.ADMIN_API_KEY;
 
     this.logger.log(`[BackupEngine] 🚀 Starting snapshot creation -> ${backupName}`);
 
