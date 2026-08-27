@@ -18,7 +18,7 @@ export class TraefikDriver {
     asArray: boolean = true,
   ): string[] | string {
     const middlewareName = `${containerName}-spoof`;
-    const hostRules = hostnames.map(h => `Host("${h}")`).join(' || ');
+    const hostRules = hostnames.map(h => asArray ? `Host("${h}")` : `Host(\\"${h}\\")`).join(' || ');
 
     const labels = [
       `traefik.enable=true`,
