@@ -391,6 +391,12 @@ export class ProjectsService {
     return rollback;
   }
 
+  /**
+   * @security Apex Domain Isolation
+   * Binds a custom domain to a customer's project.
+   * Explicitly denies claiming the core platform apex domain or its subdomains
+   * to prevent tenant misconfigurations from routing platform traffic to user containers.
+   */
   async addCustomDomain(projectId: string, hostname: string, teamId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, teamId },
@@ -429,6 +435,12 @@ export class ProjectsService {
     // so that the new hostname gets SSL certificate from Let's Encrypt
     setImmediate(async () => {
       try {
+        /**
+         * @security Command Injection Mitigation
+         * Executes Docker CLI commands safely.
+         * Uses child_process.execFile with array arguments instead of exec() with a concatenated shell string.
+         * This strictly passes arguments directly to the executable, preventing subshell operators like $() from being evaluated by the host shell.
+         */
         const runCmd = (file: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> => {
           return new Promise((resolve) => {
             const { execFile } = require('child_process');

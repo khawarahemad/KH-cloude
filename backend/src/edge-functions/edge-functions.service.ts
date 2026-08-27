@@ -131,6 +131,14 @@ export default async function handler({ req, env, storage, db }) {
       let fetchCount = 0;
       const MAX_FETCHES = 50;
 
+      /**
+       * @security SSRF Mitigation
+       * Custom fetch implementation exposed to the V8 sandbox.
+       * - Enforces a strict maximum connection limit per invocation.
+       * - Resolves DNS manually before dialing to prevent DNS rebinding attacks.
+       * - Blocks all internal/private IP ranges (127.x, 10.x, 172.x, 192.168.x) 
+       *   to prevent the edge function from port-scanning internal Docker networks.
+       */
       const sandboxFetch = async (url: string, opts?: any) => {
         if (++fetchCount > MAX_FETCHES) throw new Error('Exceeded maximum outbound connections per invocation');
         

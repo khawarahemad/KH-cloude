@@ -323,6 +323,13 @@ export class DatabasesService {
     return `"${name.replace(/"/g, '""')}"`;
   }
 
+  /**
+   * @security SQL Injection Mitigation
+   * Parses a structured JSON filter string into a parameterized WHERE clause.
+   * - Validates column names against a strict alphanumeric regex.
+   * - Enforces an explicit operator allowlist.
+   * - Uses parameterized SQLite queries (`?`) to prevent logic bypasses and logical injections.
+   */
   private buildWhereClause(filterStr: string): { clause: string; params: any[] } {
     if (!filterStr || !filterStr.trim()) return { clause: '', params: [] };
     try {
