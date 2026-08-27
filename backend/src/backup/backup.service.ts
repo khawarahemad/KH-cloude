@@ -39,8 +39,8 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
 
     const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || process.env.ADMIN_API_KEY || '';
     if (!encryptionKey || encryptionKey === 'khcloud-default-secret-key' || encryptionKey.length < 16) {
-      this.logger.error('CRITICAL: BACKUP_ENCRYPTION_KEY must be set to a secure string (>= 16 chars) to enable automated backups. Exiting to prevent insecure backups.');
-      process.exit(1);
+      this.logger.error('CRITICAL: BACKUP_ENCRYPTION_KEY must be set to a secure string (>= 16 chars). Automated backups are DISABLED for safety.');
+      return; // Disable backups instead of crashing the server
     }
 
     this.scheduleAutomatedBackups();

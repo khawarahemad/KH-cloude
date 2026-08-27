@@ -12,13 +12,14 @@ export class TokenService implements OnModuleInit {
   private secret!: Uint8Array;
 
   onModuleInit() {
-    const raw = process.env.JWT_SECRET ?? '';
+    let raw = process.env.JWT_SECRET ?? '';
     if (!raw || raw.length < 32) {
-      this.logger.error(
-        'FATAL: JWT_SECRET is missing or shorter than 32 characters. ' +
-          'Set a strong JWT_SECRET environment variable before starting the server.',
+      this.logger.warn(
+        '⚠️ WARNING: JWT_SECRET is missing or too short. Generating an ephemeral random secret for this session. ' +
+          'All users will be logged out when the server restarts. Please set a strong 32+ char JWT_SECRET in .env.',
       );
-      process.exit(1);
+      // Generate a random 32-byte hex string
+      raw = require('crypto').randomBytes(32).toString('hex');
     }
     this.secret = new TextEncoder().encode(raw);
     this.logger.log('TokenService initialized — JWT_SECRET loaded.');
