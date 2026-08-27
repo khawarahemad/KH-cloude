@@ -1,5 +1,5 @@
 # --- Build Stage ---
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /usr/src/app
 
@@ -24,7 +24,7 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 # --- Production Stage ---
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 # Install git, docker-cli, and docker-cli-buildx for modern BuildKit live deployment engine
 RUN apk add --no-cache git docker-cli docker-cli-buildx
