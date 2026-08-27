@@ -861,8 +861,8 @@ export class AppController {
       }),
     }).then((r) => r.json());
 
-    const accessToken = tokenRes.access_token;
-    if (!accessToken) {
+    const githubOAuthToken = tokenRes.access_token;
+    if (!githubOAuthToken) {
       throw new BadRequestException(`GitHub token exchange failed: ${tokenRes.error_description || 'unknown error'}`);
     }
 
@@ -870,7 +870,7 @@ export class AppController {
     const userUrl = 'https://api.github.com/user';
     const githubUser = await fetch(userUrl, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${githubOAuthToken}`,
         Accept: 'application/json',
         'User-Agent': 'KH-Cloud-Backend',
       },
@@ -887,7 +887,7 @@ export class AppController {
       user = await this.prisma.user.update({
         where: { id: userId },
         data: {
-          githubAccessToken: accessToken,
+          githubAccessToken: githubOAuthToken,
           githubUsername,
         },
       });
@@ -898,7 +898,7 @@ export class AppController {
         try {
           const emailsRes = await fetch('https://api.github.com/user/emails', {
             headers: {
-              Authorization: `Bearer ${accessToken}`,
+              Authorization: `Bearer ${githubOAuthToken}`,
               Accept: 'application/json',
               'User-Agent': 'KH-Cloud-Backend',
             },
@@ -933,7 +933,7 @@ export class AppController {
             name: githubUser.name || githubUsername,
             email,
             role: isAdmin ? 'ADMIN' : 'USER',
-            githubAccessToken: accessToken,
+            githubAccessToken: githubOAuthToken,
             githubUsername,
           },
         });
@@ -944,7 +944,7 @@ export class AppController {
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: {
-            githubAccessToken: accessToken,
+            githubAccessToken: githubOAuthToken,
             githubUsername,
           },
         });
@@ -1000,8 +1000,8 @@ export class AppController {
       }),
     }).then((r) => r.json());
 
-    const accessToken = tokenRes.access_token;
-    if (!accessToken) {
+    const googleOAuthToken = tokenRes.access_token;
+    if (!googleOAuthToken) {
       throw new BadRequestException(`Google token exchange failed: ${tokenRes.error_description || 'unknown error'}`);
     }
 
@@ -1009,7 +1009,7 @@ export class AppController {
     const userUrl = 'https://www.googleapis.com/oauth2/v3/userinfo';
     const googleUser = await fetch(userUrl, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${googleOAuthToken}`,
       },
     }).then((r) => r.json());
 
