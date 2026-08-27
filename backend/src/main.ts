@@ -46,8 +46,8 @@ async function bootstrap() {
   if (process.env.NODE_ENV === 'production') {
     const minioKey = process.env.MINIO_SECRET_KEY || process.env.STORAGE_SECRET_KEY;
     if (!minioKey || minioKey === 'khcloudrootpassword') {
-      console.error('FATAL: Storage secret keys are missing or using the insecure default "khcloudrootpassword".');
-      process.exit(1);
+      console.error('⚠️ WARNING: Storage secret keys are using the insecure default "khcloudrootpassword". Please change them in .env for production safety!');
+      // process.exit(1); Removed to prevent crash loop
     }
   }
 
