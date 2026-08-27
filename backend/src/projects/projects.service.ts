@@ -402,6 +402,11 @@ export class ProjectsService {
       throw new BadRequestException('Invalid hostname format.');
     }
 
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+    if (hostname.toLowerCase() === baseDomain || hostname.toLowerCase().endsWith(`.${baseDomain}`)) {
+      throw new BadRequestException(`Cannot use core platform domain (${baseDomain}) as a custom domain.`);
+    }
+
     const existingDomain = await this.prisma.domain.findUnique({
       where: { hostname },
     });
