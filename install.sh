@@ -160,7 +160,8 @@ GEN_BACKUP_KEY=$(openssl rand -hex 32 2>/dev/null || date +%s | sha256sum | base
 read -r -p "   Custom Admin API Key [Enter to auto-generate secure key]: " CUSTOM_ADMIN_KEY
 ADMIN_API_KEY="${CUSTOM_ADMIN_KEY:-$GEN_ADMIN_KEY}"
 
-read -r -p "   Platform Admin Email (for automatic ADMIN role): " PLATFORM_ADMIN_EMAIL
+echo -e "${DIM}This email will automatically be granted the PLATFORM ADMIN role upon signup/login.${NC}"
+read -r -p "   Platform Admin Email (e.g. admin@yourdomain.com): " PLATFORM_ADMIN_EMAIL
 
 read -r -p "   MinIO S3 Root Password [Enter to auto-generate secure password]: " CUSTOM_MINIO_PWD
 MINIO_ROOT_PASSWORD="${CUSTOM_MINIO_PWD:-$GEN_MINIO_PWD}"
