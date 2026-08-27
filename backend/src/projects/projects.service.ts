@@ -1,7 +1,8 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectStatus, DeploymentStatus } from '@prisma/client';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
+import { Observable } from 'rxjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { sendDiscordNotification } from '../utils/discord-webhook';
@@ -1593,6 +1594,50 @@ export class ProjectsService {
 
     const logsRes = await runCmd(`docker logs --tail 150 ${containerName}`).catch(() => ({ stdout: '', stderr: 'Container not running or not found.' }));
     return { logs: (logsRes.stdout || '') + '\n' + (logsRes.stderr || '') };
+  }
+
+  streamRuntimeLogs(projectId: string, teamId: string): Observable<{ data: { chunk: string } }> {
+    return new Observable((subscriber) => {
+      let proc: any;
+      
+      this.prisma.project.findFirst({
+        where: { id: projectId, teamId },
+      }).then((project) => {
+        if (!project) {
+          subscriber.error(new NotFoundException('Project not found.'));
+          return;
+        }
+
+        const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
+
+        proc = spawn('docker', ['logs', '--tail', '100', '-f', containerName]);
+
+        proc.stdout.on('data', (data: Buffer) => {
+          subscriber.next({ data: { chunk: data.toString() } });
+        });
+        
+        proc.stderr.on('data', (data: Buffer) => {
+          subscriber.next({ data: { chunk: data.toString() } });
+        });
+
+        proc.on('close', () => {
+          subscriber.complete();
+        });
+
+        proc.on('error', (err: any) => {
+          subscriber.error(err);
+        });
+
+      }).catch(err => subscriber.error(err));
+
+      // Cleanup when client disconnects
+      return () => {
+        if (proc) {
+          proc.kill();
+        }
+      };
+    });
   }
 
   /**

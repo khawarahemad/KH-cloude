@@ -29,10 +29,11 @@ export class JwtAuthGuard implements CanActivate {
 
     const req = context.switchToHttp().getRequest<Request & { user?: { id: string } }>();
 
-    // Extract token from HttpOnly cookie first, then Authorization header as fallback
+    // Extract token from HttpOnly cookie first, then Authorization header, then query parameter as fallback (for SSE)
     const cookieToken: string | undefined = (req.cookies as any)?.['kh_session'];
     const bearerToken = this.extractBearer(req);
-    const token = cookieToken ?? bearerToken;
+    const queryToken: string | undefined = req.query?.['token'] as string | undefined;
+    const token = cookieToken ?? bearerToken ?? queryToken;
 
     if (!token) {
       throw new UnauthorizedException('Authentication required.');

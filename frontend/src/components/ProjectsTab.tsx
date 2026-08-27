@@ -138,7 +138,7 @@ export default function ProjectsTab() {
   
   // Active details tab
   const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'network' | 'console' | 'terminal' | 'settings'>('deployments');
-  const [runtimeLogs, setRuntimeLogs] = useState('Fetching runtime logs...');
+  const [runtimeLogs, setRuntimeLogs] = useState<string[]>(['Fetching runtime logs...']);
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalHistory, setTerminalHistory] = useState<string[]>([
     'Welcome to KH Cloud Interactive Terminal.',
@@ -513,7 +513,9 @@ export default function ProjectsTab() {
     const interval = setInterval(async () => {
       try {
         const data = await apiRequest(`/deployments/${activeDeploymentId}/logs`);
-        setBuildLogs(data.logs);
+        const logsString = data.logs || '';
+        const lines = logsString.split('\n');
+        setBuildLogs(lines.length > 200 ? lines.slice(lines.length - 200).join('\n') : logsString);
         setLogStatus(data.status);
         if (data.status === 'READY' || data.status === 'FAILED' || data.status === 'CANCELLED') {
           setActiveDeploymentId(null);
@@ -552,22 +554,48 @@ export default function ProjectsTab() {
     }
   }, [activeProjectId]);
 
-  const fetchRuntimeLogs = async () => {
-    if (!activeProjectId || !activeTeam) return;
-    try {
-      const res = await apiRequest(`/projects/${activeProjectId}/runtime-logs?teamId=${activeTeam.id}`);
-      setRuntimeLogs(res.logs || 'No logs returned from container.');
-    } catch (err) {
-      setRuntimeLogs('Error fetching runtime logs. Make sure the project is active and running.');
-    }
-  };
-
+  // Setup SSE for runtime logs
   useEffect(() => {
-    if (detailsTab !== 'console' || !activeProjectId || !activeTeam) return;
-    fetchRuntimeLogs();
-    const interval = setInterval(fetchRuntimeLogs, 3000);
-    return () => clearInterval(interval);
-  }, [detailsTab, activeProjectId, activeTeam]);
+    if (!activeProjectId || !activeTeam?.id || detailsTab !== 'console') return;
+    
+    let isSubscribed = true;
+    setRuntimeLogs(['Connecting to log stream...']);
+
+    const token = localStorage.getItem('access_token');
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com/api';
+    
+    const eventSource = new EventSource(
+      `${baseUrl}/projects/${activeProjectId}/runtime-logs-stream?teamId=${activeTeam.id}&token=${token}`
+    );
+
+    eventSource.onmessage = (event) => {
+      if (!isSubscribed) return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.chunk) {
+          const lines = data.chunk.split('\n').filter((l: string) => l.trim() !== '');
+          setRuntimeLogs((prev) => {
+            const newLogs = [...prev, ...lines];
+            // Keep max 200 lines to avoid UI lag
+            return newLogs.length > 200 ? newLogs.slice(newLogs.length - 200) : newLogs;
+          });
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
+
+    eventSource.onerror = () => {
+      if (isSubscribed) {
+        setRuntimeLogs((prev) => [...prev, '[Disconnected from log stream. Reconnecting...]'].slice(-200));
+      }
+    };
+
+    return () => {
+      isSubscribed = false;
+      eventSource.close();
+    };
+  }, [activeProjectId, activeTeam?.id, detailsTab]);
 
   const handleTerminalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1119,7 +1147,7 @@ export default function ProjectsTab() {
                             color: dep.status === 'READY' ? '#22c55e' : dep.status === 'FAILED' ? '#ef4444' : '#a78bfa',
                             border: dep.status === 'READY' ? '1px solid rgba(34,197,94,0.2)' : dep.status === 'FAILED' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(124,58,237,0.2)'
                           }}>{dep.status}</span>
-                          <button onClick={async () => { const logs = await apiRequest(`/deployments/${dep.id}/logs`); setBuildLogs(logs.logs); setLogStatus(dep.status); setLogsOpen(true); }}
+                          <button onClick={async () => { const logs = await apiRequest(`/deployments/${dep.id}/logs`); const logsString = logs.logs || ''; const lines = logsString.split('\n'); setBuildLogs(lines.length > 200 ? lines.slice(lines.length - 200).join('\n') : logsString); setLogStatus(dep.status); setLogsOpen(true); }}
                             style={{ height: '26px', padding: '0 10px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }} className="hover:bg-white/5 hover:text-white">
                             <Terminal size={10} /> Logs
                           </button>
@@ -1496,7 +1524,7 @@ export default function ProjectsTab() {
                     </button>
                   </div>
                   <div style={{ fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '12px', lineHeight: 1.7, color: '#9ba3af', backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', padding: '16px', borderRadius: '10px', maxHeight: '420px', overflowY: 'auto', whiteSpace: 'pre-wrap', userSelect: 'text' }}>
-                    {runtimeLogs}
+                    {runtimeLogs.join('\n')}
                   </div>
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers, UnauthorizedException, ForbiddenException, Sse } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import type { Response } from 'express';
@@ -495,6 +495,17 @@ export class AppController {
 
     await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
     return this.projects.getRuntimeLogs(id, teamId);
+  }
+
+  @Sse('projects/:id/runtime-logs-stream')
+  async streamRuntimeLogs(
+    @Param('id') id: string,
+    @Query('teamId') teamId: string,
+    @Req() req: express.Request,
+  ) {
+    const userId = (req as any).user.id as string;
+    await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
+    return this.projects.streamRuntimeLogs(id, teamId);
   }
 
   @Delete('projects/:id')
