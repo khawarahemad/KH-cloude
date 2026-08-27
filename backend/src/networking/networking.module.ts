@@ -7,9 +7,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { RbacService } from '../guards/rbac.service';
 import { NetworkingController } from './networking.controller';
+import { DDoSModule } from '../guards/ddos.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, DDoSModule],
   controllers: [NetworkingController],
   providers: [NetworkingService, TraefikDriver, ProxyFactory, XrayDriver, RbacService],
   exports: [NetworkingService, TraefikDriver],
