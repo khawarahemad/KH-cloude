@@ -1519,8 +1519,8 @@ export default function ProjectsTab() {
                       <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Runtime Console</div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>Live stdout/stderr stream from the running container.</div>
                     </div>
-                    <button onClick={fetchRuntimeLogs} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }} className="hover:bg-white/5 hover:text-white">
-                      <RefreshCw size={11} /> Refresh
+                    <button onClick={() => setRuntimeLogs([])} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }} className="hover:bg-white/5 hover:text-white">
+                      <RefreshCw size={11} /> Clear
                     </button>
                   </div>
                   <div style={{ fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '12px', lineHeight: 1.7, color: '#9ba3af', backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', padding: '16px', borderRadius: '10px', maxHeight: '420px', overflowY: 'auto', whiteSpace: 'pre-wrap', userSelect: 'text' }}>
