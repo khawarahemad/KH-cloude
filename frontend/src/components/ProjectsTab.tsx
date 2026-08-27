@@ -465,12 +465,10 @@ export default function ProjectsTab() {
     try {
       const data = await apiRequest(`/projects?teamId=${activeTeam.id}`);
       setProjects(data);
-    } catch (err) {
-      // Fallback mock
-      setProjects([
-        { id: 'proj-1', name: 'Acme Website', slug: 'acme-website', githubRepo: 'acme/website', status: 'READY', domains: [{ hostname: 'acme-website.khcloud.app' }] },
-        { id: 'proj-2', name: 'Data Pipeline', slug: 'data-pipeline', githubRepo: 'acme/pipeline', status: 'INACTIVE', domains: [{ hostname: 'data-pipeline.khcloud.app' }] }
-      ]);
+    } catch (err: any) {
+      console.error('Failed to fetch projects:', err);
+      // Do not show fake data — preserve existing projects list or set empty
+      if (!projects) setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -489,25 +487,11 @@ export default function ProjectsTab() {
       if (building && (!activeDeploymentId || activeDeploymentId !== building.id)) {
         setActiveDeploymentId(building.id);
       }
-    } catch (err) {
+    } catch (err: any) {
       if (!silent) {
-        // Fallback mock details
-        setProjectDetails({
-          id,
-          name: id === 'proj-1' ? 'Acme Website' : 'Data Pipeline',
-          slug: id === 'proj-1' ? 'acme-website' : 'data-pipeline',
-          githubRepo: id === 'proj-1' ? 'acme/website' : 'acme/pipeline',
-          githubBranch: 'main',
-          buildCommand: 'npm run build',
-          startCommand: 'npm run start',
-          port: 3000,
-          status: id === 'proj-1' ? 'READY' : 'INACTIVE',
-          domains: [{ hostname: id === 'proj-1' ? 'acme-website.khcloud.app' : 'data-pipeline.khcloud.app' }],
-          envVars: [{ key: 'DATABASE_URL', value: 'postgres://...', isSecret: true }],
-          deployments: [
-            { id: 'dep-1', branch: 'main', status: 'READY', commitMessage: 'Initial commit', createdAt: new Date().toISOString() }
-          ]
-        });
+        console.error('Failed to fetch project details:', err);
+        // Do not show fake data — clear details so the UI shows a real error
+        setProjectDetails(null);
       }
     }
   };
@@ -517,12 +501,8 @@ export default function ProjectsTab() {
       const data = await apiRequest(`/projects/${id}/metrics`);
       setMetrics(data);
     } catch (err) {
-      // Mock metrics fallback
-      const now = new Date();
-      const cpu = Array.from({ length: 15 }, (_, i) => ({ time: `${i}:00`, value: Math.floor(Math.random() * 20 + 20) }));
-      const ram = Array.from({ length: 15 }, (_, i) => ({ time: `${i}:00`, value: Math.floor(Math.random() * 100 + 400) }));
-      const network = Array.from({ length: 15 }, (_, i) => ({ time: `${i}:00`, rx: Math.floor(Math.random() * 50), tx: Math.floor(Math.random() * 30) }));
-      setMetrics({ cpu, ram, network });
+      console.error('Failed to fetch metrics:', err);
+      setMetrics(null);
     }
   };
 
