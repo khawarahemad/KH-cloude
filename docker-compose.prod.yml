@@ -115,6 +115,8 @@ services:
       - DDOS_ALERT_DISCORD_WEBHOOK=${DDOS_ALERT_DISCORD_WEBHOOK:-}
       - PLATFORM_ADMIN_EMAIL=${PLATFORM_ADMIN_EMAIL}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET}
+      - BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY:-${ADMIN_API_KEY:-}}
     volumes:
       - /var/lib/kh-cloud/db:/usr/src/app/data
       - /var/lib/kh-cloud/storage-mock:/usr/src/app/storage-mock
