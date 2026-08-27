@@ -108,6 +108,10 @@ export class ProjectsService {
       throw new BadRequestException('A project with this name already exists in your team.');
     }
 
+    if (data.githubBranch && !/^[a-zA-Z0-9._\/-]{1,255}$/.test(data.githubBranch)) {
+      throw new BadRequestException('Invalid GitHub branch name.');
+    }
+
     const project = await this.prisma.project.create({
       data: {
         name: data.name,
@@ -394,6 +398,10 @@ export class ProjectsService {
     });
     if (!project) throw new NotFoundException('Project not found.');
 
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$/.test(hostname)) {
+      throw new BadRequestException('Invalid hostname format.');
+    }
+
     const domain = await this.prisma.domain.create({
       data: {
         projectId,
@@ -660,6 +668,10 @@ export class ProjectsService {
       where: { id: projectId, teamId: data.teamId },
     });
     if (!project) throw new NotFoundException('Project not found.');
+
+    if (data.githubBranch && !/^[a-zA-Z0-9._\/-]{1,255}$/.test(data.githubBranch)) {
+      throw new BadRequestException('Invalid GitHub branch name.');
+    }
 
     const updated = await this.prisma.project.update({
       where: { id: projectId },
@@ -1558,44 +1570,6 @@ export class ProjectsService {
 
     const logsRes = await runCmd(`docker logs --tail 150 ${containerName}`).catch(() => ({ stdout: '', stderr: 'Container not running or not found.' }));
     return { logs: (logsRes.stdout || '') + '\n' + (logsRes.stderr || '') };
-  }
-
-  async executeTerminalCommand(projectId: string, command: string, teamId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, teamId },
-    });
-    if (!project) throw new NotFoundException('Project not found.');
-
-    const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
-
-    const runCmd = (cmd: string): Promise<{ code: number; stdout: string; stderr: string }> => {
-      return new Promise((resolve) => {
-        const proc = exec(cmd, { maxBuffer: 1024 * 1024 * 10 });
-        let stdout = '';
-        let stderr = '';
-        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
-        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
-        proc.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
-      });
-    };
-
-    const inspectRes = await runCmd(`docker inspect -f "{{.State.Running}}" ${containerName}`).catch(() => ({ stdout: 'false' }));
-    const isRunning = inspectRes.stdout.trim() === 'true';
-
-    if (!isRunning) {
-      return { output: 'Error: Container is not running.' };
-    }
-
-    const escapedCmd = command.replace(/"/g, '\\"');
-    const execRes = await runCmd(`docker exec ${containerName} sh -c "${escapedCmd}"`).catch((err) => ({
-      code: 1,
-      stdout: '',
-      stderr: `Execution failed: ${err.message}`
-    }));
-
-    const output = (execRes.stdout || '') + (execRes.stderr || '');
-    return { output: output || '(No output)' };
   }
 
   /**

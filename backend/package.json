@@ -34,6 +34,7 @@
     "bullmq": "^5.80.1",
     "cookie-parser": "^1.4.7",
     "ioredis": "^5.11.1",
+    "isolated-vm": "^6.2.0",
     "jose": "^6.2.10",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

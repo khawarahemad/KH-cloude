@@ -297,8 +297,8 @@ export class GithubAppService {
 
   verifyWebhookSignature(rawBody: Buffer | string, signatureHeader: string): boolean {
     if (!this.webhookSecret) {
-      this.logger.warn('GITHUB_APP_WEBHOOK_SECRET not set - skipping verification!');
-      return true;
+      this.logger.error('GITHUB_APP_WEBHOOK_SECRET not set - rejecting webhook payload.');
+      return false;
     }
     const sig = signatureHeader.startsWith('sha256=')
       ? signatureHeader.slice(7)

@@ -492,18 +492,6 @@ export class AppController {
     return this.projects.getRuntimeLogs(id, teamId);
   }
 
-  @Post('projects/:id/terminal')
-  async executeTerminalCommand(
-    @Param('id') id: string,
-    @Body() body: { command: string; teamId: string },
-    @Req() req: express.Request,
-  ) {
-    const userId = (req as any).user.id as string;
-
-    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
-    return this.projects.executeTerminalCommand(id, body.command, body.teamId);
-  }
-
   @Delete('projects/:id')
   async deleteProject(
     @Param('id') id: string,

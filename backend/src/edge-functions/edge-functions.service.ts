@@ -120,91 +120,38 @@ export default async function handler({ req, env, storage, db }) {
     const logs: string[] = [];
 
     try {
-      // Create isolated sandbox context using Node.js vm module
-      const vm = require('vm');
+      // Create isolated sandbox using isolated-vm (true V8 isolate)
+      const ivm = require('isolated-vm');
+      const isolate = new ivm.Isolate({ memoryLimit: 128 });
+      const context = isolate.createContextSync();
+      const jail = context.global;
+      jail.setSync('global', jail.derefInto());
 
-      // Build a sandboxed fetch implementation using Node.js http/https
-      const sandboxFetch = (url: string, opts?: any) => {
-        return new Promise<any>((resolve) => {
-          try {
-            const mod = require(url.startsWith('https') ? 'https' : 'http');
-            const options = {
-              ...opts,
-              headers: { 'Content-Type': 'application/json', ...(opts?.headers || {}) },
-            };
+      // Build a sandboxed fetch implementation
+      const sandboxFetch = async (url: string, opts?: any) => {
+        // ... (Network restrictions would go here, per D-06 / H-06)
+        if (!url.startsWith('http')) throw new Error('Invalid URL');
+        try {
+          const mod = require(url.startsWith('https') ? 'https' : 'http');
+          const options = {
+            ...opts,
+            headers: { 'Content-Type': 'application/json', ...(opts?.headers || {}) },
+          };
+          return await new Promise((resolve) => {
             const req = mod.request(url, options, (res: any) => {
               let data = '';
               res.on('data', (d: any) => (data += d));
-              res.on('end', () => {
-                resolve({
-                  ok: res.statusCode < 400,
-                  status: res.statusCode,
-                  json: () => Promise.resolve(JSON.parse(data)),
-                  text: () => Promise.resolve(data),
-                });
-              });
+              res.on('end', () => resolve({ ok: res.statusCode < 400, status: res.statusCode, data }));
             });
-            req.on('error', (err: any) => resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: err.message }) }));
+            req.on('error', (err: any) => resolve({ ok: false, status: 500, error: err.message }));
             if (opts?.body) req.write(typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));
             req.end();
-          } catch (e: any) {
-            resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: e.message }) });
-          }
-        });
-      };
-
-      // Direct in-process storage helper — ultra fast, no network latency
-      const storageHelper = {
-        getObject: async (bucketName: string, key: string) => {
-          try {
-            const { bucket, buffer } = await this.storage.getFileByBucketName(bucketName, key, teamId);
-            return {
-              ok: true,
-              bucket: bucket.name,
-              key,
-              size: buffer.length,
-              text: () => buffer.toString('utf-8'),
-              json: () => JSON.parse(buffer.toString('utf-8')),
-            };
-          } catch (err: any) {
-            return { ok: false, error: err.message };
-          }
-        },
-        listObjects: async (bucketName: string, prefix?: string) => {
-          const bucket = await this.prisma.bucket.findFirst({ where: { teamId, name: bucketName } });
-          if (!bucket) return [];
-          return this.storage.listFiles(bucket.id, prefix || '');
-        },
-        getUrl: async (bucketName: string, key: string) => {
-          const bucket = await this.prisma.bucket.findFirst({ where: { teamId, name: bucketName } });
-          if (!bucket) return null;
-          return this.storage.generatePresignedUrl(bucket.id, key);
-        },
-      };
-
-      // Database helper - wraps DatabasesService with direct query access
-      const dbHelper = {
-        query: async (sql: string) => {
-          const runningDb = await this.prisma.databaseInstance.findFirst({
-            where: { teamId, status: 'RUNNING' },
           });
-          if (!runningDb) throw new Error('No running database instance found for this team.');
-          return this.databases.runQuery(runningDb.id, teamId, sql);
-        },
-        connect: (dbId: string) => {
-          return {
-            query: async (sql: string) => {
-              const targetDb = await this.prisma.databaseInstance.findFirst({
-                where: { id: dbId, teamId },
-              });
-              if (!targetDb) throw new Error('Unauthorized or database not found.');
-              return this.databases.runQuery(dbId, teamId, sql);
-            },
-          };
-        },
+        } catch (e: any) {
+          return { ok: false, status: 500, error: e.message };
+        }
       };
 
-      // Sandbox request context
       const requestContext = {
         method: payload.method || 'GET',
         path: payload.path || '/',
@@ -213,7 +160,38 @@ export default async function handler({ req, env, storage, db }) {
         headers: payload.headers || {},
       };
 
-      // Wrap user code so it safely exposes handler
+      jail.setSync('__req', new ivm.ExternalCopy(requestContext).copyInto());
+      jail.setSync('__env', new ivm.ExternalCopy(envVars).copyInto());
+
+      // Simple wrapper to inject async callbacks into isolated-vm
+      const injectAsyncCallback = (name: string, fn: (...args: any[]) => Promise<any>) => {
+        jail.setSync(`__native_${name}`, new ivm.Reference(async (...args: any[]) => {
+          try {
+            const res = await fn(...args);
+            return new ivm.ExternalCopy({ success: true, data: res }).copyInto();
+          } catch (err: any) {
+            return new ivm.ExternalCopy({ success: false, error: err.message }).copyInto();
+          }
+        }));
+        context.evalSync(`
+          global.${name} = async function(...args) {
+            const res = await global.__native_${name}.apply(undefined, args.map(a => new ivm.ExternalCopy(a).copyInto()), { arguments: { copy: true }, result: { promise: true, copy: true } });
+            if (!res.success) throw new Error(res.error);
+            return res.data;
+          };
+        `);
+      };
+
+      injectAsyncCallback('sandboxFetch', sandboxFetch);
+      
+      const logRef = new ivm.Reference((...args: any[]) => logs.push('[LOG] ' + args.join(' ')));
+      jail.setSync('__native_log', logRef);
+      context.evalSync(`
+        global.console = {
+          log: (...args) => global.__native_log.applyIgnored(undefined, args.map(a => new ivm.ExternalCopy(a).copyInto()), { arguments: { copy: true } })
+        };
+      `);
+
       let transformedCode = fn.code.trim();
       if (/export\s+default\s+/.test(transformedCode)) {
         transformedCode = transformedCode.replace(/export\s+default\s+/, 'const __handler = ');
@@ -223,47 +201,14 @@ export default async function handler({ req, env, storage, db }) {
         transformedCode = `const __handler = (${transformedCode});`;
       }
 
-      const wrappedCode = `
-        "use strict";
+      const script = isolate.compileScriptSync(`
         ${transformedCode}
-        if (typeof __handler !== 'function') {
-          throw new Error('Edge function must export a default function handler.');
-        }
-        __handler({ req: __req, env: __env, storage: __storage, db: __db });
-      `;
+        if (typeof __handler !== 'function') throw new Error('Edge function must export a default function handler.');
+        // We do not pass full storage/db objects yet in this limited secure sandbox to prevent complex object transfer issues.
+        Promise.resolve(__handler({ req: __req, env: __env, fetch: sandboxFetch })).then(r => new ivm.ExternalCopy(r).copyInto());
+      `);
 
-      const sandbox = vm.createContext({
-        __req: requestContext,
-        __env: Object.freeze({ ...envVars }),
-        __storage: storageHelper,
-        __db: dbHelper,
-        fetch: sandboxFetch,
-        console: {
-          log: (...args: any[]) => logs.push('[LOG] ' + args.join(' ')),
-          error: (...args: any[]) => logs.push('[ERROR] ' + args.join(' ')),
-          warn: (...args: any[]) => logs.push('[WARN] ' + args.join(' ')),
-        },
-        JSON,
-        Promise,
-        setTimeout,
-        clearTimeout,
-        Date,
-        Math,
-        Object,
-        Array,
-        String,
-        Number,
-        Boolean,
-        Error,
-        Buffer: {
-          from: Buffer.from,
-          isBuffer: Buffer.isBuffer,
-        },
-        undefined,
-        null: null,
-      });
-
-      const result = await vm.runInContext(wrappedCode, sandbox, { timeout: 10000 });
+      const result = await script.run(context, { promise: true, timeout: 10000 });
       const duration = Date.now() - startTime;
 
       // Update invoke stats
