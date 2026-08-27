@@ -136,6 +136,7 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'x-admin-key',
+      'x-user-id',
       'x-team-id',
       'apikey',
       'x-api-key',
