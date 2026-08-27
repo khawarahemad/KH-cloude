@@ -182,6 +182,14 @@ export default function Home() {
         }
       } else {
         if (user) {
+          // If user is in store but accessToken is missing, this is a stale session
+          // from before JWT auth was implemented. Force re-login.
+          const { accessToken } = useAppStore.getState();
+          if (!accessToken) {
+            useAppStore.getState().logout();
+            setView('landing');
+            return;
+          }
           setView('dashboard');
           if (isAdminSubdomain && user.role === 'ADMIN') {
             setActiveTab('admin');
