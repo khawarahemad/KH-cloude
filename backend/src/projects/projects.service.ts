@@ -7,6 +7,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { sendDiscordNotification } from '../utils/discord-webhook';
 import { GithubAppService } from '../github-app/github-app.service';
+import { NetworkingService } from '../networking/networking.service';
+import { TraefikDriver } from '../networking/drivers/traefik.driver';
 
 @Injectable()
 export class ProjectsService {
@@ -18,6 +20,8 @@ export class ProjectsService {
   constructor(
     private prisma: PrismaService,
     private githubApp: GithubAppService,
+    private networkingService: NetworkingService,
+    private traefikDriver: TraefikDriver,
   ) {}
 
   private getBaseDomain(): string {
@@ -495,14 +499,7 @@ export class ProjectsService {
           '-e', `PORT=${containerPort}`,
           ...envArgs,
           '--restart', 'unless-stopped',
-          '-l', `traefik.enable=true`,
-          '-l', `traefik.docker.network=kh-cloud-network`,
-          '-l', `traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost`,
-          '-l', `traefik.http.routers.${containerName}.rule=${hostRules}`,
-          '-l', `traefik.http.routers.${containerName}.entrypoints=websecure`,
-          '-l', `traefik.http.routers.${containerName}.tls.certresolver=letsencrypt`,
-          '-l', `traefik.http.routers.${containerName}.middlewares=${middlewareName}`,
-          '-l', `traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}`,
+          ...this.traefikDriver.getApplicationLabels(containerName, hostnames, containerPort, true) as string[],
           imageTag
         ];
 
@@ -595,14 +592,7 @@ export class ProjectsService {
           '-e', `PORT=${containerPort}`,
           ...envArgs,
           '--restart', 'unless-stopped',
-          '-l', `traefik.enable=true`,
-          '-l', `traefik.docker.network=kh-cloud-network`,
-          '-l', `traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost`,
-          '-l', `traefik.http.routers.${containerName}.rule=${hostRules}`,
-          '-l', `traefik.http.routers.${containerName}.entrypoints=websecure`,
-          '-l', `traefik.http.routers.${containerName}.tls.certresolver=letsencrypt`,
-          '-l', `traefik.http.routers.${containerName}.middlewares=${middlewareName}`,
-          '-l', `traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}`,
+          ...this.traefikDriver.getApplicationLabels(containerName, hostnames, containerPort, true) as string[],
           imageTag
         ];
 
@@ -1359,14 +1349,7 @@ export class ProjectsService {
           `-e PORT=${containerPort}`,
           envFlags,
           `--restart unless-stopped`,
-          `-l "traefik.enable=true"`,
-          `-l "traefik.docker.network=kh-cloud-network"`,
-          `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
-          `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
-          `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
-          `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
-          `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
-          `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+          this.traefikDriver.getApplicationLabels(containerName, hostnames, containerPort, false) as string,
           imageTag
         ].filter(Boolean).join(' ');
 
@@ -1434,14 +1417,7 @@ export class ProjectsService {
             `-e PORT=${containerPort}`,
             envFlags,
             `--restart unless-stopped`,
-            `-l "traefik.enable=true"`,
-            `-l "traefik.docker.network=kh-cloud-network"`,
-            `-l "traefik.http.middlewares.${middlewareName}.headers.customrequestheaders.Host=localhost"`,
-            `-l "traefik.http.routers.${containerName}.rule=${hostRules}"`,
-            `-l "traefik.http.routers.${containerName}.entrypoints=websecure"`,
-            `-l "traefik.http.routers.${containerName}.tls.certresolver=letsencrypt"`,
-            `-l "traefik.http.routers.${containerName}.middlewares=${middlewareName}"`,
-            `-l "traefik.http.services.${containerName}.loadbalancer.server.port=${containerPort}"`,
+            this.traefikDriver.getApplicationLabels(containerName, hostnames, containerPort, false) as string,
             imageTag
           ].filter(Boolean).join(' ');
 

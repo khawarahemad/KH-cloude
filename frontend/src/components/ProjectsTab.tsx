@@ -8,6 +8,7 @@ import { Layers, Plus, Settings, RefreshCw, Terminal, Eye, EyeOff, Globe, Server
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDialog } from './CustomDialogProvider';
 import NetworkMonitorTab from './NetworkMonitorTab';
+import ProxiesPanel from './ProxiesPanel';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
@@ -137,7 +138,7 @@ export default function ProjectsTab() {
   const [directBranch, setDirectBranch] = useState('main');
   
   // Active details tab
-  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'domains' | 'metrics' | 'network' | 'console' | 'terminal' | 'settings'>('deployments');
+  const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'networking' | 'metrics' | 'network' | 'console' | 'terminal' | 'settings'>('deployments');
   const [runtimeLogs, setRuntimeLogs] = useState<string[]>(['Fetching runtime logs...']);
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalHistory, setTerminalHistory] = useState<string[]>([
@@ -1039,9 +1040,9 @@ export default function ProjectsTab() {
 
             {/* Sub-tab Navigation - no glitch, fixed height */}
             <div style={{ backgroundColor: '#0e1015', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0', overflowX: 'auto' }}>
-              {(['deployments', 'env', 'domains', 'metrics', 'network', 'console', 'terminal', 'settings'] as const).map(tab => {
+              {(['deployments', 'env', 'networking', 'metrics', 'network', 'console', 'terminal', 'settings'] as const).map(tab => {
                 const isActive = detailsTab === tab;
-                const labels: Record<string, string> = { deployments: 'Deployments', env: 'Variables', domains: 'Domains', metrics: 'Metrics', network: 'Network', console: 'Logs', terminal: 'Terminal', settings: 'Settings' };
+                const labels: Record<string, string> = { deployments: 'Deployments', env: 'Variables', networking: 'Networking', metrics: 'Metrics', network: 'Network', console: 'Logs', terminal: 'Terminal', settings: 'Settings' };
                 return (
                   <button
                     key={tab}
@@ -1347,8 +1348,8 @@ export default function ProjectsTab() {
                 </div>
               )}
 
-              {/* ── Domains ── */}
-              {detailsTab === 'domains' && (
+              {/* ── Networking ── */}
+              {detailsTab === 'networking' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '1200px' }}>
                   <div>
                     <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '3px' }}>Custom Domains</div>
@@ -1461,6 +1462,7 @@ export default function ProjectsTab() {
                       })
                     )}
                   </div>
+                  <ProxiesPanel projectId={activeProjectId!} />
                 </div>
               )}
 

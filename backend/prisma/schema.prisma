@@ -9,25 +9,25 @@ generator client {
 // --- Better Auth Schema ---
 
 model User {
-  id            String    @id @default(uuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  githubAccessToken String?
-  githubUsername    String?
-  role              String    @default("USER") // USER, ADMIN
-  discordWebhookUrl String?
-  discordNotifyDeploys Boolean @default(true)
-  discordNotifyErrors   Boolean @default(true)
-  discordNotifyDatabases Boolean @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                     String   @id @default(uuid())
+  name                   String
+  email                  String   @unique
+  emailVerified          Boolean  @default(false)
+  image                  String?
+  githubAccessToken      String?
+  githubUsername         String?
+  role                   String   @default("USER") // USER, ADMIN
+  discordWebhookUrl      String?
+  discordNotifyDeploys   Boolean  @default(true)
+  discordNotifyErrors    Boolean  @default(true)
+  discordNotifyDatabases Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  sessions      Session[]
-  accounts      Account[]
-  teamMembers   TeamMember[]
-  auditLogs     AuditLog[]
+  sessions    Session[]
+  accounts    Account[]
+  teamMembers TeamMember[]
+  auditLogs   AuditLog[]
 
   @@map("user")
 }
@@ -83,16 +83,16 @@ model Team {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members            TeamMember[]
-  invites            Invite[]
-  projects           Project[]
-  buckets            Bucket[]
-  databases          DatabaseInstance[]
-  auditLogs          AuditLog[]
+  members             TeamMember[]
+  invites             Invite[]
+  projects            Project[]
+  buckets             Bucket[]
+  databases           DatabaseInstance[]
+  auditLogs           AuditLog[]
   billingSubscription BillingSubscription?
-  usageMetrics       UsageMetric[]
-  edgeFunctions      EdgeFunction[]
-  apiKeys            ApiKey[]
+  usageMetrics        UsageMetric[]
+  edgeFunctions       EdgeFunction[]
+  apiKeys             ApiKey[]
   githubInstallations GithubInstallation[]
 }
 
@@ -144,7 +144,7 @@ model Project {
   description    String?
   teamId         String
   team           Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  githubRepo     String?       // Format: owner/repo
+  githubRepo     String? // Format: owner/repo
   githubBranch   String?       @default("main")
   rootDirectory  String?       @default("")
   buildCommand   String?
@@ -155,10 +155,11 @@ model Project {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  deployments    Deployment[]
-  envVars        EnvVar[]
-  domains        Domain[]
-  databases      DatabaseInstance[]
+  deployments Deployment[]
+  envVars     EnvVar[]
+  domains     Domain[]
+  databases   DatabaseInstance[]
+  network     ProjectNetwork?
 
   @@unique([teamId, slug])
 }
@@ -176,15 +177,15 @@ model Deployment {
   id              String           @id @default(uuid())
   projectId       String
   project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  commitHash      String?          // Short 7-char commit SHA
-  commitMessage   String?          // First line of the commit message
-  commitAuthor    String?          // GitHub commit author name
+  commitHash      String? // Short 7-char commit SHA
+  commitMessage   String? // First line of the commit message
+  commitAuthor    String? // GitHub commit author name
   branch          String
   triggeredBy     String           @default("MANUAL") // "MANUAL" | "GITOPS"
-  triggeredByName String?          // Team member name or "GitHub Push by <actor>"
+  triggeredByName String? // Team member name or "GitHub Push by <actor>"
   status          DeploymentStatus @default(QUEUED)
   buildLogs       String           @default("")
-  buildDuration   Int?             // in seconds
+  buildDuration   Int? // in seconds
   startedAt       DateTime?
   endedAt         DateTime?
   createdAt       DateTime         @default(now())
@@ -204,16 +205,16 @@ model EnvVar {
 }
 
 model Domain {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   projectId  String
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  hostname   String   @unique // e.g. customdomain.com or test.khcloud.app
-  isCustom   Boolean  @default(false)
-  status     String   @default("PENDING") // PENDING, ACTIVE, FAILED
-  sslStatus  String   @default("PENDING") // PENDING, ACTIVE, FAILED
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  hostname   String    @unique // e.g. customdomain.com or test.khcloud.app
+  isCustom   Boolean   @default(false)
+  status     String    @default("PENDING") // PENDING, ACTIVE, FAILED
+  sslStatus  String    @default("PENDING") // PENDING, ACTIVE, FAILED
   verifiedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 enum DatabaseType {
@@ -223,21 +224,21 @@ enum DatabaseType {
 }
 
 model DatabaseInstance {
-  id         String       @id @default(uuid())
-  name       String
-  type       DatabaseType
-  host       String
-  port       Int
-  dbName     String?
-  username   String?
-  password   String?
-  status     String       @default("CREATING") // CREATING, RUNNING, STOPPED, FAILED
-  teamId     String
-  team       Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  projectId  String?
-  project    Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id        String       @id @default(uuid())
+  name      String
+  type      DatabaseType
+  host      String
+  port      Int
+  dbName    String?
+  username  String?
+  password  String?
+  status    String       @default("CREATING") // CREATING, RUNNING, STOPPED, FAILED
+  teamId    String
+  team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   @@unique([teamId, name])
 }
@@ -245,19 +246,19 @@ model DatabaseInstance {
 // --- Object Storage Schema ---
 
 model Bucket {
-  id         String   @id @default(uuid())
-  name       String
-  isPublic   Boolean  @default(false)
-  sizeLimit  BigInt   @default(5368709120) // 5GB in bytes by default
-  sizeUsed   BigInt   @default(0)
-  status     String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETING
-  teamId     String
-  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  isPublic  Boolean  @default(false)
+  sizeLimit BigInt   @default(5368709120) // 5GB in bytes by default
+  sizeUsed  BigInt   @default(0)
+  status    String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETING
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  keys       BucketKey[]
-  objects    ObjectMetadata[]
+  keys    BucketKey[]
+  objects ObjectMetadata[]
 
   @@unique([teamId, name])
 }
@@ -268,28 +269,28 @@ enum KeyPermission {
 }
 
 model BucketKey {
-  id        String        @id @default(uuid())
-  name      String
-  bucketId  String
-  bucket    Bucket        @relation(fields: [bucketId], references: [id], onDelete: Cascade)
-  accessKey String        @unique
-  secretKey String
+  id         String        @id @default(uuid())
+  name       String
+  bucketId   String
+  bucket     Bucket        @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  accessKey  String        @unique
+  secretKey  String
   permission KeyPermission @default(READ)
-  createdAt DateTime      @default(now())
-  expiresAt DateTime?
+  createdAt  DateTime      @default(now())
+  expiresAt  DateTime?
 }
 
 model ObjectMetadata {
   id             String   @id @default(uuid())
   bucketId       String
   bucket         Bucket   @relation(fields: [bucketId], references: [id], onDelete: Cascade)
-  key            String   // Full path key, e.g. images/avatar.png
+  key            String // Full path key, e.g. images/avatar.png
   size           BigInt
   contentType    String
   etag           String
   isFolder       Boolean  @default(false)
-  parentKey      String?  // For virtual folders tree
-  customMetadata String?  // JSON string
+  parentKey      String? // For virtual folders tree
+  customMetadata String? // JSON string
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -304,10 +305,10 @@ model AuditLog {
   team       Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action     String   // e.g. PROJECT.CREATE, BUCKET.FILE_UPLOAD
-  targetType String   // e.g. PROJECT, BUCKET
+  action     String // e.g. PROJECT.CREATE, BUCKET.FILE_UPLOAD
+  targetType String // e.g. PROJECT, BUCKET
   targetId   String?
-  details    String?  // JSON context
+  details    String? // JSON context
   ipAddress  String?
   createdAt  DateTime @default(now())
 }
@@ -345,17 +346,17 @@ model UsageMetric {
 // --- Edge Functions ---
 
 model EdgeFunction {
-  id          String   @id @default(uuid())
-  teamId      String
-  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  name        String
-  slug        String
-  code        String   @default("// Edge Function\n// Available globals: fetch, console, env, storage\n\nexport default async function handler(req) {\n  return { status: 200, body: { message: 'Hello from KH Cloud Edge!' } };\n}")
-  envVars     String   @default("{}")
+  id            String    @id @default(uuid())
+  teamId        String
+  team          Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name          String
+  slug          String
+  code          String    @default("// Edge Function\n// Available globals: fetch, console, env, storage\n\nexport default async function handler(req) {\n  return { status: 200, body: { message: 'Hello from KH Cloud Edge!' } };\n}")
+  envVars       String    @default("{}")
   lastInvokedAt DateTime?
-  invokeCount  Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  invokeCount   Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([teamId, slug])
 }
@@ -364,7 +365,7 @@ model ApiKey {
   id        String   @id @default(uuid())
   teamId    String
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  name      String   // e.g. "anon" or "service_role"
+  name      String // e.g. "anon" or "service_role"
   key       String   @unique
   role      String   @default("ANON") // ANON, SERVICE_ROLE
   createdAt DateTime @default(now())
@@ -373,12 +374,12 @@ model ApiKey {
 
 model GithubInstallation {
   id             String   @id @default(uuid())
-  installationId String   // GitHub App installation ID (numeric, stored as string)
+  installationId String // GitHub App installation ID (numeric, stored as string)
   teamId         String
   team           Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  accountLogin   String   // GitHub account or org login
-  accountType    String   // "User" or "Organization"
-  avatarUrl      String?  // GitHub user/org avatar URL
+  accountLogin   String // GitHub account or org login
+  accountType    String // "User" or "Organization"
+  avatarUrl      String? // GitHub user/org avatar URL
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -392,8 +393,8 @@ model NetworkLog {
   ip             String
   method         String
   path           String
-  host           String?  // The domain name / hostname accessed
-  projectId      String?  // Linked project if it matches a known domain
+  host           String? // The domain name / hostname accessed
+  projectId      String? // Linked project if it matches a known domain
   statusCode     Int      @default(200)
   userAgent      String?
   responseTimeMs Int?     @default(0)
@@ -404,4 +405,51 @@ model NetworkLog {
   @@index([host])
   @@index([createdAt])
   @@map("network_log")
+}
+
+// --- Networking Schema ---
+
+model ProjectNetwork {
+  id        String   @id @default(uuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resources NetworkResource[]
+}
+
+enum NetworkResourceStatus {
+  PROVISIONING
+  READY
+  ERROR
+  DISABLED
+  REMOVING
+}
+
+enum NetworkProvider {
+  XRAY
+}
+
+enum NetworkResourceType {
+  WEBSOCKET_PROXY
+  TCP_PROXY
+}
+
+model NetworkResource {
+  id        String         @id @default(uuid())
+  networkId String
+  network   ProjectNetwork @relation(fields: [networkId], references: [id], onDelete: Cascade)
+
+  type     NetworkResourceType
+  provider NetworkProvider
+  status   NetworkResourceStatus @default(PROVISIONING)
+
+  config     String? // JSON string
+  credential String? // Cryptographically secure UUID/Token (NEVER log or expose generically)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([networkId, type])
 }
