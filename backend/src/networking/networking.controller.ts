@@ -5,7 +5,7 @@ import { ProxyFactory } from './proxy/proxy.factory';
 import { PrismaService } from '../prisma/prisma.service';
 import { NetworkResourceType, NetworkProvider } from '@prisma/client';
 
-@Controller('projects/:projectId/networking/resources')
+@Controller('api/projects/:projectId/networking/resources')
 export class NetworkingController {
   private readonly logger = new Logger(NetworkingController.name);
 

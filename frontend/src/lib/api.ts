@@ -82,6 +82,9 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
   try {
     const res = await fetch(url, { ...options, headers });
     if (!res.ok) {
+      if (res.status === 401) {
+        useAppStore.getState().logout();
+      }
       const errBody = await res.json().catch(() => ({}));
       throw new Error(errBody.message || `API error: ${res.status}`);
     }
