@@ -113,6 +113,7 @@ services:
       - DDOS_BAN_THRESHOLD=${DDOS_BAN_THRESHOLD:-5}
       - DDOS_BAN_TTL_SECONDS=${DDOS_BAN_TTL_SECONDS:-3600}
       - DDOS_ALERT_DISCORD_WEBHOOK=${DDOS_ALERT_DISCORD_WEBHOOK:-}
+      - PLATFORM_ADMIN_EMAIL=${PLATFORM_ADMIN_EMAIL}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
     volumes:
       - /var/lib/kh-cloud/db:/usr/src/app/data

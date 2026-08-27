@@ -80,7 +80,8 @@ export class AppController {
       throw new BadRequestException('User with this email already exists.');
     }
 
-    const user = await this.prisma.user.create({ data: { name, email } });
+    const isAdmin = process.env.PLATFORM_ADMIN_EMAIL && email.toLowerCase() === process.env.PLATFORM_ADMIN_EMAIL.toLowerCase();
+    const user = await this.prisma.user.create({ data: { name, email, role: isAdmin ? 'ADMIN' : 'USER' } });
 
     await this.prisma.account.create({
       data: {
@@ -926,10 +927,12 @@ export class AppController {
       });
 
       if (!user) {
+        const isAdmin = process.env.PLATFORM_ADMIN_EMAIL && email.toLowerCase() === process.env.PLATFORM_ADMIN_EMAIL.toLowerCase();
         user = await this.prisma.user.create({
           data: {
             name: githubUser.name || githubUsername,
             email,
+            role: isAdmin ? 'ADMIN' : 'USER',
             githubAccessToken: accessToken,
             githubUsername,
           },
@@ -1026,10 +1029,12 @@ export class AppController {
       });
 
       if (!user) {
+        const isAdmin = process.env.PLATFORM_ADMIN_EMAIL && email.toLowerCase() === process.env.PLATFORM_ADMIN_EMAIL.toLowerCase();
         user = await this.prisma.user.create({
           data: {
             name: googleUser.name || googleUser.given_name || email.split('@')[0],
             email,
+            role: isAdmin ? 'ADMIN' : 'USER',
             image: googleUser.picture || null,
           },
         });
