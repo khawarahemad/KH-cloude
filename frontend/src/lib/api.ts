@@ -55,17 +55,20 @@ export const API_BASE = getApiBase();
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;
 
-  // Get current user and active team from store
+  // Get current user, active team, and access token from store
   let userId: string | undefined;
   let teamId: string | undefined;
+  let accessToken: string | null = null;
   try {
     const store = useAppStore.getState();
     userId = store.user?.id;
     teamId = store.activeTeam?.id;
+    accessToken = store.accessToken;
   } catch {}
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
     ...(userId ? { 'x-user-id': userId } : {}),
     ...(teamId ? { 'x-team-id': teamId } : {}),
     ...((options.headers as Record<string, string>) || {}),

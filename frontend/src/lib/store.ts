@@ -25,6 +25,7 @@ interface AppState {
   user: User | null;
   teams: Team[];
   activeTeam: Team | null;
+  accessToken: string | null;
   activeTab: string; // 'projects' | 'databases' | 'storage' | 'billing' | 'teams' | 'audit'
   selectedProjectId: string | null;
   selectedBucketId: string | null;
@@ -40,6 +41,7 @@ interface AppState {
   setUser: (user: User | null) => void;
   setTeams: (teams: Team[]) => void;
   setActiveTeam: (team: Team | null) => void;
+  setAccessToken: (token: string | null) => void;
   setActiveTab: (tab: string) => void;
   setSelectedProjectId: (id: string | null) => void;
   setSelectedBucketId: (id: string | null) => void;
@@ -60,6 +62,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       teams: [],
       activeTeam: null,
+      accessToken: null,
       activeTab: 'projects',
       selectedProjectId: null,
       selectedBucketId: null,
@@ -73,6 +76,7 @@ export const useAppStore = create<AppState>()(
       setUser: (user) => set({ user }),
       setTeams: (teams) => set({ teams, activeTeam: teams.length > 0 ? teams[0] : null }),
       setActiveTeam: (activeTeam) => set({ activeTeam, projectsCache: null, databasesCache: null, bucketsCache: null, billingCache: null, edgeFunctionsCache: null }),
+      setAccessToken: (accessToken) => set({ accessToken }),
       setActiveTab: (activeTab) => set({ activeTab }),
       setSelectedProjectId: (selectedProjectId) => set({ selectedProjectId }),
       setSelectedBucketId: (selectedBucketId) => set({ selectedBucketId }),
@@ -87,6 +91,7 @@ export const useAppStore = create<AppState>()(
         user: null, 
         teams: [], 
         activeTeam: null, 
+        accessToken: null,
         activeTab: 'projects', 
         selectedProjectId: null, 
         selectedBucketId: null,

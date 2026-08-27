@@ -9,7 +9,7 @@ import { Loader2, ShieldAlert } from 'lucide-react';
 function GitHubCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser, setTeams } = useAppStore();
+  const { setUser, setTeams, setAccessToken } = useAppStore();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<'exchanging' | 'verifying' | 'success'>('exchanging');
 
@@ -50,6 +50,7 @@ function GitHubCallbackContent() {
           // Save session in Zustand store locally
           setUser(data.user);
           setTeams(data.teams);
+          if (data.accessToken) setAccessToken(data.accessToken);
           setStatus('success');
           router.push('/');
         }

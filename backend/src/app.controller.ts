@@ -828,7 +828,7 @@ export class AppController {
 
   @Public()
   @Post('auth/github/callback')
-  async githubCallback(@Body() body: { code: string }, @Req() req: express.Request) {
+  async githubCallback(@Body() body: { code: string }, @Req() req: express.Request, @Res({ passthrough: true }) res: Response) {
     const { code } = body;
     if (!code) throw new BadRequestException('Authorization code required.');
 
@@ -952,12 +952,17 @@ export class AppController {
     }
 
     const teams = await this.teams.getTeams(user.id);
-    return { user, teams };
+    const [accessToken, refreshToken] = await Promise.all([
+      this.tokens.signAccessToken(user.id),
+      this.tokens.signRefreshToken(user.id),
+    ]);
+    this.setSessionCookies(res, accessToken, refreshToken);
+    return { user, teams, accessToken };
   }
 
   @Public()
   @Post('auth/google/callback')
-  async googleCallback(@Body() body: { code: string; redirectUri: string }, @Req() req: express.Request) {
+  async googleCallback(@Body() body: { code: string; redirectUri: string }, @Req() req: express.Request, @Res({ passthrough: true }) res: Response) {
     const { code, redirectUri } = body;
     if (!code) throw new BadRequestException('Authorization code required.');
 
@@ -1052,7 +1057,12 @@ export class AppController {
     }
 
     const teams = await this.teams.getTeams(user.id);
-    return { user, teams };
+    const [accessToken, refreshToken] = await Promise.all([
+      this.tokens.signAccessToken(user.id),
+      this.tokens.signRefreshToken(user.id),
+    ]);
+    this.setSessionCookies(res, accessToken, refreshToken);
+    return { user, teams, accessToken };
   }
   // --- GITHUB APP ENDPOINTS ---
 
