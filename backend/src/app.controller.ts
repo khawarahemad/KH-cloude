@@ -808,16 +808,43 @@ export class AppController {
     return { url: `https://checkout.stripe.com/pay/cs_test_${teamId}_${body.planId}` };
   }
 
+  /**
+   * @security Stripe Webhook Signature Verification
+   * Replaces the unverified webhook endpoint with cryptographic signature validation.
+   * Ensures that `checkout.session.completed` payloads cannot be spoofed by attackers to bypass billing.
+   */
   @Public()
   @Post('billing/webhook')
-  async stripeWebhook(@Body() body: any, @Headers('stripe-signature') signature: string) {
-    // In production, verify signature using stripe.webhooks.constructEvent
+  async stripeWebhook(@Req() req: express.Request, @Headers('stripe-signature') signature: string) {
     if (!signature) throw new BadRequestException('Missing stripe signature');
-    
-    if (body.type === 'checkout.session.completed') {
-      const teamId = body.data.object.client_reference_id;
-      const planId = body.data.object.metadata.planId;
-      await this.billing.updatePlan(teamId, planId);
+
+    const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+
+    if (!stripeSecret || !endpointSecret) {
+      // In development, you might just accept it without verification if secrets are missing,
+      // but for security audit, we must enforce it or throw.
+      throw new BadRequestException('Stripe webhook secrets not configured');
+    }
+
+    const Stripe = require('stripe');
+    const stripe = new Stripe(stripeSecret);
+
+    let event;
+    try {
+      // req.rawBody is captured in main.ts by Express for precisely this purpose
+      event = stripe.webhooks.constructEvent((req as any).rawBody, signature, endpointSecret);
+    } catch (err: any) {
+      throw new BadRequestException(`Webhook Signature Error: ${err.message}`);
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const teamId = session.client_reference_id;
+      const planId = session.metadata?.planId;
+      if (teamId && planId) {
+        await this.billing.updatePlan(teamId, planId);
+      }
     }
     return { received: true };
   }
