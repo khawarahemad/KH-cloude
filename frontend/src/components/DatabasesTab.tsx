@@ -751,7 +751,7 @@ with engine.connect() as conn:
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>Provision managed PostgreSQL, Redis, or MySQL database instances.</p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button onClick={fetchDatabases} style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', cursor: 'pointer', transition: 'all 0.12s' }} className="hover:bg-white/5 hover:text-white">
+          <button onClick={() => fetchDatabases()} style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', cursor: 'pointer', transition: 'all 0.12s' }} className="hover:bg-white/5 hover:text-white">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
           <button onClick={() => setProvisionOpen(true)} className="rw-btn rw-btn-primary">
