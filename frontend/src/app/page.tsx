@@ -158,6 +158,9 @@ export default function Home() {
         const data = JSON.parse(decodeURIComponent(sessionDataParam));
         setUser(data.user);
         setTeams(data.teams);
+        if (data.accessToken) {
+          useAppStore.getState().setAccessToken(data.accessToken);
+        }
         window.history.replaceState({}, '', window.location.pathname);
       } catch (e) {
         console.error('Session parse failed:', e);
@@ -173,9 +176,15 @@ export default function Home() {
     if (!window.location.hostname.includes('localhost')) {
       if (isAuthSubdomain) {
         if (user) {
+          const { accessToken } = useAppStore.getState();
+          if (!accessToken) {
+            useAppStore.getState().logout();
+            setView('auth');
+            return;
+          }
           const params = new URLSearchParams(window.location.search);
           const redirectDest = params.get('redirect') || getDomainUrl('cloud');
-          const sessionPayload = encodeURIComponent(JSON.stringify({ user, teams: useAppStore.getState().teams }));
+          const sessionPayload = encodeURIComponent(JSON.stringify({ user, teams: useAppStore.getState().teams, accessToken }));
           window.location.href = `${redirectDest}?session_data=${sessionPayload}`;
         } else {
           setView('auth');
