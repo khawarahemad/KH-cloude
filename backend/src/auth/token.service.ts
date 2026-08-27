@@ -30,7 +30,7 @@ export class TokenService implements OnModuleInit {
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(userId)
       .setIssuedAt()
-      .setExpirationTime('15m')
+      .setExpirationTime(process.env.JWT_EXPIRES_IN || '7d')
       .sign(this.secret);
   }
 
