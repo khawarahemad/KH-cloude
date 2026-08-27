@@ -128,13 +128,48 @@ export default async function handler({ req, env, storage, db }) {
       jail.setSync('global', jail.derefInto());
 
       // Build a sandboxed fetch implementation
+      let fetchCount = 0;
+      const MAX_FETCHES = 50;
+
       const sandboxFetch = async (url: string, opts?: any) => {
-        // ... (Network restrictions would go here, per D-06 / H-06)
-        if (!url.startsWith('http')) throw new Error('Invalid URL');
+        if (++fetchCount > MAX_FETCHES) throw new Error('Exceeded maximum outbound connections per invocation');
+        
+        if (!url.startsWith('http')) throw new Error('Invalid URL scheme');
+        let parsedUrl: URL;
+        try {
+          parsedUrl = new URL(url);
+        } catch {
+          throw new Error('Invalid URL');
+        }
+
+        const isInternalIp = (ip: string) => {
+          return ip === '127.0.0.1' || ip === '::1' || ip.startsWith('10.') || ip.startsWith('192.168.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip);
+        };
+
+        const dns = require('dns');
+        const resolveHostname = (hostname: string): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            dns.lookup(hostname, (err: any, address: string) => {
+              if (err) return reject(err);
+              resolve(address);
+            });
+          });
+        };
+
+        try {
+          const ip = await resolveHostname(parsedUrl.hostname);
+          if (isInternalIp(ip)) {
+            throw new Error('Access to internal networks is blocked.');
+          }
+        } catch (err: any) {
+          throw new Error('DNS resolution failed or access denied.');
+        }
+
         try {
           const mod = require(url.startsWith('https') ? 'https' : 'http');
           const options = {
             ...opts,
+            timeout: 5000,
             headers: { 'Content-Type': 'application/json', ...(opts?.headers || {}) },
           };
           return await new Promise((resolve) => {
@@ -142,6 +177,10 @@ export default async function handler({ req, env, storage, db }) {
               let data = '';
               res.on('data', (d: any) => (data += d));
               res.on('end', () => resolve({ ok: res.statusCode < 400, status: res.statusCode, data }));
+            });
+            req.on('timeout', () => {
+              req.destroy();
+              resolve({ ok: false, status: 408, error: 'Request timeout' });
             });
             req.on('error', (err: any) => resolve({ ok: false, status: 500, error: err.message }));
             if (opts?.body) req.write(typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body));

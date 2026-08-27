@@ -31,22 +31,17 @@ const CFG = {
 // Trusted IP prefixes — never rate-limited (internal Docker/loopback traffic)
 // ---------------------------------------------------------------------------
 const TRUSTED_EXACT = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-const TRUSTED_PREFIXES = ['172.', '10.', '192.168.'];
 
 function isTrusted(ip: string): boolean {
   if (TRUSTED_EXACT.has(ip)) return true;
-  return TRUSTED_PREFIXES.some((p) => ip.startsWith(p));
+  return false;
 }
 
 // ---------------------------------------------------------------------------
-// Extract the real client IP, honouring X-Forwarded-For from Traefik
+// Extract the real client IP, relying on Express 'trust proxy'
 // ---------------------------------------------------------------------------
 function getClientIp(req: any): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    const first = (forwarded as string).split(',')[0].trim();
-    if (first) return first;
-  }
+  // Express 'trust proxy' handles X-Forwarded-For securely
   return req.ip ?? req.socket?.remoteAddress ?? '0.0.0.0';
 }
 

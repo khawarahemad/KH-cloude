@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -60,8 +60,12 @@ export class PlanLimitsService {
     return { plan, limits: PLAN_LIMITS[plan] ?? PLAN_LIMITS.hobby };
   }
 
+  private throwPaymentRequired(message: string) {
+    throw new HttpException(message, HttpStatus.PAYMENT_REQUIRED);
+  }
+
   /**
-   * Throw ForbiddenException if the team has reached the project limit.
+   * Throw Payment Required if the team has reached the project limit.
    */
   async enforceProjectLimit(teamId: string): Promise<void> {
     const { plan, limits } = await this.getLimits(teamId);
@@ -69,7 +73,7 @@ export class PlanLimitsService {
 
     const count = await this.prisma.project.count({ where: { teamId } });
     if (count >= limits.maxProjects) {
-      throw new ForbiddenException(
+      this.throwPaymentRequired(
         `Your ${plan} plan allows a maximum of ${limits.maxProjects} project(s). ` +
           `You currently have ${count}. Upgrade to Pro or Enterprise to create more.`,
       );
@@ -77,7 +81,7 @@ export class PlanLimitsService {
   }
 
   /**
-   * Throw ForbiddenException if the team has reached the database limit.
+   * Throw Payment Required if the team has reached the database limit.
    */
   async enforceDatabaseLimit(teamId: string): Promise<void> {
     const { plan, limits } = await this.getLimits(teamId);
@@ -85,7 +89,7 @@ export class PlanLimitsService {
 
     const count = await this.prisma.databaseInstance.count({ where: { teamId } });
     if (count >= limits.maxDatabases) {
-      throw new ForbiddenException(
+      this.throwPaymentRequired(
         `Your ${plan} plan allows a maximum of ${limits.maxDatabases} database(s). ` +
           `You currently have ${count}. Upgrade to Pro or Enterprise to create more.`,
       );
@@ -93,12 +97,12 @@ export class PlanLimitsService {
   }
 
   /**
-   * Throw ForbiddenException if the team's plan does not allow storage access.
+   * Throw Payment Required if the team's plan does not allow storage access.
    */
   async enforceStorageAccess(teamId: string): Promise<void> {
     const { plan, limits } = await this.getLimits(teamId);
     if (!limits.storageAllowed) {
-      throw new ForbiddenException(
+      this.throwPaymentRequired(
         `Storage is not available on the ${plan} plan. ` +
           `Upgrade to Pro or Enterprise to access object storage.`,
       );
@@ -106,7 +110,7 @@ export class PlanLimitsService {
   }
 
   /**
-   * Throw ForbiddenException if the team has reached the edge function limit.
+   * Throw Payment Required if the team has reached the edge function limit.
    */
   async enforceEdgeFunctionLimit(teamId: string): Promise<void> {
     const { plan, limits } = await this.getLimits(teamId);
@@ -114,7 +118,7 @@ export class PlanLimitsService {
 
     const count = await this.prisma.edgeFunction.count({ where: { teamId } });
     if (count >= limits.maxEdgeFunctions) {
-      throw new ForbiddenException(
+      this.throwPaymentRequired(
         `Your ${plan} plan allows a maximum of ${limits.maxEdgeFunctions} edge function(s). ` +
           `You currently have ${count}. Upgrade to Pro or Enterprise to create more.`,
       );

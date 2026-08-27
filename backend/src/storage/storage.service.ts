@@ -525,20 +525,35 @@ export class StorageService {
       return `${host}/${bucket.teamId}/${bucket.name}/${encodeURIComponent(key)}`;
     }
 
-    const token = this.generateMockToken(bucketId, key);
+    const token = this.generateMockToken(bucketId, key, expiresIn);
     return `${host}/${bucket.teamId}/${bucket.name}/${encodeURIComponent(key)}?token=${token}`;
   }
 
-  generateMockToken(bucketId: string, key: string): string {
+  generateMockToken(bucketId: string, key: string, expiresIn = 3600): string {
     const secret = process.env.JWT_SECRET || 'khcloud-storage-super-secret-key-123';
-    return (
-      'mock-signed-' +
-      crypto
-        .createHmac('sha256', secret)
-        .update(`${bucketId}:${key}`)
-        .digest('hex')
-        .substring(0, 16)
-    );
+    const exp = Date.now() + expiresIn * 1000;
+    const payload = `${bucketId}:${key}:${exp}`;
+    const hmac = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex')
+      .substring(0, 16);
+    return Buffer.from(`${exp}:${hmac}`).toString('base64url');
+  }
+
+  verifyMockToken(bucketId: string, key: string, token: string): boolean {
+    try {
+      const decoded = Buffer.from(token, 'base64url').toString('utf-8');
+      const [expStr, hmac] = decoded.split(':');
+      const exp = parseInt(expStr, 10);
+      if (Date.now() > exp) return false;
+      const secret = process.env.JWT_SECRET || 'khcloud-storage-super-secret-key-123';
+      const payload = `${bucketId}:${key}:${exp}`;
+      const expectedHmac = crypto.createHmac('sha256', secret).update(payload).digest('hex').substring(0, 16);
+      return hmac === expectedHmac;
+    } catch {
+      return false;
+    }
   }
 
   private getParentKey(key: string): string | null {

@@ -43,6 +43,14 @@ function isLargeBodyRoute(url: string): boolean {
 }
 
 async function bootstrap() {
+  if (process.env.NODE_ENV === 'production') {
+    const minioKey = process.env.MINIO_SECRET_KEY || process.env.STORAGE_SECRET_KEY;
+    if (!minioKey || minioKey === 'khcloudrootpassword') {
+      console.error('FATAL: Storage secret keys are missing or using the insecure default "khcloudrootpassword".');
+      process.exit(1);
+    }
+  }
+
   const app = await NestFactory.create(AppModule, { bodyParser: false });
 
   // -------------------------------------------------------------------------
@@ -112,10 +120,7 @@ async function bootstrap() {
           return callback(null, true);
         }
 
-        // Allow apex domain and any subdomain under baseDomain
-        if (host === baseDomain || host.endsWith(`.${baseDomain}`)) {
-          return callback(null, true);
-        }
+        // Check explicit allowedOrigins list
 
         // Check explicit allowedOrigins list
         if (allowedOrigins.includes(origin)) {

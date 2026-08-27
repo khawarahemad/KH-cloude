@@ -314,9 +314,12 @@ export class GithubAppService {
   }
 
   getInstallUrl(teamId: string): string {
-    // Keep default in sync with manage-url / README (GITHUB_APP_SLUG=kh-cloud-app)
     const appSlug = process.env.GITHUB_APP_SLUG || 'kh-cloud-app';
-    const state = Buffer.from(JSON.stringify({ teamId })).toString('base64url');
+    const secret = process.env.JWT_SECRET || 'fallback_secret_for_hmac';
+    const payload = JSON.stringify({ teamId, exp: Date.now() + 15 * 60 * 1000 });
+    const hmac = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const stateObj = { payload, hmac };
+    const state = Buffer.from(JSON.stringify(stateObj)).toString('base64url');
     return `https://github.com/apps/${appSlug}/installations/new?state=${state}`;
   }
 }

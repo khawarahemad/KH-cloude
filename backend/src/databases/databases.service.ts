@@ -27,7 +27,8 @@ export class DatabasesService {
     const host = `${cleanDbName}-${teamPrefix}-${data.type.toLowerCase()}.db.${baseDomain}`;
     const port = data.type === 'POSTGRESQL' ? 5432 : data.type === 'REDIS' ? 6379 : 3306;
     const username = data.type === 'REDIS' ? undefined : 'khclouduser';
-    const password = Math.random().toString(36).substring(2, 16);
+    const crypto = require('crypto');
+    const password = crypto.randomBytes(32).toString('hex');
     const dbName = data.type === 'REDIS' ? undefined : `${data.name.toLowerCase()}_db`;
 
     const db = await this.prisma.databaseInstance.create({
@@ -87,10 +88,28 @@ export class DatabasesService {
   }
 
   async getDatabases(teamId: string) {
-    return this.prisma.databaseInstance.findMany({
+    const dbs = await this.prisma.databaseInstance.findMany({
       where: { teamId },
       include: { project: true },
     });
+    return dbs.map((db) => {
+      const { password, ...safeDb } = db;
+      return safeDb;
+    });
+  }
+
+  async getDatabaseCredentials(id: string, teamId: string) {
+    const db = await this.prisma.databaseInstance.findFirst({
+      where: { id, teamId },
+    });
+    if (!db) throw new NotFoundException('Database not found.');
+    return {
+      host: db.host,
+      port: db.port,
+      username: db.username,
+      password: db.password,
+      dbName: db.dbName,
+    };
   }
 
   async deleteDatabase(id: string, teamId: string) {
@@ -304,14 +323,32 @@ export class DatabasesService {
     return `"${name.replace(/"/g, '""')}"`;
   }
 
-  private sanitizeFilter(filter: string): string {
-    if (!filter || !filter.trim()) return '';
-    const trimmed = filter.trim();
-    // Block stacked queries, semicolons, comments, and dangerous DDL / admin keywords
-    if (/;|--|\/\*|\*\/|\b(DROP|ALTER|ATTACH|DETACH|VACUUM|REINDEX|PRAGMA)\b/i.test(trimmed)) {
-      throw new BadRequestException('Unsafe SQL filter expression. Semicolons, comments, and DDL commands are prohibited.');
+  private buildWhereClause(filterStr: string): { clause: string; params: any[] } {
+    if (!filterStr || !filterStr.trim()) return { clause: '', params: [] };
+    try {
+      const filters = JSON.parse(filterStr);
+      if (!Array.isArray(filters) || filters.length === 0) return { clause: '', params: [] };
+      
+      const allowedOps = ['=', '!=', '>', '<', '>=', '<=', 'LIKE'];
+      const clauses: string[] = [];
+      const params: any[] = [];
+      
+      for (const f of filters) {
+        if (!f.column || typeof f.column !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(f.column)) {
+          throw new BadRequestException('Invalid column name in filter.');
+        }
+        if (!f.op || typeof f.op !== 'string' || !allowedOps.includes(f.op.toUpperCase())) {
+          throw new BadRequestException('Invalid operator in filter.');
+        }
+        clauses.push(`"${f.column}" ${f.op.toUpperCase()} ?`);
+        params.push(f.value);
+      }
+      
+      return { clause: `WHERE ${clauses.join(' AND ')}`, params };
+    } catch (e: any) {
+      if (e instanceof BadRequestException) throw e;
+      throw new BadRequestException('Filter must be a valid JSON array of objects with column, op, and value.');
     }
-    return `WHERE ${trimmed}`;
   }
 
   async getTableSchema(dbId: string, teamId: string, tableName: string) {
@@ -348,14 +385,14 @@ export class DatabasesService {
     if (!db) throw new NotFoundException('Database not found.');
 
     const safeTable = this.validateIdentifier(tableName, 'table name');
-    const whereClause = this.sanitizeFilter(filter);
+    const { clause: whereClause, params } = this.buildWhereClause(filter);
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
     try {
       const offset = (page - 1) * pageSize;
-      const rows = client.prepare(`SELECT * FROM ${safeTable} ${whereClause} LIMIT ? OFFSET ?`).all(pageSize, offset);
-      const total = (client.prepare(`SELECT COUNT(*) as cnt FROM ${safeTable} ${whereClause}`).get() as any).cnt;
+      const rows = client.prepare(`SELECT * FROM ${safeTable} ${whereClause} LIMIT ? OFFSET ?`).all(...params, pageSize, offset);
+      const total = (client.prepare(`SELECT COUNT(*) as cnt FROM ${safeTable} ${whereClause}`).get(...params) as any).cnt;
       return {
         rows,
         columns: rows.length > 0 ? Object.keys(rows[0]) : [],

@@ -20,10 +20,10 @@ import { TokenService } from './auth/token.service';
 import { Public } from './auth/public.decorator';
 import { UserDto } from './auth/dto/user.dto';
 
-import * as crypto from 'crypto';
+import * as argon2 from 'argon2';
 
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
+async function hashPassword(password: string): Promise<string> {
+  return argon2.hash(password);
 }
 
 @Controller('api')
@@ -87,7 +87,7 @@ export class AppController {
         accountId: user.id,
         providerId: 'credentials',
         userId: user.id,
-        password: hashPassword(password),
+        password: await hashPassword(password),
       },
     });
 
@@ -116,7 +116,11 @@ export class AppController {
       include: { accounts: true },
     });
 
-    if (!user || user.accounts[0]?.password !== hashPassword(password)) {
+    if (!user || !user.accounts[0]?.password) {
+      throw new BadRequestException('Invalid email or password.');
+    }
+    const isValid = await argon2.verify(user.accounts[0].password, password).catch(() => false);
+    if (!isValid) {
       throw new BadRequestException('Invalid email or password.');
     }
 
@@ -582,6 +586,17 @@ export class AppController {
     return this.databases.getDatabases(teamId);
   }
 
+  @Get('databases/:id/credentials')
+  async getDatabaseCredentials(
+    @Param('id') id: string,
+    @Query('teamId') teamId: string,
+    @Req() req: express.Request,
+  ) {
+    const userId = (req as any).user.id as string;
+    await this.rbac.verifyDatabaseAccess(userId, id, 'ADMIN');
+    return this.databases.getDatabaseCredentials(id, teamId);
+  }
+
   @Delete('databases/:id')
   async deleteDatabase(
     @Param('id') id: string,
@@ -700,15 +715,16 @@ export class AppController {
       let isAuthorized = false;
 
       if (passedKey) {
+        const crypto = require('crypto');
+        const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
         const keyMatch = await this.prisma.apiKey.findFirst({
-          where: { teamId: bucket.teamId, key: passedKey },
+          where: { teamId: bucket.teamId, key: hashedKey },
         });
         if (keyMatch) isAuthorized = true;
       }
 
       if (!isAuthorized && token) {
-        const expectedToken = this.storage.generateMockToken(id, key);
-        if (token === expectedToken) isAuthorized = true;
+        if (this.storage.verifyMockToken(id, key, token as string)) isAuthorized = true;
       }
 
       if (!isAuthorized) {
@@ -726,6 +742,11 @@ export class AppController {
       
       res.setHeader('Content-Type', meta?.contentType || 'application/octet-stream');
       res.setHeader('Content-Disposition', `inline; filename="${pathName(key)}"`);
+      if (bucket.isPublic) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      } else {
+        res.setHeader('Cache-Control', 'private, no-store');
+      }
       return res.send(fileBuffer);
     } catch (err: any) {
       if (err.name === 'AccessDenied' || err.message?.includes('AccessDenied')) {
@@ -775,26 +796,50 @@ export class AppController {
     return this.billing.getBillingInfo(teamId);
   }
 
-  @Post('billing/plan')
-  async updatePlan(
+  @Post('billing/checkout')
+  async createCheckoutSession(
     @Query('teamId') teamId: string,
-    @Query('adminUserId') adminUserId: string,
     @Body() body: { planId: string },
     @Req() req: express.Request,
   ) {
     const userId = (req as any).user.id as string;
-
     await this.rbac.verifyTeamRole(userId, teamId, 'OWNER');
-    return this.billing.updatePlan(teamId, body.planId);
+    // Simulate returning a Stripe checkout session URL
+    return { url: `https://checkout.stripe.com/pay/cs_test_${teamId}_${body.planId}` };
+  }
+
+  @Public()
+  @Post('billing/webhook')
+  async stripeWebhook(@Body() body: any, @Headers('stripe-signature') signature: string) {
+    // In production, verify signature using stripe.webhooks.constructEvent
+    if (!signature) throw new BadRequestException('Missing stripe signature');
+    
+    if (body.type === 'checkout.session.completed') {
+      const teamId = body.data.object.client_reference_id;
+      const planId = body.data.object.metadata.planId;
+      await this.billing.updatePlan(teamId, planId);
+    }
+    return { received: true };
   }
 
   // --- GITHUB INTEGRATION ENDPOINTS ---
 
   @Public()
   @Post('auth/github/callback')
-  async githubCallback(@Body() body: { code: string; userId?: string }) {
-    const { code, userId } = body;
+  async githubCallback(@Body() body: { code: string }, @Req() req: express.Request) {
+    const { code } = body;
     if (!code) throw new BadRequestException('Authorization code required.');
+
+    let userId: string | undefined;
+    const cookieToken: string | undefined = (req.cookies as any)?.['kh_session'];
+    const bearerToken = req.headers?.['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].substring(7).trim() : null;
+    const token = cookieToken || (bearerToken?.split('.').length === 3 ? bearerToken : null);
+    if (token) {
+      try {
+        const payload = await this.tokens.verifyToken(token);
+        if (payload.type === 'access') userId = payload.sub;
+      } catch {}
+    }
 
     const clientId = process.env.GITHUB_CLIENT_ID || 'Iv23libP2nC0sNq21c8u'; // Default/fallback Client ID
     const clientSecret = process.env.GITHUB_CLIENT_SECRET || 'a1b2c3d4e5f6g7h8i9j0'; // Default/fallback Secret
@@ -908,9 +953,20 @@ export class AppController {
 
   @Public()
   @Post('auth/google/callback')
-  async googleCallback(@Body() body: { code: string; redirectUri: string; userId?: string }) {
-    const { code, redirectUri, userId } = body;
+  async googleCallback(@Body() body: { code: string; redirectUri: string }, @Req() req: express.Request) {
+    const { code, redirectUri } = body;
     if (!code) throw new BadRequestException('Authorization code required.');
+
+    let userId: string | undefined;
+    const cookieToken: string | undefined = (req.cookies as any)?.['kh_session'];
+    const bearerToken = req.headers?.['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].substring(7).trim() : null;
+    const token = cookieToken || (bearerToken?.split('.').length === 3 ? bearerToken : null);
+    if (token) {
+      try {
+        const payload = await this.tokens.verifyToken(token);
+        if (payload.type === 'access') userId = payload.sub;
+      } catch {}
+    }
 
     const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
     const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
@@ -1008,29 +1064,48 @@ export class AppController {
   async githubAppCallback(
     @Query('installation_id') installationId: string,
     @Query('state') state: string,
+    @Req() req: express.Request,
   ) {
     if (!installationId) throw new BadRequestException('installation_id is required.');
 
     let teamId: string | null = null;
+    let exp: number | null = null;
+    
     if (state) {
       try {
-        let decodedStr = '';
-        try {
-          decodedStr = Buffer.from(state, 'base64url').toString('utf-8');
-        } catch {
-          decodedStr = Buffer.from(state, 'base64').toString('utf-8');
-        }
-        const decoded = JSON.parse(decodedStr);
-        teamId = decoded.teamId || null;
-      } catch {
-        try {
-          const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
-          teamId = decoded.teamId || null;
-        } catch {}
+        const decodedStr = Buffer.from(state, 'base64url').toString('utf-8');
+        const { payload, hmac } = JSON.parse(decodedStr);
+        
+        const secret = process.env.JWT_SECRET || 'fallback_secret_for_hmac';
+        const expectedHmac = require('crypto').createHmac('sha256', secret).update(payload).digest('hex');
+        
+        if (hmac !== expectedHmac) throw new Error('Invalid HMAC');
+        
+        const decodedPayload = JSON.parse(payload);
+        teamId = decodedPayload.teamId;
+        exp = decodedPayload.exp;
+      } catch (err) {
+        throw new BadRequestException('Invalid, tampered, or missing state parameter.');
       }
     }
 
-    if (!teamId) throw new BadRequestException('Invalid or missing state parameter.');
+    if (!teamId) throw new BadRequestException('Invalid state parameter: missing teamId.');
+    if (!exp || Date.now() > exp) throw new BadRequestException('Installation link has expired. Please try again.');
+
+    let userId: string | undefined;
+    const cookieToken: string | undefined = (req.cookies as any)?.['kh_session'];
+    const bearerToken = req.headers?.['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].substring(7).trim() : null;
+    const token = cookieToken || (bearerToken?.split('.').length === 3 ? bearerToken : null);
+    
+    if (token) {
+      try {
+        const decoded = await this.tokens.verifyToken(token);
+        if (decoded.type === 'access') userId = decoded.sub;
+      } catch {}
+    }
+
+    if (!userId) throw new UnauthorizedException('Authentication required to install GitHub App.');
+    await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
 
     // Verify team exists
     const team = await this.prisma.team.findUnique({ where: { id: teamId } });
@@ -2259,8 +2334,10 @@ export class AppController {
     }
 
     if (passedKey) {
+      const crypto = require('crypto');
+      const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
       const keyMatch = await this.prisma.apiKey.findFirst({
-        where: { teamId: db.teamId, key: passedKey }
+        where: { teamId: db.teamId, key: hashedKey }
       });
       if (keyMatch) {
         return this.databases.runQuery(id, db.teamId, body.sql);
@@ -2306,8 +2383,10 @@ export class AppController {
     }
 
     if (passedKey) {
+      const crypto = require('crypto');
+      const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
       const keyMatch = await this.prisma.apiKey.findFirst({
-        where: { teamId: db.teamId, key: passedKey },
+        where: { teamId: db.teamId, key: hashedKey },
       });
       if (keyMatch) {
         return this.databases.runQuery(db.id, db.teamId, body.sql);
@@ -2393,8 +2472,10 @@ export class AppController {
     }
 
     if (passedKey) {
+      const crypto = require('crypto');
+      const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
       const keyMatch = await this.prisma.apiKey.findFirst({
-        where: { teamId: fn.teamId, key: passedKey }
+        where: { teamId: fn.teamId, key: hashedKey }
       });
       if (keyMatch) {
         return this.edgeFunctions.invokeFunction(id, fn.teamId, body);
@@ -2442,8 +2523,10 @@ export class AppController {
     }
 
     if (passedKey) {
+      const crypto = require('crypto');
+      const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
       const keyMatch = await this.prisma.apiKey.findFirst({
-        where: { teamId: fn.teamId, key: passedKey },
+        where: { teamId: fn.teamId, key: hashedKey },
       });
       if (keyMatch) {
         return this.edgeFunctions.invokeFunction(fn.id, fn.teamId, body);

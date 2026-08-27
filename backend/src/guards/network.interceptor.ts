@@ -9,11 +9,7 @@ import { tap } from 'rxjs/operators';
 import { NetworkService } from './network.service';
 
 function getClientIp(req: any): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    const first = (forwarded as string).split(',')[0].trim();
-    if (first) return first;
-  }
+  // Express 'trust proxy' handles X-Forwarded-For securely
   return req.ip ?? req.socket?.remoteAddress ?? '0.0.0.0';
 }
 
