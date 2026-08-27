@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers, UnauthorizedException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
+import type { Response } from 'express';
 import { PrismaService } from './prisma/prisma.service';
 import { StorageService } from './storage/storage.service';
 import { ProjectsService } from './projects/projects.service';
@@ -15,6 +16,9 @@ import { TeamRole, DatabaseType } from '@prisma/client';
 import { sendDirectDiscordNotification } from './utils/discord-webhook';
 import { RbacService } from './guards/rbac.service';
 import { PlanLimitsService } from './billing/plan-limits.service';
+import { TokenService } from './auth/token.service';
+import { Public } from './auth/public.decorator';
+import { UserDto } from './auth/dto/user.dto';
 
 import * as crypto from 'crypto';
 
@@ -37,12 +41,35 @@ export class AppController {
     private networkService: NetworkService,
     private maintenance: MaintenanceService,
     private rbac: RbacService,
+    private tokens: TokenService,
   ) {}
+
+  // ---------------------------------------------------------------------------
+  // Internal helpers
+  // ---------------------------------------------------------------------------
+
+  private setSessionCookies(res: Response, accessToken: string, refreshToken: string) {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOpts = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict' as const,
+      path: '/',
+    };
+    res.cookie('kh_session', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 });
+    res.cookie('kh_refresh', refreshToken, { ...cookieOpts, maxAge: 7 * 24 * 60 * 60 * 1000 });
+  }
+
+  private clearSessionCookies(res: Response) {
+    res.clearCookie('kh_session', { path: '/' });
+    res.clearCookie('kh_refresh', { path: '/' });
+  }
 
   // --- AUTH ENDPOINTS ---
 
+  @Public()
   @Post('auth/register')
-  async register(@Body() body: any) {
+  async register(@Body() body: any, @Res({ passthrough: true }) res: Response) {
     const { name, email, password } = body;
     if (!name || !email || !password) {
       throw new BadRequestException('Name, email and password are required.');
@@ -53,12 +80,8 @@ export class AppController {
       throw new BadRequestException('User with this email already exists.');
     }
 
-    // Create user
-    const user = await this.prisma.user.create({
-      data: { name, email },
-    });
+    const user = await this.prisma.user.create({ data: { name, email } });
 
-    // Create default account with hashed password
     await this.prisma.account.create({
       data: {
         accountId: user.id,
@@ -68,14 +91,21 @@ export class AppController {
       },
     });
 
-    // Create default team
     const team = await this.teams.createTeam(`${name}'s Team`, user.id);
 
-    return { user, team };
+    // Issue session immediately on registration
+    const [accessToken, refreshToken] = await Promise.all([
+      this.tokens.signAccessToken(user.id),
+      this.tokens.signRefreshToken(user.id),
+    ]);
+    this.setSessionCookies(res, accessToken, refreshToken);
+
+    return { user: UserDto.from(user), team };
   }
 
+  @Public()
   @Post('auth/login')
-  async login(@Body() body: any) {
+  async login(@Body() body: any, @Res({ passthrough: true }) res: Response) {
     const { email, password } = body;
     if (!email || !password) {
       throw new BadRequestException('Email and password are required.');
@@ -90,24 +120,64 @@ export class AppController {
       throw new BadRequestException('Invalid email or password.');
     }
 
-    // Find user's teams
     const teams = await this.teams.getTeams(user.id);
 
-    return { user, teams };
+    const [accessToken, refreshToken] = await Promise.all([
+      this.tokens.signAccessToken(user.id),
+      this.tokens.signRefreshToken(user.id),
+    ]);
+    this.setSessionCookies(res, accessToken, refreshToken);
+
+    return { user: UserDto.from(user), teams };
+  }
+
+  @Public()
+  @Post('auth/refresh')
+  async refresh(@Req() req: express.Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken: string | undefined = (req.cookies as any)?.['kh_refresh'];
+    if (!refreshToken) throw new UnauthorizedException('No refresh token provided.');
+
+    let payload: { sub: string; type: string };
+    try {
+      payload = await this.tokens.verifyToken(refreshToken);
+    } catch {
+      this.clearSessionCookies(res);
+      throw new UnauthorizedException('Refresh token is invalid or expired. Please log in again.');
+    }
+
+    if (payload.type !== 'refresh') {
+      this.clearSessionCookies(res);
+      throw new UnauthorizedException('Invalid token type.');
+    }
+
+    const [newAccess, newRefresh] = await Promise.all([
+      this.tokens.signAccessToken(payload.sub),
+      this.tokens.signRefreshToken(payload.sub),
+    ]);
+    this.setSessionCookies(res, newAccess, newRefresh);
+
+    return { success: true };
+  }
+
+  @Post('auth/logout')
+  async logout(@Res({ passthrough: true }) res: Response) {
+    this.clearSessionCookies(res);
+    return { success: true };
   }
 
   @Get('auth/me')
-  async me(@Query('userId') userId: string) {
-    if (!userId) throw new BadRequestException('User ID required.');
+  async me(@Req() req: express.Request) {
+    const userId = (req as any).user?.id as string;
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new BadRequestException('User not found.');
+    if (!user) throw new NotFoundException('User not found.');
     const teams = await this.teams.getTeams(userId);
-    return { user, teams };
+    return { user: UserDto.from(user), teams };
   }
 
   @Post('users/:userId/settings')
   async updateSettings(
-    @Param('userId') userId: string,
+    @Param('userId') paramUserId: string,
+    @Req() req: express.Request,
     @Body() body: {
       discordWebhookUrl?: string;
       discordNotifyDeploys?: boolean;
@@ -115,6 +185,10 @@ export class AppController {
       discordNotifyDatabases?: boolean;
     }
   ) {
+    const userId = (req as any).user.id as string;
+    // Users may only update their own settings
+    if (userId !== paramUserId) throw new BadRequestException('You may only update your own settings.');
+
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found.');
 
@@ -128,23 +202,28 @@ export class AppController {
       },
     });
 
-    return updated;
+    return UserDto.from(updated);
   }
 
   @Post('users/:userId/settings/test-discord')
   async testDiscordWebhook(
-    @Param('userId') userId: string,
+    @Param('userId') paramUserId: string,
+    @Req() req: express.Request,
     @Body() body: { webhookUrl: string }
   ) {
-    if (!body.webhookUrl) {
-      throw new BadRequestException('Webhook URL is required.');
+    const userId = (req as any).user.id as string;
+    if (userId !== paramUserId) throw new BadRequestException('You may only test your own Discord webhook.');
+    if (!body.webhookUrl) throw new BadRequestException('Webhook URL is required.');
+    // Only allow discord.com webhooks to prevent SSRF
+    if (!body.webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+      throw new BadRequestException('webhookUrl must be a valid Discord webhook URL (https://discord.com/api/webhooks/...).');
     }
 
     try {
       await sendDirectDiscordNotification(body.webhookUrl, {
-        title: '🔔 Test Notification Successful!',
+        title: 'Test Notification Successful',
         description: 'Your Discord integration for KH Cloud is successfully configured. You will now receive system notifications here based on your preferences.',
-        color: 8138221, // Purple
+        color: 8138221,
       });
       return { success: true };
     } catch (err: any) {
@@ -156,8 +235,9 @@ export class AppController {
 
   @Get('teams/:teamId/members')
   async getMembers(@Param('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
     return this.teams.getMembers(teamId);
   }
 
@@ -168,8 +248,7 @@ export class AppController {
     @Body() body: { role: TeamRole; actorUserId?: string },
     @Req() req: express.Request,
   ) {
-    const actorUserId = this.rbac.extractUserId(req, body.actorUserId);
-    if (!actorUserId) throw new BadRequestException('Actor user ID is required.');
+    const actorUserId = (req as any).user.id as string;
     await this.rbac.verifyTeamRole(actorUserId, teamId, 'ADMIN');
     return this.teams.updateMemberRole(teamId, targetUserId, body.role, actorUserId);
   }
@@ -181,8 +260,7 @@ export class AppController {
     @Query('actorUserId') actorUserIdQuery: string,
     @Req() req: express.Request,
   ) {
-    const actorUserId = this.rbac.extractUserId(req, actorUserIdQuery);
-    if (!actorUserId) throw new BadRequestException('Actor user ID is required.');
+    const actorUserId = (req as any).user.id as string;
     if (actorUserId !== targetUserId) {
       await this.rbac.verifyTeamRole(actorUserId, teamId, 'ADMIN');
     } else {
@@ -197,16 +275,16 @@ export class AppController {
     @Body() body: { email: string; role: TeamRole; inviterId?: string },
     @Req() req: express.Request,
   ) {
-    const inviterId = this.rbac.extractUserId(req, body.inviterId);
-    if (!inviterId) throw new BadRequestException('Inviter user ID is required.');
+    const inviterId = (req as any).user.id as string;
     await this.rbac.verifyTeamRole(inviterId, teamId, 'ADMIN');
     return this.teams.inviteMember(teamId, body.email, body.role, inviterId);
   }
 
   @Get('teams/:teamId/invites')
   async getInvites(@Param('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
     return this.teams.getInvites(teamId);
   }
 
@@ -238,23 +316,24 @@ export class AppController {
     @Query('userId') queryUserId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req, queryUserId);
-    if (!userId) throw new BadRequestException('User ID is required.');
+    const userId = (req as any).user.id as string;
     await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
     return this.teams.deleteInvite(inviteId, teamId, userId);
   }
 
   @Get('teams/:teamId/audit')
   async getAuditLogs(@Param('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
     return this.teams.getAuditLogs(teamId);
   }
 
   @Get('teams/:teamId/keys')
   async getTeamKeys(@Param('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'DEVELOPER');
     return this.teams.getOrCreateApiKeys(teamId);
   }
 
@@ -262,8 +341,9 @@ export class AppController {
 
   @Post('projects')
   async createProject(@Body() body: any, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req, body.userId);
-    if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
     await this.planLimits.enforceProjectLimit(body.teamId);
     return this.projects.createProject(body);
   }
@@ -274,15 +354,17 @@ export class AppController {
     @Body() body: { name?: string; buildCommand?: string; installCommand?: string; startCommand?: string; port?: number; githubBranch?: string; rootDirectory?: string; teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.updateProject(id, body);
   }
 
   @Get('projects')
   async getProjects(@Query('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
     return this.projects.getProjects(teamId);
   }
 
@@ -292,8 +374,9 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
     return this.projects.getProjectDetails(id, teamId);
   }
 
@@ -303,8 +386,9 @@ export class AppController {
     @Body() body: { teamId: string; userName?: string; userId?: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req, body.userId);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.triggerDeployment(id, body.teamId, {
       triggeredBy: 'MANUAL',
       triggeredByName: body.userName || 'Dashboard User',
@@ -313,15 +397,17 @@ export class AppController {
 
   @Get('projects/:id/deployments')
   async getProjectDeployments(@Param('id') id: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
     return this.projects.getDeployments(id);
   }
 
   @Get('deployments/:depId/logs')
   async getDeploymentLogs(@Param('depId') depId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDeploymentAccess(userId, depId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDeploymentAccess(userId, depId, 'VIEWER');
     return this.projects.getDeploymentLogs(depId);
   }
 
@@ -331,8 +417,9 @@ export class AppController {
     @Body() body: { teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.restartProject(id, body.teamId);
   }
 
@@ -342,8 +429,9 @@ export class AppController {
     @Body() body: { deploymentId: string; teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.rollbackDeployment(id, body.deploymentId, body.teamId);
   }
 
@@ -353,8 +441,9 @@ export class AppController {
     @Body() body: { vars: any[] },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.setEnvVars(id, body.vars);
   }
 
@@ -364,8 +453,9 @@ export class AppController {
     @Body() body: { hostname: string; teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.addCustomDomain(id, body.hostname, body.teamId);
   }
 
@@ -376,15 +466,17 @@ export class AppController {
     @Body() body: { teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.removeCustomDomain(id, domainId, body.teamId);
   }
 
   @Get('projects/:id/metrics')
   async getProjectMetrics(@Param('id') id: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
     return this.projects.getProjectMetrics(id);
   }
 
@@ -394,8 +486,9 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
     return this.projects.getRuntimeLogs(id, teamId);
   }
 
@@ -405,8 +498,9 @@ export class AppController {
     @Body() body: { command: string; teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
     return this.projects.executeTerminalCommand(id, body.command, body.teamId);
   }
 
@@ -416,8 +510,9 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyProjectAccess(userId, id, 'ADMIN');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'ADMIN');
     return this.projects.deleteProject(id, teamId);
   }
 
@@ -426,8 +521,7 @@ export class AppController {
   @Post('admin/purge-github-installations')
   async adminPurgeGithubInstallations(@Req() req: express.Request) {
     // Only platform admins (user.role === 'ADMIN') can run this
-    const userId = this.rbac.extractUserId(req);
-    if (!userId) throw new BadRequestException('Authentication required.');
+    const userId = (req as any).user.id as string;
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.role !== 'ADMIN') {
       throw new BadRequestException('Platform admin role required.');
@@ -436,6 +530,7 @@ export class AppController {
     return { success: true, purgedRows: purged, message: purged > 0 ? `Removed ${purged} cross-tenant installation rows. All affected users must reconnect their GitHub accounts.` : 'No cross-tenant leakage found. Database is clean.' };
   }
 
+  @Public()
   @Post('github/webhook')
   async handleGithubWebhook(
     @Body() payload: any,
@@ -484,16 +579,18 @@ export class AppController {
     @Body() body: { name: string; type: DatabaseType; teamId: string; projectId?: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
     await this.planLimits.enforceDatabaseLimit(body.teamId);
     return this.databases.createDatabase(body);
   }
 
   @Get('databases')
   async getDatabases(@Query('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
     return this.databases.getDatabases(teamId);
   }
 
@@ -503,8 +600,9 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'ADMIN');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'ADMIN');
     return this.databases.deleteDatabase(id, teamId);
   }
 
@@ -514,8 +612,9 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'VIEWER');
     return this.databases.getTables(id, teamId);
   }
 
@@ -525,8 +624,9 @@ export class AppController {
     @Body() body: { sql: string; teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
     return this.databases.runQuery(id, body.teamId, body.sql);
   }
 
@@ -537,16 +637,18 @@ export class AppController {
     @Body() body: { name: string; isPublic: boolean; teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
     await this.planLimits.enforceStorageAccess(body.teamId);
     return this.storage.createBucket(body.name, body.isPublic, body.teamId);
   }
 
   @Get('storage/buckets')
   async getBuckets(@Query('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
     return this.storage.getBuckets(teamId);
   }
 
@@ -556,8 +658,9 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyBucketAccess(userId, id, 'ADMIN');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyBucketAccess(userId, id, 'ADMIN');
     return this.storage.deleteBucket(id, teamId);
   }
 
@@ -567,8 +670,9 @@ export class AppController {
     @Query('prefix') prefix: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyBucketAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyBucketAccess(userId, id, 'VIEWER');
     return this.storage.listFiles(id, prefix || '');
   }
 
@@ -582,8 +686,9 @@ export class AppController {
     @Req() req: express.Request,
   ) {
     if (!file) throw new BadRequestException('No file uploaded.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
     await this.planLimits.enforceStorageAccess(teamId);
     return this.storage.uploadFile(id, key || file.originalname, file.buffer, file.mimetype, file.originalname, teamId);
   }
@@ -650,8 +755,9 @@ export class AppController {
     @Req() req: express.Request,
   ) {
     if (!key) throw new BadRequestException('File key required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
     return this.storage.deleteFile(id, key, teamId);
   }
 
@@ -663,8 +769,9 @@ export class AppController {
     @Req() req: express.Request,
   ) {
     if (!key) throw new BadRequestException('File key required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyBucketAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyBucketAccess(userId, id, 'VIEWER');
     const exp = expiresIn ? parseInt(expiresIn) : 3600;
     const url = await this.storage.generatePresignedUrl(id, key, exp);
     return { url };
@@ -674,8 +781,9 @@ export class AppController {
 
   @Get('billing')
   async getBillingInfo(@Query('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
     return this.billing.getBillingInfo(teamId);
   }
 
@@ -686,13 +794,15 @@ export class AppController {
     @Body() body: { planId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req, adminUserId);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'OWNER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'OWNER');
     return this.billing.updatePlan(teamId, body.planId);
   }
 
   // --- GITHUB INTEGRATION ENDPOINTS ---
 
+  @Public()
   @Post('auth/github/callback')
   async githubCallback(@Body() body: { code: string; userId?: string }) {
     const { code, userId } = body;
@@ -808,6 +918,7 @@ export class AppController {
     return { user, teams };
   }
 
+  @Public()
   @Post('auth/google/callback')
   async googleCallback(@Body() body: { code: string; redirectUri: string; userId?: string }) {
     const { code, redirectUri, userId } = body;
@@ -898,11 +1009,13 @@ export class AppController {
   @Get('github-app/install-url')
   async getGithubAppInstallUrl(@Query('teamId') teamId: string, @Req() req: express.Request) {
     if (!teamId) throw new BadRequestException('teamId is required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
     return { url: this.githubApp.getInstallUrl(teamId) };
   }
 
+  @Public()
   @Get('github-app/callback')
   async githubAppCallback(
     @Query('installation_id') installationId: string,
@@ -978,8 +1091,9 @@ export class AppController {
     @Req() req: express.Request,
   ) {
     if (!teamId) throw new BadRequestException('teamId is required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
 
     // ONLY fetch installations linked to this specific team
     const teamInstalls = await (this.prisma.githubInstallation as any).findMany({
@@ -1006,8 +1120,9 @@ export class AppController {
     @Req() req: express.Request,
   ) {
     if (!teamId || !installationId) throw new BadRequestException('teamId and installationId are required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'DEVELOPER');
 
     await this.prisma.githubInstallation.deleteMany({
       where: { teamId, installationId },
@@ -1023,8 +1138,9 @@ export class AppController {
     @Req() req?: express.Request,
   ) {
     if (!teamId) throw new BadRequestException('teamId is required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
 
     // Fetch ONLY installations belonging to this team
     const teamInstalls: any[] = await (this.prisma.githubInstallation as any).findMany({
@@ -1118,8 +1234,9 @@ export class AppController {
   @Get('github-app/installation')
   async getGithubAppInstallation(@Query('teamId') teamId: string, @Req() req?: express.Request) {
     if (!teamId) throw new BadRequestException('teamId is required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
 
     const installation: any = await (this.prisma.githubInstallation as any).findFirst({
       where: { teamId },
@@ -1144,8 +1261,9 @@ export class AppController {
     @Req() req?: express.Request,
   ) {
     if (!teamId) throw new BadRequestException('teamId is required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'ADMIN');
 
     const appSlug = process.env.GITHUB_APP_SLUG || 'kh-cloud-app';
 
@@ -1200,8 +1318,9 @@ export class AppController {
     @Req() req?: express.Request,
   ) {
     if (!teamId || !repo) throw new BadRequestException('teamId and repo are required.');
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
 
     const cleanRepoName = repo
       .replace(/https?:\/\/github\.com\//i, '')
@@ -2060,8 +2179,9 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'VIEWER');
     return this.databases.getTableSchema(id, teamId, table);
   }
 
@@ -2075,8 +2195,9 @@ export class AppController {
     @Query('filter') filter: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'VIEWER');
     return this.databases.getTableRows(
       id, teamId, table,
       parseInt(page || '1'),
@@ -2092,8 +2213,9 @@ export class AppController {
     @Body() body: { teamId: string; data: Record<string, any> },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
     return this.databases.insertRow(id, body.teamId, table, body.data);
   }
 
@@ -2105,8 +2227,9 @@ export class AppController {
     @Body() body: { teamId: string; pkValue: any; data: Record<string, any> },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
     return this.databases.updateRow(id, body.teamId, table, pk, body.pkValue, body.data);
   }
 
@@ -2119,11 +2242,13 @@ export class AppController {
     @Query('pkValue') pkValue: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
     return this.databases.deleteRow(id, teamId, table, pk, pkValue);
   }
 
+  @Public()
   @Post('databases/:id/query')
   async runRawQuery(
     @Param('id') id: string,
@@ -2155,7 +2280,7 @@ export class AppController {
     }
 
     // Otherwise check user session role
-    const userId = this.rbac.extractUserId(req);
+    const userId = (req as any).user?.id as string | undefined;
     if (!userId) {
       throw new BadRequestException('API key or user authentication required.');
     }
@@ -2164,6 +2289,7 @@ export class AppController {
     return this.databases.runQuery(id, db.teamId, body.sql);
   }
 
+  @Public()
   @Post('databases/:teamIdOrSlug/:dbName/query')
   async runRawQueryBySlug(
     @Param('teamIdOrSlug') teamIdOrSlug: string,
@@ -2201,7 +2327,7 @@ export class AppController {
     }
 
     // Otherwise check user session role
-    const userId = this.rbac.extractUserId(req);
+    const userId = (req as any).user?.id as string | undefined;
     if (!userId) {
       throw new BadRequestException('API key or user authentication required.');
     }
@@ -2214,8 +2340,9 @@ export class AppController {
 
   @Get('edge-functions')
   async getEdgeFunctions(@Query('teamId') teamId: string, @Req() req: express.Request) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, teamId, 'VIEWER');
     return this.edgeFunctions.getFunctions(teamId);
   }
 
@@ -2224,8 +2351,9 @@ export class AppController {
     @Body() body: { name: string; teamId: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyTeamRole(userId, body.teamId, 'DEVELOPER');
     await this.planLimits.enforceEdgeFunctionLimit(body.teamId);
     return this.edgeFunctions.createFunction(body);
   }
@@ -2236,8 +2364,9 @@ export class AppController {
     @Body() body: { teamId: string; code?: string; envVars?: string; name?: string },
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyEdgeFunctionAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyEdgeFunctionAccess(userId, id, 'DEVELOPER');
     return this.edgeFunctions.updateFunction(id, body.teamId, body);
   }
 
@@ -2247,11 +2376,13 @@ export class AppController {
     @Query('teamId') teamId: string,
     @Req() req: express.Request,
   ) {
-    const userId = this.rbac.extractUserId(req);
-    if (userId) await this.rbac.verifyEdgeFunctionAccess(userId, id, 'DEVELOPER');
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyEdgeFunctionAccess(userId, id, 'DEVELOPER');
     return this.edgeFunctions.deleteFunction(id, teamId);
   }
 
+  @Public()
   @Post('edge-functions/:id/invoke')
   async invokeEdgeFunction(
     @Param('id') id: string,
@@ -2283,7 +2414,7 @@ export class AppController {
     }
 
     // Otherwise check user session
-    const userId = this.rbac.extractUserId(req);
+    const userId = (req as any).user?.id as string | undefined;
     if (!userId) {
       throw new BadRequestException('API key or user authentication required.');
     }
@@ -2292,6 +2423,7 @@ export class AppController {
     return this.edgeFunctions.invokeFunction(id, fn.teamId, body);
   }
 
+  @Public()
   @Post('edge-functions/:teamIdOrSlug/:slug/invoke')
   async invokeEdgeFunctionBySlug(
     @Param('teamIdOrSlug') teamIdOrSlug: string,
@@ -2331,7 +2463,7 @@ export class AppController {
     }
 
     // Otherwise check user session
-    const userId = this.rbac.extractUserId(req);
+    const userId = (req as any).user?.id as string | undefined;
     if (!userId) {
       throw new BadRequestException('API key or user authentication required.');
     }

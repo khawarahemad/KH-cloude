@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as express from 'express';
+import cookieParser from 'cookie-parser';
 
 // ---------------------------------------------------------------------------
 // Allowed CORS origins — configured dynamically via BASE_DOMAIN.
@@ -43,6 +44,11 @@ function isLargeBodyRoute(url: string): boolean {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  // -------------------------------------------------------------------------
+  // Cookie parser — required for JwtAuthGuard to read HttpOnly session cookies
+  // -------------------------------------------------------------------------
+  app.use(cookieParser());
 
   // -------------------------------------------------------------------------
   // Trust the first proxy (Traefik) so req.ip resolves to the real client IP
@@ -125,7 +131,6 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'x-admin-key',
-      'x-user-id',
       'x-team-id',
       'apikey',
       'x-api-key',

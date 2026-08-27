@@ -17,6 +17,8 @@ function pathName(key: string): string {
   return parts[parts.length - 1] || 'file';
 }
 
+import { Public } from '../auth/public.decorator';
+
 @Controller()
 export class StoragePublicController {
   constructor(
@@ -24,6 +26,7 @@ export class StoragePublicController {
     private readonly prisma: PrismaService,
   ) {}
 
+  @Public()
   @Get()
   root(@Req() req: express.Request) {
     const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
@@ -36,6 +39,7 @@ export class StoragePublicController {
     };
   }
 
+  @Public()
   @Get('*')
   async serveObject(
     @Req() req: express.Request,

@@ -15,12 +15,14 @@ import { MaintenanceService } from './maintenance/maintenance.service';
 import { DDoSModule } from './guards/ddos.module';
 import { RbacService } from './guards/rbac.service';
 import { BackupModule } from './backup/backup.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
     PrismaModule,
-    DDoSModule, // 🛡️ Global DDoS protection — registers APP_GUARD across all routes
-    BackupModule, // 🛡️ Automated Disaster Recovery & Remote Backups
+    AuthModule,   // Global JwtAuthGuard — must be before DDoSModule
+    DDoSModule,   // Global DDoS protection — registers APP_GUARD across all routes
+    BackupModule, // Automated Disaster Recovery & Remote Backups
   ],
   controllers: [AppController, StoragePublicController],
   providers: [
@@ -38,5 +40,6 @@ import { BackupModule } from './backup/backup.module';
   ],
 })
 export class AppModule {}
+
 
 
