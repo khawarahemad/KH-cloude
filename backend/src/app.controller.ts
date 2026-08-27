@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import type { Response } from 'express';
@@ -796,57 +796,31 @@ export class AppController {
     return this.billing.getBillingInfo(teamId);
   }
 
-  @Post('billing/checkout')
-  async createCheckoutSession(
+  /**
+   * @security Manual Role-Based Billing
+   * The platform owner handles payments manually (via UPI, etc.).
+   * This endpoint allows a PLATFORM ADMIN to manually upgrade/downgrade a team's plan.
+   */
+  @Post('billing/plan')
+  async updateTeamPlan(
     @Query('teamId') teamId: string,
     @Body() body: { planId: string },
     @Req() req: express.Request,
   ) {
     const userId = (req as any).user.id as string;
-    await this.rbac.verifyTeamRole(userId, teamId, 'OWNER');
-    // Simulate returning a Stripe checkout session URL
-    return { url: `https://checkout.stripe.com/pay/cs_test_${teamId}_${body.planId}` };
-  }
-
-  /**
-   * @security Stripe Webhook Signature Verification
-   * Replaces the unverified webhook endpoint with cryptographic signature validation.
-   * Ensures that `checkout.session.completed` payloads cannot be spoofed by attackers to bypass billing.
-   */
-  @Public()
-  @Post('billing/webhook')
-  async stripeWebhook(@Req() req: express.Request, @Headers('stripe-signature') signature: string) {
-    if (!signature) throw new BadRequestException('Missing stripe signature');
-
-    const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
-
-    if (!stripeSecret || !endpointSecret) {
-      // In development, you might just accept it without verification if secrets are missing,
-      // but for security audit, we must enforce it or throw.
-      throw new BadRequestException('Stripe webhook secrets not configured');
+    
+    // Check if the caller is a Platform Admin
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user?.role !== 'ADMIN') {
+      throw new ForbiddenException('Only Platform Admins can manually upgrade team plans.');
     }
 
-    const Stripe = require('stripe');
-    const stripe = new Stripe(stripeSecret);
-
-    let event;
-    try {
-      // req.rawBody is captured in main.ts by Express for precisely this purpose
-      event = stripe.webhooks.constructEvent((req as any).rawBody, signature, endpointSecret);
-    } catch (err: any) {
-      throw new BadRequestException(`Webhook Signature Error: ${err.message}`);
+    if (!teamId || !body.planId) {
+      throw new BadRequestException('teamId and planId are required.');
     }
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const teamId = session.client_reference_id;
-      const planId = session.metadata?.planId;
-      if (teamId && planId) {
-        await this.billing.updatePlan(teamId, planId);
-      }
-    }
-    return { received: true };
+    await this.billing.updatePlan(teamId, body.planId);
+    return { success: true, planId: body.planId };
   }
 
   // --- GITHUB INTEGRATION ENDPOINTS ---
