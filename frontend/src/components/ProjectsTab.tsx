@@ -459,9 +459,9 @@ export default function ProjectsTab() {
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,user&state=${state}`;
   };
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (silent = false) => {
     if (!activeTeam) return;
-    if (!projects) setLoading(true);
+    if (!silent && !projects) setLoading(true);
     try {
       const data = await apiRequest(`/projects?teamId=${activeTeam.id}`);
       setProjects(data);
@@ -533,7 +533,7 @@ export default function ProjectsTab() {
   useEffect(() => {
     fetchProjects();
     const interval = setInterval(() => {
-      fetchProjects();
+      fetchProjects(true);
     }, 5000);
     return () => clearInterval(interval);
   }, [activeTeam]);

@@ -52,9 +52,9 @@ export default function DatabasesTab() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
 
-  const fetchDatabases = async () => {
+  const fetchDatabases = async (silent = false) => {
     if (!activeTeam) return;
-    if (!databases) setLoading(true);
+    if (!silent && !databases) setLoading(true);
     try {
       const data = await apiRequest(`/databases?teamId=${activeTeam.id}`);
       setDatabases(data);
@@ -86,7 +86,7 @@ export default function DatabasesTab() {
   useEffect(() => {
     if (databases?.some(d => d.status === 'CREATING')) {
       const interval = setInterval(() => {
-        fetchDatabases();
+        fetchDatabases(true);
       }, 3000);
       return () => clearInterval(interval);
     }
