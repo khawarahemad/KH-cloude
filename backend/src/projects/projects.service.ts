@@ -1244,6 +1244,15 @@ export class ProjectsService {
         const { dockerEnvFlags, envVars } = await this.syncProjectEnvFile(projectId, effectiveBuildDir);
         appendLog(`[Env Engine] Injected ${envVars.length} environment variables into build workspace (.env) and runtime config.`);
 
+        // 3.6 Bypass .dockerignore for environment variables
+        // If the user's repository has a .dockerignore that ignores .env files,
+        // Docker's 'COPY . .' will skip them, causing missing env vars during the build.
+        const dockerignorePath = path.join(effectiveBuildDir, '.dockerignore');
+        if (fs.existsSync(dockerignorePath)) {
+          fs.appendFileSync(dockerignorePath, '\n# Auto-injected by KH Cloud to ensure env vars are available during build\n!.env\n!.env.production\n!.env.local\n');
+          appendLog(`[Env Engine] Patched .dockerignore to ensure build-time environment variables are accessible.`);
+        }
+
         // 4. Build Docker Image (BuildKit Engine with Smart Layer Recovery)
         cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
         const imageTag = `kh-cloud-${cleanSlug}:${deploymentId}`;
