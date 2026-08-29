@@ -1491,8 +1491,18 @@ export class ProjectsService {
           const hasStandby = (await runCmd(`docker inspect ${standbyContainerName}`, buildDir).catch(() => ({ code: 1 }))).code === 0;
           if (hasStandby) {
             appendLog(`[Zero-Downtime Rollback] Restoring previous healthy container from standby...`);
-            await runCmd(`docker rm -f ${activeContainerName}`, buildDir).catch(() => null);
-            await runCmd(`docker rename ${standbyContainerName} ${activeContainerName}`, buildDir).catch(() => null);
+            
+            // Aggressively free the name by renaming the broken container first
+            await runCmd(`docker rename ${activeContainerName} ${activeContainerName}-broken`, buildDir).catch(() => null);
+            await runCmd(`docker rm -f ${activeContainerName}-broken`, buildDir).catch(() => null);
+            
+            // Retry loop in case docker daemon is slowly removing the container
+            for (let i = 0; i < 5; i++) {
+              await runCmd(`docker rm -f ${activeContainerName}`, buildDir).catch(() => null);
+              const renameRes = await runCmd(`docker rename ${standbyContainerName} ${activeContainerName}`, buildDir);
+              if (renameRes.code === 0) break;
+              await new Promise(r => setTimeout(r, 1000));
+            }
             appendLog(`[Zero-Downtime Rollback] Previous healthy container restored. Live site remains online.`);
           }
         }
