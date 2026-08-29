@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers, UnauthorizedException, ForbiddenException, Sse } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, Req, BadRequestException, NotFoundException, Headers, Header, UnauthorizedException, ForbiddenException, Sse } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as express from 'express';
 import type { Response } from 'express';
@@ -1088,6 +1088,7 @@ export class AppController {
 
   @Public()
   @Get('github-app/callback')
+  @Header('Content-Type', 'text/html')
   async githubAppCallback(
     @Query('installation_id') installationId: string,
     @Query('state') state: string,
@@ -1172,7 +1173,37 @@ export class AppController {
       update: { accountLogin, accountType, avatarUrl },
     });
 
-    return { success: true, installationId, accountLogin, accountType, avatarUrl };
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>GitHub Integration Successful</title>
+        <style>
+          body { font-family: system-ui, sans-serif; background: #18181b; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+          .card { background: #27272a; padding: 2rem; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+          h2 { margin-top: 0; color: #a78bfa; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>GitHub Connected!</h2>
+          <p>Your GitHub repositories have been successfully linked to KH Cloud.</p>
+          <p style="color: #a1a1aa; font-size: 14px;">You can safely close this window.</p>
+        </div>
+        <script>
+          try {
+            window.localStorage.setItem('github_app_installed_event', JSON.stringify({ type: 'GITHUB_APP_INSTALLED', ts: Date.now() }));
+            if (window.opener) {
+              window.opener.postMessage({ type: 'GITHUB_APP_INSTALLED' }, '*');
+            }
+          } catch (e) {
+            console.error('Failed to notify parent window', e);
+          }
+          setTimeout(() => { window.close(); }, 1500);
+        </script>
+      </body>
+      </html>
+    `;
   }
 
   @Get('github-app/installations')
