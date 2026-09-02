@@ -92,6 +92,7 @@ export class XrayDriver implements ProxyDriver {
     // Atomic write of config via transient alpine container.
     // Stdin guarantees no shell interpolation of the JSON.
     await runDockerCmd(['volume', 'create', volumeName]);
+    await runDockerCmd(['rm', '-f', `${containerName}-config-writer`]);
     const writeRes = await runDockerCmd([
       'run', '--rm', '-i',
       '--name', `${containerName}-config-writer`,

@@ -16,9 +16,14 @@ export class NetworkingController {
     private readonly proxyFactory: ProxyFactory,
   ) {}
 
+  private getUserId(req: any): string {
+    return req.user?.id || (typeof req.user === 'string' ? req.user : '');
+  }
+
   @Get()
   async getResources(@Param('projectId') projectId: string, @Req() req: any) {
-    await this.rbacService.verifyProjectAccess(req.user, projectId);
+    const userId = this.getUserId(req);
+    await this.rbacService.verifyProjectAccess(userId, projectId, 'VIEWER');
     
     const network = await this.networkingService.ensureProjectNetwork(projectId);
     const resources = await this.prisma.networkResource.findMany({
@@ -37,7 +42,8 @@ export class NetworkingController {
 
   @Post()
   async enableResource(@Param('projectId') projectId: string, @Req() req: any, @Body() body: any) {
-    await this.rbacService.verifyProjectAccess(req.user, projectId);
+    const userId = this.getUserId(req);
+    await this.rbacService.verifyProjectAccess(userId, projectId, 'DEVELOPER');
     
     // Explicitly validate supported configurations
     if (body.type && body.type !== NetworkResourceType.WEBSOCKET_PROXY) {
@@ -57,7 +63,8 @@ export class NetworkingController {
 
   @Get(':resourceId')
   async getResource(@Param('projectId') projectId: string, @Param('resourceId') resourceId: string, @Req() req: any) {
-    await this.rbacService.verifyProjectAccess(req.user, projectId);
+    const userId = this.getUserId(req);
+    await this.rbacService.verifyProjectAccess(userId, projectId, 'VIEWER');
     
     const network = await this.networkingService.ensureProjectNetwork(projectId);
     const resource = await this.prisma.networkResource.findFirst({
@@ -96,7 +103,8 @@ export class NetworkingController {
 
   @Delete(':resourceId')
   async removeResource(@Param('projectId') projectId: string, @Param('resourceId') resourceId: string, @Req() req: any) {
-    await this.rbacService.verifyProjectAccess(req.user, projectId);
+    const userId = this.getUserId(req);
+    await this.rbacService.verifyProjectAccess(userId, projectId, 'DEVELOPER');
     
     const network = await this.networkingService.ensureProjectNetwork(projectId);
     const resource = await this.prisma.networkResource.findFirst({
@@ -113,7 +121,8 @@ export class NetworkingController {
 
   @Post(':resourceId/regenerate')
   async regenerateCredential(@Param('projectId') projectId: string, @Param('resourceId') resourceId: string, @Req() req: any) {
-    await this.rbacService.verifyProjectAccess(req.user, projectId);
+    const userId = this.getUserId(req);
+    await this.rbacService.verifyProjectAccess(userId, projectId, 'DEVELOPER');
     
     const network = await this.networkingService.ensureProjectNetwork(projectId);
     const resource = await this.prisma.networkResource.findFirst({

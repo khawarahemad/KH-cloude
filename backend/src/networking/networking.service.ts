@@ -65,7 +65,7 @@ export class NetworkingService {
             return 0
         end
       `;
-      await this.redis.eval(releaseScript, 1, lockKey, lockToken);
+      await this.redis.eval(releaseScript, 1, lockKey, lockToken).catch(() => null);
     }
   }
 
@@ -123,6 +123,17 @@ export class NetworkingService {
   async enableProxy(projectId: string): Promise<NetworkResource> {
     const network = await this.ensureProjectNetwork(projectId);
     
+    const existing = await this.prisma.networkResource.findUnique({
+      where: {
+        networkId_type: {
+          networkId: network.id,
+          type: NetworkResourceType.WEBSOCKET_PROXY
+        }
+      }
+    });
+
+    const credential = existing?.credential || crypto.randomUUID();
+
     // Create or update resource
     const resource = await this.prisma.networkResource.upsert({
       where: {
@@ -136,10 +147,11 @@ export class NetworkingService {
         type: NetworkResourceType.WEBSOCKET_PROXY,
         provider: NetworkProvider.XRAY,
         status: NetworkResourceStatus.PROVISIONING,
-        credential: crypto.randomUUID(),
+        credential,
       },
       update: {
-        status: NetworkResourceStatus.PROVISIONING
+        status: NetworkResourceStatus.PROVISIONING,
+        credential,
       }
     });
 
