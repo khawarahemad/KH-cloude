@@ -178,10 +178,10 @@ export class StorageService {
         return true;
       }
 
-      // Fallback: run via minio/mc container
-      const runCmd = `docker run --rm --network kh-cloud-network minio/mc sh -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://minio:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json) && rm -f /tmp/p.json"`;
+      // Fallback: run via quay.io/minio/mc container
+      const runCmd = `docker run --rm --network kh-cloud-network quay.io/minio/mc sh -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://minio:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}') && rm -f /tmp/p.json"`;
       await execAsync(runCmd, { timeout: 20000 });
-      this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via minio/mc container`);
+      this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via quay.io/minio/mc container`);
       return true;
     } catch (err: any) {
       this.logger.warn(`MinIO service account note for ${physicalBucketName}: ${err.message}`);
@@ -239,6 +239,9 @@ export class StorageService {
 
       // Register isolated service account in MinIO
       await this.provisionMinioServiceAccount(physicalBucketName, accessKey, secretKey);
+    } else {
+      // Ensure existing bucket key is registered in MinIO (idempotent background check)
+      this.provisionMinioServiceAccount(physicalBucketName, bucketKey.accessKey, bucketKey.secretKey).catch(() => {});
     }
 
     return {
