@@ -7,11 +7,12 @@ import { useTeamRole } from '@/lib/rbac';
 import { 
   Database, Plus, RefreshCw, Copy, Check, Loader2, Trash, 
   Play, Terminal, ArrowLeft, AlertCircle, FileText, LayoutGrid,
-  Table, Pencil, Save, X, ChevronLeft, ChevronRight, Search, Eye, EyeOff
+  Table, Pencil, Save, X, ChevronLeft, ChevronRight, Search, Eye, EyeOff,
+  Shield, Globe, Wifi, Server, HelpCircle, Info
 } from 'lucide-react';
 import { useDialog } from './CustomDialogProvider';
 
-type DbView = 'sql' | 'table-editor' | 'guide';
+type DbView = 'sql' | 'table-editor' | 'guide' | 'network';
 
 export default function DatabasesTab() {
   const { activeTeam, databasesCache: databases, setDatabasesCache: setDatabases } = useAppStore();
@@ -52,6 +53,15 @@ export default function DatabasesTab() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
   const [showDbPassword, setShowDbPassword] = useState(false);
+
+  // Network & Firewall state
+  const [networkRules, setNetworkRules] = useState<Array<{ ip: string; description: string; addedAt?: string }>>([]);
+  const [detectedClientIp, setDetectedClientIp] = useState<string>('');
+  const [isAllowAll, setIsAllowAll] = useState<boolean>(true);
+  const [networkLoading, setNetworkLoading] = useState<boolean>(false);
+  const [networkSaving, setNetworkSaving] = useState<boolean>(false);
+  const [newRuleIp, setNewRuleIp] = useState<string>('');
+  const [newRuleDesc, setNewRuleDesc] = useState<string>('');
 
   const fetchDatabases = async (silent = false) => {
     if (!activeTeam) return;
@@ -105,6 +115,102 @@ export default function DatabasesTab() {
         .catch((err) => console.warn('Could not fetch database credentials:', err));
     }
   }, [activeDb?.id, activeTeam?.id]);
+
+  // Network & Firewall rules methods
+  const fetchNetworkRules = useCallback(async (dbId: string) => {
+    if (!activeTeam) return;
+    setNetworkLoading(true);
+    try {
+      const data = await apiRequest(`/databases/${dbId}/network?teamId=${activeTeam.id}`);
+      setNetworkRules(data.rules || []);
+      setDetectedClientIp(data.clientIp || '');
+      setIsAllowAll(data.isAllowAll ?? true);
+    } catch (err) {
+      console.error('Failed to fetch database network rules:', err);
+    } finally {
+      setNetworkLoading(false);
+    }
+  }, [activeTeam]);
+
+  useEffect(() => {
+    if (activeDb && dbView === 'network') {
+      fetchNetworkRules(activeDb.id);
+    }
+  }, [activeDb?.id, dbView, fetchNetworkRules]);
+
+  const handleSaveNetworkRules = async (updatedRules: Array<{ ip: string; description?: string }>) => {
+    if (!activeDb || !activeTeam) return;
+    if (!canWrite) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to update firewall rules.', type: 'error' });
+      return;
+    }
+    setNetworkSaving(true);
+    try {
+      const res = await apiRequest(`/databases/${activeDb.id}/network`, {
+        method: 'PUT',
+        body: JSON.stringify({ teamId: activeTeam.id, rules: updatedRules }),
+      });
+      setNetworkRules(res.rules || []);
+      setIsAllowAll(res.isAllowAll ?? false);
+      alert({ title: 'Firewall Updated', message: `Saved ${res.rules?.length || 0} allowed IP rule(s).`, type: 'info' });
+    } catch (err: any) {
+      alert({ title: 'Error', message: err.message || 'Failed to update network rules.', type: 'error' });
+    } finally {
+      setNetworkSaving(false);
+    }
+  };
+
+  const handleAllowAllTraffic = async () => {
+    const ok = await confirm({
+      title: 'Allow All Traffic (0.0.0.0/0)?',
+      message: 'This allows connections to this database from any external IP address with the correct credentials. All your client applications, external clouds, and local dev environments will be able to connect immediately without timeouts.',
+      confirmText: 'Allow All Traffic',
+    });
+    if (ok) {
+      handleSaveNetworkRules([{ ip: '0.0.0.0/0', description: 'Allow All Traffic (0.0.0.0/0)' }]);
+    }
+  };
+
+  const handleAddCurrentClientIp = () => {
+    if (!detectedClientIp) return;
+    const cidr = detectedClientIp.includes('/') ? detectedClientIp : `${detectedClientIp}/32`;
+    if (networkRules.some(r => r.ip === cidr)) {
+      alert({ title: 'Already Allowed', message: `Your IP ${cidr} is already in the allowlist.`, type: 'info' });
+      return;
+    }
+    const filtered = networkRules.filter(r => r.ip !== '0.0.0.0/0');
+    const updated = [...filtered, { ip: cidr, description: 'My Current IP' }];
+    handleSaveNetworkRules(updated);
+  };
+
+  const handleAddCustomRule = () => {
+    const ip = newRuleIp.trim();
+    if (!ip) {
+      alert({ title: 'Missing IP', message: 'Please enter a valid IP address or CIDR range (e.g. 192.168.1.50/32 or 0.0.0.0/0).', type: 'error' });
+      return;
+    }
+    if (networkRules.some(r => r.ip === ip)) {
+      alert({ title: 'Duplicate IP', message: `Rule for ${ip} already exists.`, type: 'error' });
+      return;
+    }
+    const updated = [...networkRules, { ip, description: newRuleDesc.trim() || 'Custom Allowed IP' }];
+    handleSaveNetworkRules(updated);
+    setNewRuleIp('');
+    setNewRuleDesc('');
+  };
+
+  const handleDeleteRule = async (ipToDelete: string) => {
+    const ok = await confirm({
+      title: 'Remove IP Rule?',
+      message: `Are you sure you want to remove ${ipToDelete} from the allowed IPs? External connections from this address will be blocked.`,
+      confirmText: 'Remove Rule',
+      isDanger: true,
+    });
+    if (ok) {
+      const remaining = networkRules.filter(r => r.ip !== ipToDelete);
+      handleSaveNetworkRules(remaining);
+    }
+  };
 
   // ---- Table Editor Methods ----
 
@@ -321,7 +427,7 @@ export default function DatabasesTab() {
           </div>
 
           <div style={{ display: 'flex', gap: '16px' }}>
-            {([['table-editor', 'Table Editor', LayoutGrid], ['sql', 'SQL Console', Terminal], ['guide', 'Guide', FileText]] as const).map(([id, label, Icon]) => {
+            {([['table-editor', 'Table Editor', LayoutGrid], ['sql', 'SQL Console', Terminal], ['guide', 'Guide', FileText], ['network', 'Network Access', Shield]] as const).map(([id, label, Icon]) => {
               const isActive = dbView === id;
               return (
                 <button
@@ -635,6 +741,21 @@ export default function DatabasesTab() {
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>Connect your web applications to this database instance using standard URIs.</div>
                 </div>
 
+                <div style={{ backgroundColor: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Shield size={15} style={{ color: '#60a5fa', flexShrink: 0 }} />
+                    <span style={{ fontSize: '11px', color: '#93c5fd' }}>
+                      Connection timing out on port {activeDb.port}? Ensure your client IP or <code style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: '1px 5px', borderRadius: '4px', fontFamily: 'monospace' }}>0.0.0.0/0</code> is allowed in Network Access.
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setDbView('network')}
+                    style={{ fontSize: '11px', fontWeight: 600, color: '#60a5fa', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                  >
+                    Firewall & Allowed IPs →
+                  </button>
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4b5563' }}>Internal URI (Used in KH Cloud apps)</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 14px' }}>
@@ -782,6 +903,262 @@ func main() {
                   </div>
 
                 </div>
+              </div>
+            )}
+
+            {dbView === 'network' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '1100px' }}>
+                
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>
+                      Firewall & Network Access
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      Control which external IP addresses and CIDR networks can connect to this {activeDb.type} instance on port {activeDb.port}.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => fetchNetworkRules(activeDb.id)}
+                    style={{ width: '30px', height: '30px', borderRadius: '7px', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ba3af', cursor: 'pointer' }}
+                    title="Refresh rules"
+                  >
+                    <RefreshCw size={12} className={networkLoading ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+
+                {/* Status & Quick Actions Banner */}
+                <div style={{
+                  backgroundColor: '#111318', border: isAllowAll ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(245,158,11,0.2)',
+                  borderRadius: '12px', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px',
+                  background: isAllowAll ? 'linear-gradient(180deg, rgba(34,197,94,0.05) 0%, rgba(17,19,24,0.95) 100%)' : 'linear-gradient(180deg, rgba(245,158,11,0.05) 0%, rgba(17,19,24,0.95) 100%)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '8px',
+                        backgroundColor: isAllowAll ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
+                        border: isAllowAll ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(245,158,11,0.3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {isAllowAll ? <Globe size={16} style={{ color: '#22c55e' }} /> : <Shield size={16} style={{ color: '#f59e0b' }} />}
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>
+                            {isAllowAll ? 'Public Access Enabled (0.0.0.0/0)' : 'Restricted by IP Allowlist'}
+                          </span>
+                          <span style={{
+                            padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600,
+                            backgroundColor: isAllowAll ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
+                            color: isAllowAll ? '#4ade80' : '#fbbf24',
+                            border: isAllowAll ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(245,158,11,0.25)',
+                          }}>
+                            {isAllowAll ? 'ALLOW ALL' : `${networkRules.length} ALLOWED`}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#9ba3af', marginTop: '2px' }}>
+                          {isAllowAll
+                            ? 'All external clients, CRM tools, cloud servers, and local developers can connect with valid credentials without timeout.'
+                            : `Only requests originating from the ${networkRules.length} allowed IP rule(s) below can access port ${activeDb.port}.`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {!isAllowAll && (
+                        <button
+                          onClick={handleAllowAllTraffic}
+                          disabled={networkSaving}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 14px', borderRadius: '7px',
+                            backgroundColor: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', color: '#4ade80',
+                            fontSize: '11px', fontWeight: 600, cursor: 'pointer'
+                          }}
+                        >
+                          <Globe size={12} /> Allow All Traffic (0.0.0.0/0)
+                        </button>
+                      )}
+
+                      {detectedClientIp && (
+                        <button
+                          onClick={handleAddCurrentClientIp}
+                          disabled={networkSaving}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '6px', height: '32px', padding: '0 14px', borderRadius: '7px',
+                            backgroundColor: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', color: '#c4b5fd',
+                            fontSize: '11px', fontWeight: 600, cursor: 'pointer'
+                          }}
+                        >
+                          <Wifi size={12} /> Add My Current IP ({detectedClientIp})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add Rule Card */}
+                <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>Add Allowed IP / CIDR Block</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr auto', gap: '10px', alignItems: 'center' }}>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="IP address (e.g. 192.168.1.50/32 or 0.0.0.0/0)"
+                        value={newRuleIp}
+                        onChange={(e) => setNewRuleIp(e.target.value)}
+                        style={{ width: '100%', height: '34px', backgroundColor: '#090a0d', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '0 10px', fontSize: '11px', fontFamily: 'monospace', color: '#f1f3f6', outline: 'none' }}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Description (e.g. Office VPN, JobOps CRM backend, Dev laptop)"
+                        value={newRuleDesc}
+                        onChange={(e) => setNewRuleDesc(e.target.value)}
+                        style={{ width: '100%', height: '34px', backgroundColor: '#090a0d', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px', padding: '0 10px', fontSize: '11px', color: '#f1f3f6', outline: 'none' }}
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddCustomRule}
+                      disabled={networkSaving || !newRuleIp.trim()}
+                      style={{
+                        height: '34px', padding: '0 16px', borderRadius: '6px',
+                        backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 600,
+                        cursor: networkSaving || !newRuleIp.trim() ? 'not-allowed' : 'pointer',
+                        opacity: networkSaving || !newRuleIp.trim() ? 0.5 : 1,
+                        display: 'flex', alignItems: 'center', gap: '6px'
+                      }}
+                    >
+                      {networkSaving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add IP Rule
+                    </button>
+                  </div>
+                </div>
+
+                {/* Rules List Table */}
+                <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>Active Allowed IP Rules ({networkRules.length})</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>Port {activeDb.port} ({activeDb.type})</div>
+                  </div>
+
+                  {networkLoading ? (
+                    <div style={{ padding: '30px', textAlign: 'center', color: '#6b7280', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <Loader2 size={14} className="animate-spin text-purple-400" /> Loading firewall rules...
+                    </div>
+                  ) : networkRules.length === 0 ? (
+                    <div style={{ padding: '30px 16px', textAlign: 'center', color: '#6b7280', fontSize: '12px' }}>
+                      No specific rules configured. By default, external connections with valid credentials are allowed.
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <th style={{ padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>IP Address / CIDR</th>
+                          <th style={{ padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Description</th>
+                          <th style={{ padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Added On</th>
+                          <th style={{ padding: '10px 16px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563', textAlign: 'right' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {networkRules.map((rule, idx) => {
+                          const isUniversal = rule.ip === '0.0.0.0/0' || rule.ip === '::/0';
+                          return (
+                            <tr key={rule.ip + idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <code style={{ fontFamily: 'monospace', color: isUniversal ? '#4ade80' : '#c4b5fd', fontSize: '11px', backgroundColor: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: '4px' }}>
+                                    {rule.ip}
+                                  </code>
+                                  {isUniversal && (
+                                    <span style={{ fontSize: '9px', fontWeight: 600, color: '#4ade80', backgroundColor: 'rgba(34,197,94,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                                      ALL TRAFFIC
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px 16px', color: '#9ba3af' }}>{rule.description || '—'}</td>
+                              <td style={{ padding: '12px 16px', color: '#6b7280', fontSize: '11px' }}>
+                                {rule.addedAt ? new Date(rule.addedAt).toLocaleDateString() : 'Active'}
+                              </td>
+                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                <button
+                                  onClick={() => handleDeleteRule(rule.ip)}
+                                  disabled={networkSaving}
+                                  title="Delete rule"
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px', borderRadius: '4px', opacity: 0.8 }}
+                                  className="hover:opacity-100"
+                                >
+                                  <Trash size={12} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Port 5432 / Server Firewall Troubleshooting Guide */}
+                <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Server size={15} style={{ color: '#a78bfa' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>
+                      Port {activeDb.port} Connection Timeout Troubleshooting
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '11px', color: '#9ba3af', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <p style={{ margin: 0 }}>
+                      If external clients or frameworks (e.g. Next.js, Prisma, DBeaver) receive <code style={{ color: '#f87171' }}>Operation timed out</code> on port <strong>{activeDb.port}</strong>, ensure the host system allows incoming traffic:
+                    </p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginTop: '4px' }}>
+                      {/* Step 1: VPS Firewall */}
+                      <div style={{ backgroundColor: '#090a0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#818cf8', marginBottom: '4px' }}>
+                          1. Linux Host Firewall (UFW)
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
+                          If your KH Cloud server runs on Ubuntu/Debian VPS, unblock port {activeDb.port}:
+                        </div>
+                        <code style={{ display: 'block', backgroundColor: '#000', padding: '8px', borderRadius: '5px', fontSize: '10px', color: '#c4b5fd', fontFamily: 'monospace' }}>
+                          sudo ufw allow {activeDb.port}/tcp<br />
+                          sudo ufw reload
+                        </code>
+                      </div>
+
+                      {/* Step 2: Cloud Provider Security Group */}
+                      <div style={{ backgroundColor: '#090a0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#38bdf8', marginBottom: '4px' }}>
+                          2. Cloud VPC Security Groups
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
+                          On AWS EC2, DigitalOcean, or Hetzner:
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#9ba3af' }}>
+                          Add an <strong>Inbound Rule</strong>: Type: Custom TCP, Port: <strong style={{ color: '#fff' }}>{activeDb.port}</strong>, Source: <code style={{ color: '#4ade80' }}>0.0.0.0/0</code> (or your external IP).
+                        </div>
+                      </div>
+
+                      {/* Step 3: Test Connectivity */}
+                      <div style={{ backgroundColor: '#090a0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#34d399', marginBottom: '4px' }}>
+                          3. Quick Port Connectivity Test
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
+                          Run this in your local terminal to verify port reachability:
+                        </div>
+                        <code style={{ display: 'block', backgroundColor: '#000', padding: '8px', borderRadius: '5px', fontSize: '10px', color: '#34d399', fontFamily: 'monospace' }}>
+                          nc -zv {activeDb.host} {activeDb.port}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
 
