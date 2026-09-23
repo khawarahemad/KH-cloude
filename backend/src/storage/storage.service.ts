@@ -179,7 +179,7 @@ export class StorageService {
       }
 
       // Fallback: run via quay.io/minio/mc container
-      const runCmd = `docker run --rm --network kh-cloud-network quay.io/minio/mc sh -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://minio:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}') && rm -f /tmp/p.json"`;
+      const runCmd = `docker run --rm --entrypoint sh --network kh-cloud-network quay.io/minio/mc -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://minio:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}') && rm -f /tmp/p.json"`;
       await execAsync(runCmd, { timeout: 20000 });
       this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via quay.io/minio/mc container`);
       return true;
