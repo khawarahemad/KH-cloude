@@ -72,8 +72,8 @@ services:
       - "traefik.http.middlewares.minio-rate.ratelimit.burst=60"
       - "traefik.http.middlewares.minio-rate.ratelimit.period=1s"
       - "traefik.http.middlewares.minio-rate.ratelimit.sourcecriterion.ipstrategy.depth=1"
-      # S3 API routing (storage.<BASE_DOMAIN>)
-      - "traefik.http.routers.minio.rule=Host(`storage.${BASE_DOMAIN:-khawarahemad.com}`)"
+      # S3 API routing (s3.<BASE_DOMAIN>)
+      - "traefik.http.routers.minio.rule=Host(`s3.${BASE_DOMAIN:-khawarahemad.com}`)"
       - "traefik.http.routers.minio.entrypoints=websecure"
       - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
       - "traefik.http.routers.minio.service=minio-api"

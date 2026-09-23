@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   S3Client,
@@ -129,6 +129,62 @@ export class StorageService {
     const cleanName = bucket.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
     const prefix = bucket.teamId ? bucket.teamId.substring(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '') : 'kh';
     return `kh-${prefix}-${cleanName}`.substring(0, 63);
+  }
+
+  async getBucketCredentials(bucketId: string, teamId: string) {
+    const bucket = await this.prisma.bucket.findUnique({
+      where: { id: bucketId },
+    });
+    if (!bucket) {
+      throw new NotFoundException('Bucket not found.');
+    }
+
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+    const s3Endpoint =
+      process.env.NODE_ENV === 'production'
+        ? `https://s3.${baseDomain}`
+        : process.env.STORAGE_PUBLIC_ENDPOINT || 'http://localhost:9000';
+
+    const accessKey =
+      process.env.STORAGE_ACCESS_KEY ||
+      process.env.MINIO_ACCESS_KEY ||
+      process.env.MINIO_ROOT_USER ||
+      'khcloudroot';
+
+    const secretKey =
+      process.env.STORAGE_SECRET_KEY ||
+      process.env.MINIO_SECRET_KEY ||
+      process.env.MINIO_ROOT_PASSWORD ||
+      'khcloudrootpassword';
+
+    const region =
+      process.env.STORAGE_REGION ||
+      process.env.MINIO_REGION ||
+      'us-east-1';
+
+    const physicalBucketName = this.getPhysicalBucketName(bucket);
+
+    // If MinIO client is active, ensure the bucket exists
+    if (!this.useMock && this.s3Client) {
+      try {
+        await this.s3Client.send(new CreateBucketCommand({ Bucket: physicalBucketName })).catch(() => {});
+      } catch {}
+    }
+
+    return {
+      bucketId: bucket.id,
+      bucketName: bucket.name,
+      physicalBucketName,
+      endpoint: s3Endpoint,
+      region,
+      accessKey,
+      secretKey,
+      forcePathStyle: true,
+      sizeLimitBytes: Number(bucket.sizeLimit),
+      sizeUsedBytes: Number(bucket.sizeUsed),
+      sizeLimitFormatted: `${(Number(bucket.sizeLimit) / (1024 * 1024 * 1024)).toFixed(0)} GB`,
+      isPublic: bucket.isPublic,
+    };
   }
 
   async createBucket(name: string, isPublic: boolean, teamId: string) {

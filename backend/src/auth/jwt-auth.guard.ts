@@ -20,12 +20,11 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Skip guard for routes decorated with @Public()
+    // Skip guard enforcement for routes decorated with @Public(), but still attach req.user if a session token is present
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
 
     const req = context.switchToHttp().getRequest<Request & { user?: { id: string } }>();
 
@@ -34,6 +33,20 @@ export class JwtAuthGuard implements CanActivate {
     const bearerToken = this.extractBearer(req);
     const queryToken: string | undefined = req.query?.['token'] as string | undefined;
     const token = cookieToken ?? bearerToken ?? queryToken;
+
+    if (isPublic) {
+      if (token) {
+        try {
+          const payload = await this.tokens.verifyToken(token);
+          if (payload.type === 'access') {
+            req.user = { id: payload.sub };
+          }
+        } catch {
+          // Ignore invalid session on public routes
+        }
+      }
+      return true;
+    }
 
     if (!token) {
       throw new UnauthorizedException('Authentication required.');
