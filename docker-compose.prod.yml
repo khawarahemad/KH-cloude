@@ -54,7 +54,7 @@ services:
       - kh-cloud-network
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: kh-cloud-minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-khcloudroot}
