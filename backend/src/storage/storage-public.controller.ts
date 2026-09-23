@@ -133,9 +133,19 @@ export class StoragePublicController {
         const crypto = require('crypto');
         const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
         const keyMatch = await this.prisma.apiKey.findFirst({
-          where: { teamId: bucket.teamId, key: hashedKey },
+          where: { teamId: bucket.teamId, OR: [{ key: hashedKey }, { key: passedKey }] },
         });
         if (keyMatch) isAuthorized = true;
+
+        if (!isAuthorized) {
+          const bucketKeyMatch = await this.prisma.bucketKey.findFirst({
+            where: {
+              bucketId: bucket.id,
+              OR: [{ accessKey: passedKey }, { secretKey: passedKey }],
+            },
+          });
+          if (bucketKeyMatch) isAuthorized = true;
+        }
       }
 
       if (!isAuthorized && token) {

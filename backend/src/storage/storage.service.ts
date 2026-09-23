@@ -131,6 +131,64 @@ export class StorageService {
     return `kh-${prefix}-${cleanName}`.substring(0, 63);
   }
 
+  async provisionMinioServiceAccount(
+    physicalBucketName: string,
+    accessKey: string,
+    secretKey: string,
+  ): Promise<boolean> {
+    const rootUser =
+      process.env.STORAGE_ACCESS_KEY ||
+      process.env.MINIO_ACCESS_KEY ||
+      process.env.MINIO_ROOT_USER ||
+      'khcloudroot';
+
+    const rootPassword =
+      process.env.STORAGE_SECRET_KEY ||
+      process.env.MINIO_SECRET_KEY ||
+      process.env.MINIO_ROOT_PASSWORD ||
+      'khcloudrootpassword';
+
+    const policy = JSON.stringify({
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Action: ['s3:*'],
+          Resource: [
+            `arn:aws:s3:::${physicalBucketName}`,
+            `arn:aws:s3:::${physicalBucketName}/*`,
+          ],
+        },
+      ],
+    });
+
+    const policyBase64 = Buffer.from(policy).toString('base64');
+
+    try {
+      const { exec } = require('child_process');
+      const util = require('util');
+      const execAsync = util.promisify(exec);
+
+      // Check if mc exists in minio container
+      const hasMc = await execAsync('docker exec kh-cloud-minio which mc').catch(() => null);
+      if (hasMc && hasMc.stdout?.trim()) {
+        const cmd = `docker exec kh-cloud-minio sh -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://localhost:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json) && rm -f /tmp/p.json"`;
+        await execAsync(cmd, { timeout: 15000 });
+        this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via container mc`);
+        return true;
+      }
+
+      // Fallback: run via minio/mc container
+      const runCmd = `docker run --rm --network kh-cloud-network minio/mc sh -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://minio:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json) && rm -f /tmp/p.json"`;
+      await execAsync(runCmd, { timeout: 20000 });
+      this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via minio/mc container`);
+      return true;
+    } catch (err: any) {
+      this.logger.warn(`MinIO service account note for ${physicalBucketName}: ${err.message}`);
+      return false;
+    }
+  }
+
   async getBucketCredentials(bucketId: string, teamId: string) {
     const bucket = await this.prisma.bucket.findUnique({
       where: { id: bucketId },
@@ -144,18 +202,6 @@ export class StorageService {
       process.env.NODE_ENV === 'production'
         ? `https://s3.${baseDomain}`
         : process.env.STORAGE_PUBLIC_ENDPOINT || 'http://localhost:9000';
-
-    const accessKey =
-      process.env.STORAGE_ACCESS_KEY ||
-      process.env.MINIO_ACCESS_KEY ||
-      process.env.MINIO_ROOT_USER ||
-      'khcloudroot';
-
-    const secretKey =
-      process.env.STORAGE_SECRET_KEY ||
-      process.env.MINIO_SECRET_KEY ||
-      process.env.MINIO_ROOT_PASSWORD ||
-      'khcloudrootpassword';
 
     const region =
       process.env.STORAGE_REGION ||
@@ -171,14 +217,38 @@ export class StorageService {
       } catch {}
     }
 
+    // Find or create unique, isolated S3 credentials for this specific bucket
+    let bucketKey = await this.prisma.bucketKey.findFirst({
+      where: { bucketId },
+    });
+
+    if (!bucketKey) {
+      const cleanPrefix = bucket.teamId ? bucket.teamId.substring(0, 6).toLowerCase().replace(/[^a-z0-9]/g, '') : 'kh';
+      const accessKey = `kh_ak_${cleanPrefix}_${crypto.randomBytes(6).toString('hex')}`;
+      const secretKey = `kh_sk_${crypto.randomBytes(16).toString('hex')}`;
+
+      bucketKey = await this.prisma.bucketKey.create({
+        data: {
+          bucketId,
+          name: 'Primary S3 Key',
+          accessKey,
+          secretKey,
+          permission: 'READWRITE',
+        },
+      });
+
+      // Register isolated service account in MinIO
+      await this.provisionMinioServiceAccount(physicalBucketName, accessKey, secretKey);
+    }
+
     return {
       bucketId: bucket.id,
       bucketName: bucket.name,
       physicalBucketName,
       endpoint: s3Endpoint,
       region,
-      accessKey,
-      secretKey,
+      accessKey: bucketKey.accessKey,
+      secretKey: bucketKey.secretKey,
       forcePathStyle: true,
       sizeLimitBytes: Number(bucket.sizeLimit),
       sizeUsedBytes: Number(bucket.sizeUsed),
