@@ -725,23 +725,79 @@ export class AppController {
     return this.storage.listFiles(id, prefix || '');
   }
 
+  @Get('storage/buckets/:id/credentials')
+  async getBucketCredentials(
+    @Param('id') id: string,
+    @Req() req: express.Request,
+  ) {
+    const userId = (req as any).user.id as string;
+    const bucket = await this.prisma.bucket.findUnique({ where: { id } });
+    if (!bucket) throw new NotFoundException('Bucket not found.');
+
+    await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
+    return this.storage.getBucketCredentials(id, bucket.teamId);
+  }
+
+  @Public()
   @Post('storage/buckets/:id/upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @Param('id') id: string,
     @UploadedFile() file: any,
     @Query('key') key: string,
-    @Query('teamId') teamId: string,
+    @Query('teamId') queryTeamId: string,
+    @Headers() headers: Record<string, string>,
+    @Query('apikey') queryApiKey: string,
     @Req() req: express.Request,
   ) {
     if (!file) throw new BadRequestException('No file uploaded.');
-    const userId = (req as any).user.id as string;
 
-    await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
+    const bucket = await this.prisma.bucket.findUnique({ where: { id } });
+    if (!bucket) throw new NotFoundException('Bucket not found.');
+
+    const teamId = bucket.teamId || queryTeamId;
+
+    // 1. Check API Key in headers or query
+    let passedKey = queryApiKey || headers?.['apikey'] || headers?.['x-api-key'];
+    if (!passedKey && headers?.['authorization']) {
+      const parts = headers['authorization'].split(/\s+/);
+      if (parts[0]?.toLowerCase() === 'bearer' && (parts[1]?.startsWith('kh_') || parts[1]?.length > 20)) {
+        passedKey = parts[1];
+      }
+    }
+
+    let isAuthorized = false;
+    if (passedKey) {
+      const crypto = require('crypto');
+      const hashedKey = crypto.createHash('sha256').update(passedKey).digest('hex');
+      const keyMatch = await this.prisma.apiKey.findFirst({
+        where: {
+          teamId,
+          OR: [{ key: hashedKey }, { key: passedKey }],
+        },
+      });
+      if (keyMatch) {
+        isAuthorized = true;
+      }
+    }
+
+    // 2. Fall back to user session (cookie kh_session or user JWT)
+    if (!isAuthorized) {
+      const userId = (req as any).user?.id as string | undefined;
+      if (!userId) {
+        throw new UnauthorizedException(
+          'Authentication required. Provide a valid team API key (-H "apikey: <key>") or log in.',
+        );
+      }
+      await this.rbac.verifyBucketAccess(userId, id, 'DEVELOPER');
+      isAuthorized = true;
+    }
+
     await this.planLimits.enforceStorageAccess(teamId);
     return this.storage.uploadFile(id, key || file.originalname, file.buffer, file.mimetype, file.originalname, teamId);
   }
 
+  @Public()
   @Get('storage/buckets/:id/download')
   async downloadFile(
     @Param('id') id: string,

@@ -85,10 +85,14 @@ export class TeamsService {
     });
 
     if (existing.length > 0) {
-      return existing.map(k => {
-        const { key, ...safeKey } = k;
-        return safeKey;
-      });
+      return existing.map(k => ({
+        id: k.id,
+        teamId: k.teamId,
+        name: k.name,
+        role: k.role,
+        key: k.key,
+        createdAt: k.createdAt,
+      }));
     }
 
     const crypto = require('crypto');

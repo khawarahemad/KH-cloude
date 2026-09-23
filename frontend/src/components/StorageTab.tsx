@@ -40,6 +40,22 @@ export default function StorageTab() {
   const [sdkLanguage, setSdkLanguage] = useState<'curl' | 'node' | 'python' | 'go' | 'rust'>('curl');
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
+  const [s3Credentials, setS3Credentials] = useState<{
+    bucketId: string;
+    bucketName: string;
+    physicalBucketName: string;
+    endpoint: string;
+    region: string;
+    accessKey: string;
+    secretKey: string;
+    forcePathStyle: boolean;
+    sizeLimitBytes: number;
+    sizeUsedBytes: number;
+    sizeLimitFormatted: string;
+    isPublic: boolean;
+  } | null>(null);
+  const [teamApiKey, setTeamApiKey] = useState<string>('');
+
   const fetchBuckets = async () => {
     if (!activeTeam) return;
     if (!buckets) setLoading(true);
@@ -55,6 +71,29 @@ export default function StorageTab() {
     finally { setFilesLoading(false); }
   };
 
+  const fetchCredentials = async (bucketId: string) => {
+    try {
+      const creds = await apiRequest(`/storage/buckets/${bucketId}/credentials`);
+      setS3Credentials(creds);
+    } catch (err) {
+      console.error('Failed to load S3 credentials:', err);
+    }
+
+    if (activeTeam) {
+      try {
+        const keys = await apiRequest(`/teams/${activeTeam.id}/keys`);
+        if (Array.isArray(keys) && keys.length > 0) {
+          const serviceOrAnon = keys.find((k: any) => k.role === 'SERVICE_ROLE' || k.role === 'ANON');
+          if (serviceOrAnon?.key) {
+            setTeamApiKey(serviceOrAnon.key);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load team API keys:', err);
+      }
+    }
+  };
+
   const fetchBillingInfo = async () => {
     if (!activeTeam) return;
     if (!billing) setBillingLoading(true);
@@ -64,7 +103,14 @@ export default function StorageTab() {
   };
 
   useEffect(() => { fetchBuckets(); fetchBillingInfo(); }, [activeTeam]);
-  useEffect(() => { if (activeBucket) fetchFiles(activeBucket.id, currentPrefix); }, [activeBucket, currentPrefix]);
+  useEffect(() => {
+    if (activeBucket) {
+      fetchFiles(activeBucket.id, currentPrefix);
+      fetchCredentials(activeBucket.id);
+    } else {
+      setS3Credentials(null);
+    }
+  }, [activeBucket, currentPrefix]);
 
   const handleCreateBucket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,28 +311,32 @@ export default function StorageTab() {
 
   const getSdkSnippet = () => {
     const bName = activeBucket?.name || 'assets-bucket';
+    const physicalBucket = s3Credentials?.physicalBucketName || bName;
     const teamId = activeTeam?.id || 'TEAM_ID';
-    const s3Endpoint = getDomainUrl('storage');
+    const s3Endpoint = s3Credentials?.endpoint || getDomainUrl('s3');
     const apiBase = getUploadApiBase();
-    const cleanId = (activeBucket?.id || 'bucket123').replace(/[^a-zA-Z0-9]/g, '');
-    const accessKey = `kh_acc_${cleanId.substring(0, 12)}`;
-    const secretKey = `kh_sec_${cleanId.substring(12, 32) || '9f8e7d6c5b4a312'}`;
+    const accessKey = s3Credentials?.accessKey || 'YOUR_ACCESS_KEY';
+    const secretKey = s3Credentials?.secretKey || 'YOUR_SECRET_KEY';
+    const apiKey = teamApiKey || 'YOUR_TEAM_API_KEY';
+    const region = s3Credentials?.region || 'us-east-1';
 
     if (sdkLanguage === 'curl') {
-      if (activeBucket?.isPublic) {
-        return `# 1. Download public file directly:\ncurl ${s3Endpoint}/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
-      } else {
-        return `# 1. Download private file (with API Key):\ncurl -H "apikey: YOUR_TEAM_API_KEY" \\\n  ${s3Endpoint}/${teamId}/${bName}/avatar.png -o avatar.png\n\n# 2. Upload file via REST API:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: YOUR_TEAM_API_KEY" \\\n  -F "file=@avatar.png"`;
-      }
+      return `# 1. Upload via REST API with Team API Key:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: ${apiKey}" \\\n  -F "file=@avatar.png"\n\n# 2. Download Private File (API Key):\ncurl -O "${apiBase}/storage/buckets/${activeBucket?.id}/download?key=avatar.png&apikey=${apiKey}"\n\n# 3. Direct Public CDN Link (if public):\ncurl https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png`;
     }
+
     if (sdkLanguage === 'node') {
-      return `// Node.js (Fetch / REST API)\nconst fs = require('fs');\nconst FormData = require('form-data');\n\n// 1. Upload File\nconst form = new FormData();\nform.append('file', fs.createReadStream('./avatar.png'));\n\nawait fetch('${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}', {\n  method: 'POST',\n  headers: {\n    'apikey': process.env.KH_CLOUD_API_KEY,\n    ...form.getHeaders(),\n  },\n  body: form,\n});\n\n// 2. Download File\nconst res = await fetch('${s3Endpoint}/${teamId}/${bName}/avatar.png', {\n  headers: { 'apikey': process.env.KH_CLOUD_API_KEY },\n});\nconst fileBuffer = Buffer.from(await res.arrayBuffer());`;
+      return `// Node.js Native S3 Client (AWS SDK v3)\n// npm install @aws-sdk/client-s3\nimport { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';\nimport { readFileSync } from 'fs';\n\nconst s3 = new S3Client({\n  endpoint: '${s3Endpoint}',\n  region: '${region}',\n  credentials: {\n    accessKeyId: '${accessKey}',\n    secretAccessKey: '${secretKey}',\n  },\n  forcePathStyle: true, // Required for MinIO\n});\n\n// 1. Upload to your 5 GB Storage (bucket: ${physicalBucket})\nawait s3.send(new PutObjectCommand({\n  Bucket: '${physicalBucket}',\n  Key: 'avatar.png',\n  Body: readFileSync('./avatar.png'),\n  ContentType: 'image/png',\n}));\n\n// 2. Download Object\nconst res = await s3.send(new GetObjectCommand({\n  Bucket: '${physicalBucket}',\n  Key: 'avatar.png',\n}));`;
     }
+
     if (sdkLanguage === 'python') {
-      return `# Python (Requests / REST API)\nimport requests, os\n\nAPI_KEY = os.getenv('KH_CLOUD_API_KEY')\n\n# 1. Upload File\nwith open('avatar.png', 'rb') as f:\n    res = requests.post(\n        '${apiBase}/storage/buckets/${activeBucket?.id}/upload',\n        params={'key': 'avatar.png', 'teamId': '${teamId}'},\n        headers={'apikey': API_KEY},\n        files={'file': f}\n    )\nprint('Uploaded:', res.json())\n\n# 2. Download File\nres = requests.get(\n    '${s3Endpoint}/${teamId}/${bName}/avatar.png',\n    headers={'apikey': API_KEY}\n)\nwith open('downloaded.png', 'wb') as f:\n    f.write(res.content)`;
+      return `# Python Native S3 Client (Boto3)\n# pip install boto3\nimport boto3\n\ns3 = boto3.client(\n    's3',\n    endpoint_url='${s3Endpoint}',\n    aws_access_key_id='${accessKey}',\n    aws_secret_access_key='${secretKey}',\n    region_name='${region}'\n)\n\n# 1. Upload to your 5 GB Storage (bucket: ${physicalBucket})\nwith open('avatar.png', 'rb') as f:\n    s3.upload_fileobj(f, '${physicalBucket}', 'avatar.png')\n\n# 2. Download File\ns3.download_file('${physicalBucket}', 'avatar.png', 'downloaded.png')`;
     }
-    if (sdkLanguage === 'go') return `// Go S3 SDK Client\ncfg, _ := config.LoadDefaultConfig(context.TODO())\nclient := s3.NewFromConfig(cfg, func(o *s3.Options) {\n\to.BaseEndpoint = aws.String("${s3Endpoint}")\n\to.UsePathStyle = true\n})\n\nclient.PutObject(context.TODO(), &s3.PutObjectInput{\n\tBucket: aws.String("${bName}"),\n\tKey:    aws.String("images/avatar.png"),\n\tBody:   fileReader,\n})`;
-    return `// Rust S3 Client\nlet config = s3::config::Builder::new()\n    .endpoint_url("${s3Endpoint}")\n    .build();\n\nlet client = s3::Client::from_conf(config);\n\nclient.put_object()\n    .bucket("${bName}")\n    .key("images/avatar.png")\n    .body(ByteStream::from(bytes))\n    .send().await?;`;
+
+    if (sdkLanguage === 'go') {
+      return `// Go Native S3 Client (aws-sdk-go-v2)\n// go get github.com/aws/aws-sdk-go-v2/service/s3\ncfg, _ := config.LoadDefaultConfig(context.TODO(),\n    config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(\n        "${accessKey}",\n        "${secretKey}",\n        "",\n    )),\n    config.WithRegion("${region}"),\n)\n\nclient := s3.NewFromConfig(cfg, func(o *s3.Options) {\n    o.BaseEndpoint = aws.String("${s3Endpoint}")\n    o.UsePathStyle = true\n})\n\n// 1. Upload to your 5 GB Storage (bucket: ${physicalBucket})\nclient.PutObject(context.TODO(), &s3.PutObjectInput{\n    Bucket: aws.String("${physicalBucket}"),\n    Key:    aws.String("avatar.png"),\n    Body:   fileReader,\n})`;
+    }
+
+    return `// Rust Native S3 Client (aws-sdk-s3)\nlet config = aws_sdk_s3::config::Builder::new()\n    .endpoint_url("${s3Endpoint}")\n    .region(aws_sdk_s3::config::Region::new("${region}"))\n    .credentials_provider(aws_sdk_s3::config::Credentials::new(\n        "${accessKey}",\n        "${secretKey}",\n        None,\n        None,\n        "static",\n    ))\n    .force_path_style(true)\n    .build();\n\nlet client = aws_sdk_s3::Client::from_conf(config);\n\n// Upload to your 5 GB Storage (bucket: ${physicalBucket})\nclient.put_object()\n    .bucket("${physicalBucket}")\n    .key("avatar.png")\n    .body(ByteStream::from(bytes))\n    .send().await?;`;
   };
 
   const displayItems = getDisplayItems();
@@ -520,12 +570,40 @@ export default function StorageTab() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '24px' }}>
               {/* S3 Config */}
               <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>
-                  <Code size={14} style={{ color: '#a78bfa' }} /> S3 Credentials
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>
+                    <Code size={14} style={{ color: '#a78bfa' }} /> Native MinIO S3
+                  </div>
+                  <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)', fontWeight: 600 }}>
+                    5 GB Storage
+                  </span>
                 </div>
+
+                {/* Quota Progress */}
+                {s3Credentials && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#9ba3af' }}>
+                      <span>Usage</span>
+                      <span style={{ fontWeight: 600, color: '#e5e7eb' }}>
+                        {(s3Credentials.sizeUsedBytes / (1024 * 1024)).toFixed(2)} MB / {s3Credentials.sizeLimitFormatted}
+                      </span>
+                    </div>
+                    <div style={{ height: '4px', borderRadius: '2px', backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${Math.min(100, Math.max(1, (s3Credentials.sizeUsedBytes / s3Credentials.sizeLimitBytes) * 100))}%`,
+                        backgroundColor: '#a78bfa',
+                        borderRadius: '2px',
+                      }} />
+                    </div>
+                  </div>
+                )}
+
                 {[
-                  { label: 'Endpoint', value: getDomainUrl('storage'), id: 'endpoint' },
-                  { label: 'Access Key', value: `kh_acc_${activeBucket.id.substring(0, 8)}`, id: 'accessKey' },
+                  { label: 'S3 Endpoint', value: s3Credentials?.endpoint || getDomainUrl('s3'), id: 'endpoint' },
+                  { label: 'S3 Bucket (Physical Name)', value: s3Credentials?.physicalBucketName || activeBucket.name, id: 'bucketName' },
+                  { label: 'Region', value: s3Credentials?.region || 'us-east-1', id: 'region' },
+                  { label: 'Access Key', value: s3Credentials?.accessKey || '...', id: 'accessKey' },
                 ].map(({ label, value, id }) => (
                   <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>{label}</div>
@@ -537,19 +615,34 @@ export default function StorageTab() {
                     </div>
                   </div>
                 ))}
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Secret Key</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px', padding: '6px 10px' }}>
-                    <input type={showSecret ? 'text' : 'password'} readOnly value={`kh_sec_${activeBucket.id.substring(8, 20)}`}
+                    <input type={showSecret ? 'text' : 'password'} readOnly value={s3Credentials?.secretKey || '...'}
                       style={{ flex: 1, fontSize: '11px', fontFamily: 'monospace', color: '#9ba3af', background: 'none', border: 'none', outline: 'none', minWidth: 0 }} />
                     <button onClick={() => setShowSecret(!showSecret)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', display: 'flex' }}>
                       {showSecret ? <EyeOff size={11} /> : <Eye size={11} />}
                     </button>
-                    <button onClick={() => handleCopy(`kh_sec_${activeBucket.id.substring(8, 20)}`, 'secret')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedText === 'secret' ? '#22c55e' : '#4b5563', display: 'flex' }}>
+                    <button onClick={() => handleCopy(s3Credentials?.secretKey || '', 'secret')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedText === 'secret' ? '#22c55e' : '#4b5563', display: 'flex' }}>
                       {copiedText === 'secret' ? <Check size={11} /> : <Copy size={11} />}
                     </button>
                   </div>
                 </div>
+
+                {teamApiKey && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>KH Cloud API Key (REST)</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <code style={{ flex: 1, fontSize: '11px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {teamApiKey.substring(0, 14)}...
+                      </code>
+                      <button onClick={() => handleCopy(teamApiKey, 'apikey')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedText === 'apikey' ? '#22c55e' : '#4b5563', display: 'flex' }}>
+                        {copiedText === 'apikey' ? <Check size={11} /> : <Copy size={11} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* SDK snippets */}
