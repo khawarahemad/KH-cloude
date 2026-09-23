@@ -26,7 +26,7 @@ export class DatabasesService {
     const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
     const host = `${cleanDbName}-${teamPrefix}-${data.type.toLowerCase()}.db.${baseDomain}`;
     const port = data.type === 'POSTGRESQL' ? 5432 : data.type === 'REDIS' ? 6379 : 3306;
-    const username = data.type === 'REDIS' ? undefined : 'khclouduser';
+    const username = data.type === 'REDIS' ? undefined : `${cleanDbName}_user`;
     const crypto = require('crypto');
     const password = crypto.randomBytes(32).toString('hex');
     const dbName = data.type === 'REDIS' ? undefined : `${data.name.toLowerCase()}_db`;
@@ -588,9 +588,8 @@ export class DatabasesService {
       const safePass = password.replace(/'/g, "''");
 
       const script = `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${safeUser}') THEN CREATE ROLE "${safeUser}" WITH LOGIN PASSWORD '${safePass}' CREATEDB; ELSE ALTER ROLE "${safeUser}" WITH PASSWORD '${safePass}'; END IF; END $$;`;
-      const createDbSql = `SELECT 'CREATE DATABASE "${safeDb}" OWNER "${safeUser}"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${safeDb}')\\gexec`;
 
-      const cmd = `docker exec -i kh-cloud-postgres psql -U postgres -d postgres -c "${script}" -c "${createDbSql}" 2>/dev/null || docker exec -i kh-cloud-postgres psql -U khclouduser -d khclouddb -c "${script}" -c "${createDbSql}" 2>/dev/null || true`;
+      const cmd = `docker exec -i kh-cloud-postgres psql -U khclouduser -d khclouddb -c "${script}" && docker exec -i kh-cloud-postgres createdb -U khclouduser -O "${safeUser}" "${safeDb}" 2>/dev/null || true`;
 
       exec(cmd, (err: any) => {
         if (err) console.warn('Could not auto-provision Postgres container:', err.message);
