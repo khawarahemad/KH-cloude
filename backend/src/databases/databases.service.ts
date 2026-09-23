@@ -46,6 +46,10 @@ export class DatabasesService {
       },
     });
 
+    if (data.type === 'POSTGRESQL') {
+      this.provisionPostgresDatabase(username, password, dbName);
+    }
+
     // Simulate provisioning complete in 5 seconds
     setTimeout(async () => {
       await this.prisma.databaseInstance.update({
@@ -100,6 +104,9 @@ export class DatabasesService {
       where: { id, teamId },
     });
     if (!db) throw new NotFoundException('Database not found.');
+    if (db.type === 'POSTGRESQL') {
+      this.provisionPostgresDatabase(db.username, db.password, db.dbName);
+    }
     return {
       host: db.host,
       port: db.port,
@@ -570,6 +577,27 @@ export class DatabasesService {
       rules: cleanRules,
       isAllowAll: cleanRules.some(r => r.ip === '0.0.0.0/0' || r.ip === '::/0'),
     };
+  }
+
+  private provisionPostgresDatabase(username?: string | null, password?: string | null, dbName?: string | null) {
+    if (!username || !password || !dbName) return;
+    try {
+      const { exec } = require('child_process');
+      const safeUser = username.replace(/[^a-zA-Z0-9_]/g, '');
+      const safeDb = dbName.replace(/[^a-zA-Z0-9_]/g, '');
+      const safePass = password.replace(/'/g, "''");
+
+      const script = `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${safeUser}') THEN CREATE ROLE "${safeUser}" WITH LOGIN PASSWORD '${safePass}' CREATEDB; ELSE ALTER ROLE "${safeUser}" WITH PASSWORD '${safePass}'; END IF; END $$;`;
+      const createDbSql = `SELECT 'CREATE DATABASE "${safeDb}" OWNER "${safeUser}"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${safeDb}')\\gexec`;
+
+      const cmd = `docker exec -i kh-cloud-postgres psql -U postgres -d postgres -c "${script}" -c "${createDbSql}" 2>/dev/null || docker exec -i kh-cloud-postgres psql -U khclouduser -d khclouddb -c "${script}" -c "${createDbSql}" 2>/dev/null || true`;
+
+      exec(cmd, (err: any) => {
+        if (err) console.warn('Could not auto-provision Postgres container:', err.message);
+      });
+    } catch (e: any) {
+      console.warn('Postgres auto-provision error:', e.message);
+    }
   }
 }
 
