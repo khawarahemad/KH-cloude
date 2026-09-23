@@ -184,6 +184,14 @@ export class StorageService {
       this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via quay.io/minio/mc container`);
       return true;
     } catch (err: any) {
+      if (
+        err.stdout?.includes('already exists') ||
+        err.stderr?.includes('already exists') ||
+        err.message?.includes('already exists')
+      ) {
+        this.logger.log(`MinIO service account ${accessKey} already exists for ${physicalBucketName}`);
+        return true;
+      }
       this.logger.warn(`MinIO service account note for ${physicalBucketName}: ${err.message}`);
       return false;
     }
@@ -222,10 +230,17 @@ export class StorageService {
       where: { bucketId },
     });
 
-    if (!bucketKey) {
-      const cleanPrefix = bucket.teamId ? bucket.teamId.substring(0, 6).toLowerCase().replace(/[^a-z0-9]/g, '') : 'kh';
-      const accessKey = `kh_ak_${cleanPrefix}_${crypto.randomBytes(6).toString('hex')}`;
+    const generateValidCredentials = () => {
+      // MinIO strictly requires access key length between 3 and 20 chars
+      const cleanPrefix = bucket.teamId ? bucket.teamId.substring(0, 4).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+      const accessKey = `kh_${cleanPrefix}${crypto.randomBytes(6).toString('hex')}`.substring(0, 20);
+      // MinIO strictly requires secret key length between 8 and 40 chars
       const secretKey = `kh_sk_${crypto.randomBytes(16).toString('hex')}`;
+      return { accessKey, secretKey };
+    };
+
+    if (!bucketKey) {
+      const { accessKey, secretKey } = generateValidCredentials();
 
       bucketKey = await this.prisma.bucketKey.create({
         data: {
@@ -239,6 +254,27 @@ export class StorageService {
 
       // Register isolated service account in MinIO
       await this.provisionMinioServiceAccount(physicalBucketName, accessKey, secretKey);
+    } else if (
+      bucketKey.accessKey.length > 20 ||
+      bucketKey.accessKey.length < 3 ||
+      bucketKey.secretKey.length > 40 ||
+      bucketKey.secretKey.length < 8
+    ) {
+      // Auto-migrate any existing keys that violate MinIO's 3-20 / 8-40 length constraints
+      const { accessKey, secretKey } = generateValidCredentials();
+      const updatedAccessKey =
+        bucketKey.accessKey.length > 20 || bucketKey.accessKey.length < 3 ? accessKey : bucketKey.accessKey;
+      const updatedSecretKey =
+        bucketKey.secretKey.length > 40 || bucketKey.secretKey.length < 8 ? secretKey : bucketKey.secretKey;
+
+      bucketKey = await this.prisma.bucketKey.update({
+        where: { id: bucketKey.id },
+        data: {
+          accessKey: updatedAccessKey,
+          secretKey: updatedSecretKey,
+        },
+      });
+      await this.provisionMinioServiceAccount(physicalBucketName, updatedAccessKey, updatedSecretKey);
     } else {
       // Ensure existing bucket key is registered in MinIO (idempotent background check)
       this.provisionMinioServiceAccount(physicalBucketName, bucketKey.accessKey, bucketKey.secretKey).catch(() => {});
