@@ -92,10 +92,7 @@ export class DatabasesService {
       where: { teamId },
       include: { project: true },
     });
-    return dbs.map((db) => {
-      const { password, ...safeDb } = db;
-      return safeDb;
-    });
+    return dbs;
   }
 
   async getDatabaseCredentials(id: string, teamId: string) {

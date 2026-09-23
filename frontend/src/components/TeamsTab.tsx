@@ -5,7 +5,7 @@ import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { useTeamRole } from '@/lib/rbac';
 import {
-  Plus, Loader2, Mail, Clock, Key, Copy, Check, Eye, EyeOff, User, UserPlus, Shield,
+  Plus, Loader2, Mail, Clock, Copy, Check, User, UserPlus, Shield,
   UserCheck, UserX, AlertCircle, ChevronDown, Trash2, ArrowRight, Sparkles, Building
 } from 'lucide-react';
 import { useDialog } from './CustomDialogProvider';
@@ -41,8 +41,6 @@ export default function TeamsTab() {
   const [invites, setInvites] = useState<any[]>([]);
   const [incomingInvites, setIncomingInvites] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [apiKeys, setApiKeys] = useState<any[]>([]);
-  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -80,16 +78,14 @@ export default function TeamsTab() {
     if (!activeTeam) return;
     setLoading(true);
     try {
-      const [membersData, invitesData, auditData, keysData] = await Promise.all([
+      const [membersData, invitesData, auditData] = await Promise.all([
         apiRequest(`/teams/${activeTeam.id}/members`),
         apiRequest(`/teams/${activeTeam.id}/invites`),
         apiRequest(`/teams/${activeTeam.id}/audit`),
-        apiRequest(`/teams/${activeTeam.id}/keys`),
       ]);
       setMembers(Array.isArray(membersData) ? membersData : []);
       setInvites(Array.isArray(invitesData) ? invitesData : []);
       setAuditLogs(Array.isArray(auditData) ? auditData : []);
-      setApiKeys(Array.isArray(keysData) ? keysData : []);
     } catch (err) {
       console.error('Failed to fetch team data:', err);
     } finally {
@@ -502,52 +498,6 @@ export default function TeamsTab() {
                   </div>
                 </div>
               )}
-
-              {/* API & Service Keys */}
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '10px' }}>
-                  Team API & Service Keys
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {apiKeys.map((keyObj) => (
-                    <div key={keyObj.id} style={{
-                      backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)',
-                      borderRadius: '12px', padding: '16px',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Key size={13} style={{ color: '#a78bfa' }} />
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6' }}>{keyObj.name}</span>
-                        </div>
-                        <RoleBadge role={keyObj.role} />
-                      </div>
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)',
-                        borderRadius: '8px', padding: '8px 12px',
-                      }}>
-                        <code style={{ flex: 1, fontSize: '11px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {showKeys[keyObj.id] ? keyObj.key : '•'.repeat(40)}
-                        </code>
-                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                          <button
-                            onClick={() => setShowKeys(prev => ({ ...prev, [keyObj.id]: !prev[keyObj.id] }))}
-                            style={{ width: '24px', height: '24px', borderRadius: '5px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
-                          >
-                            {showKeys[keyObj.id] ? <EyeOff size={12} /> : <Eye size={12} />}
-                          </button>
-                          <button
-                            onClick={() => handleCopyText(keyObj.key, keyObj.id)}
-                            style={{ width: '24px', height: '24px', borderRadius: '5px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: copiedId === keyObj.id ? '#22c55e' : '#6b7280' }}
-                          >
-                            {copiedId === keyObj.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {/* Audit Logs */}
               <div>
