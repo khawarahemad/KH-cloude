@@ -42,7 +42,10 @@ export class ProjectsService {
         const cleanKey = key.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
         if (!cleanKey) return '';
         const rawVal = value ?? '';
-        return `${cleanKey}=${rawVal}`;
+        // Quote value so that '#', spaces, and other special chars are preserved
+        // by dotenv-compatible parsers. Escape inner backslashes and double-quotes.
+        const escaped = rawVal.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        return `${cleanKey}="${escaped}"`;
       })
       .filter(Boolean)
       .join('\n') + '\n';
@@ -201,27 +204,39 @@ export class ProjectsService {
   }
 
   async setEnvVars(projectId: string, vars: { key: string; value: string; isSecret: boolean }[]) {
-    // Delete existing
-    await this.prisma.envVar.deleteMany({ where: { projectId } });
-
-    // Create new
-    const created = await Promise.all(
-      vars.map(v =>
-        this.prisma.envVar.create({
-          data: {
-            projectId,
+    // Sanitize keys then deduplicate via Map (last occurrence of a duplicate key wins)
+    const deduped = Array.from(
+      new Map(
+        vars
+          .map(v => ({
             key: v.key.trim().toUpperCase().replace(/[^A-Z0-9_]/g, ''),
             value: v.value,
             isSecret: v.isSecret,
-          },
-        })
-      )
+          }))
+          .filter(v => !!v.key)
+          .map(v => [v.key, v] as const),
+      ).values(),
     );
+
+    // Atomic: deleteMany + createMany run in a single transaction.
+    // If createMany fails for any reason the delete is rolled back — no data loss.
+    await this.prisma.$transaction([
+      this.prisma.envVar.deleteMany({ where: { projectId } }),
+      this.prisma.envVar.createMany({
+        data: deduped.map(v => ({
+          projectId,
+          key: v.key,
+          value: v.value,
+          isSecret: v.isSecret,
+        })),
+      }),
+    ]);
 
     // Sync environment file to disk immediately
     await this.syncProjectEnvFile(projectId);
 
-    return created;
+    // Return the persisted records so the caller can sync sanitized keys back to the UI
+    return this.prisma.envVar.findMany({ where: { projectId } });
   }
 
   async triggerDeployment(
@@ -321,10 +336,15 @@ export class ProjectsService {
     });
     if (!deployment) throw new NotFoundException('Deployment not found.');
 
-    const activeLogs = this.deploymentLogs.get(deploymentId) || [];
+    // While the deployment is still running, the in-memory `logs` array is the
+    // single source of truth. appendLog already writes the full joined array to
+    // deployment.buildLogs on every line, so concatenating both would duplicate
+    // every log entry for the duration of the build. Read only from in-memory
+    // while active; fall back to the DB snapshot once the entry is gone.
+    const activeLogsArr = this.deploymentLogs.get(deploymentId);
     return {
       status: deployment.status,
-      logs: deployment.buildLogs + activeLogs.join('\n'),
+      logs: activeLogsArr ? activeLogsArr.join('\n') : deployment.buildLogs,
     };
   }
 
@@ -377,21 +397,30 @@ export class ProjectsService {
     });
     if (!deployment) throw new NotFoundException('Deployment not found.');
 
-    // Create rollback deployment record
+    if (!deployment.commitHash) {
+      throw new BadRequestException(
+        'Cannot roll back: the target deployment has no recorded commit hash. ' +
+        'Only deployments triggered by a Git push (GitOps) can be rolled back to an exact commit.',
+      );
+    }
+
+    // Create rollback deployment record, carrying the exact commit hash forward
     const rollback = await this.prisma.deployment.create({
       data: {
         projectId,
         branch: deployment.branch,
         commitHash: deployment.commitHash,
-        commitMessage: `Rollback to deployment ${deploymentId.substring(0, 8)}`,
+        commitMessage: `Rollback to ${deployment.commitHash} (deployment ${deploymentId.substring(0, 8)})`,
         triggeredBy: 'MANUAL',
         triggeredByName: 'Rollback',
         status: 'QUEUED',
-        buildLogs: `[Manual Rollback] Initiating rollback to deployment ${deploymentId}...\n`,
+        buildLogs: `[Manual Rollback] Initiating rollback to commit ${deployment.commitHash}...\n`,
       },
     });
 
-    this.runLiveDeploymentEngine(projectId, rollback.id);
+    // Pass the target commit hash so the engine checks out that exact commit
+    // instead of whatever is currently at the tip of the branch.
+    this.runLiveDeploymentEngine(projectId, rollback.id, deployment.commitHash);
 
     return rollback;
   }
@@ -721,7 +750,7 @@ export class ProjectsService {
     return { cpu, ram, network };
   }
 
-  private runLiveDeploymentEngine(projectId: string, deploymentId: string) {
+  private runLiveDeploymentEngine(projectId: string, deploymentId: string, targetCommitHash?: string | null) {
     const logs: string[] = [];
     this.deploymentLogs.set(deploymentId, logs);
 
@@ -981,7 +1010,10 @@ export class ProjectsService {
             ? `https://x-access-token:${token}@github.com/${repoFullName}.git`
             : `https://github.com/${repoFullName}.git`;
           appendLog(`Cloning branch "${branch}" from ${maskedRepoUrl} (auth: ${source})`);
-          return runCmd(`git clone --depth 1 -b ${branch} "${url}" .`, buildDir);
+          // For rollbacks we need enough history to reach the target commit.
+          // For normal deploys --depth 1 is fine (fastest, smallest clone).
+          const cloneDepth = targetCommitHash ? '--depth 50' : '--depth 1';
+          return runCmd(`git clone ${cloneDepth} -b ${branch} "${url}" .`, buildDir);
         };
 
         for (const t of installTokens) {
@@ -1023,6 +1055,26 @@ export class ProjectsService {
             );
           }
           throw new Error('Failed to clone Git repository');
+        }
+
+        // 2a. For rollbacks: check out the exact commit after cloning.
+        // If --depth 50 didn't reach far enough, deepen until we find it.
+        if (targetCommitHash) {
+          appendLog(`[Rollback] Checking out exact commit ${targetCommitHash}...`);
+          let checkoutRes = await runCmd(`git checkout ${targetCommitHash}`, buildDir);
+          if (checkoutRes.code !== 0) {
+            // Commit not in shallow history — deepen and retry once
+            appendLog(`[Rollback] Commit not in shallow clone, fetching deeper history...`);
+            await runCmd(`git fetch --deepen=200 origin ${project.githubBranch || 'main'}`, buildDir);
+            checkoutRes = await runCmd(`git checkout ${targetCommitHash}`, buildDir);
+          }
+          if (checkoutRes.code !== 0) {
+            throw new Error(
+              `Rollback failed: could not check out commit ${targetCommitHash}. ` +
+              'It may have been force-pushed away or the commit is older than the fetch depth.',
+            );
+          }
+          appendLog(`[Rollback] Successfully checked out commit ${targetCommitHash}.`);
         }
 
         // Compute effective build directory if project.rootDirectory is configured

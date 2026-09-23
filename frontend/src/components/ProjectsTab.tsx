@@ -189,10 +189,14 @@ export default function ProjectsTab() {
     setEnvSaving(true);
     setEnvSaved(false);
     try {
-      await apiRequest(`/projects/${activeProjectId}/env`, {
+      const saved = await apiRequest(`/projects/${activeProjectId}/env`, {
         method: 'POST',
         body: JSON.stringify({ vars }),
       });
+      // Sync state from server response so UI reflects sanitized keys (e.g. MY-KEY → MYKEY)
+      if (Array.isArray(saved)) {
+        setEnvVars(saved.map((v: any) => ({ key: v.key, value: v.value, isSecret: v.isSecret })));
+      }
       setEnvSaved(true);
       setShowRedeployPrompt(true);
       setTimeout(() => setEnvSaved(false), 3000);
@@ -803,7 +807,9 @@ export default function ProjectsTab() {
       return;
     }
     if (!newEnvKey.trim() || !newEnvVal.trim() || !activeProjectId) return;
-    const key = newEnvKey.trim().toUpperCase();
+    // Apply the same sanitization as the backend so the key shown in the UI matches what is saved
+    const key = newEnvKey.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '');
+    if (!key) return;
     if (envVars.find(v => v.key === key)) return; // no duplicates
     const updated = [...envVars, { key, value: newEnvVal.trim(), isSecret: newEnvSecret }];
     setEnvVars(updated);
