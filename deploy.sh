@@ -28,6 +28,10 @@ sudo mkdir -p /var/lib/kh-cloud/redis
 sudo mkdir -p /var/lib/kh-cloud/minio
 sudo mkdir -p /var/lib/kh-cloud/db
 sudo mkdir -p /var/lib/kh-cloud/storage-mock
+sudo mkdir -p /var/lib/kh-cloud/postgres
+
+# Ensure firewall allows incoming PostgreSQL traffic
+sudo ufw allow 5432/tcp 2>/dev/null || true
 
 # Ensure correct permissions
 sudo chmod -R 777 /var/lib/kh-cloud/

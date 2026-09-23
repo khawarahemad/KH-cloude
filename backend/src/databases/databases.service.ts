@@ -467,5 +467,109 @@ export class DatabasesService {
       client.close();
     }
   }
+
+  async getDatabaseNetworkRules(dbId: string, teamId: string, clientIp?: string) {
+    const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
+    if (!db) throw new NotFoundException('Database not found.');
+
+    let rules: Array<{ ip: string; description: string; addedAt?: string }> = [];
+    if (db.allowedIps) {
+      try {
+        rules = JSON.parse(db.allowedIps);
+      } catch {
+        rules = db.allowedIps.split(',').map((ip: string) => ({
+          ip: ip.trim(),
+          description: ip.trim() === '0.0.0.0/0' ? 'Allow All Traffic' : 'Allowed IP',
+          addedAt: db.createdAt.toISOString(),
+        })).filter(r => r.ip);
+      }
+    }
+
+    if (!rules || rules.length === 0) {
+      rules = [
+        {
+          ip: '0.0.0.0/0',
+          description: 'Allow All Traffic (Default)',
+          addedAt: db.createdAt.toISOString(),
+        },
+      ];
+    }
+
+    const isAllowAll = rules.some(r => r.ip === '0.0.0.0/0' || r.ip === '::/0');
+
+    return {
+      databaseId: db.id,
+      databaseName: db.name,
+      databaseType: db.type,
+      port: db.port,
+      host: db.host,
+      isAllowAll,
+      rules,
+      clientIp: clientIp || '127.0.0.1',
+    };
+  }
+
+  async updateDatabaseNetworkRules(
+    dbId: string,
+    teamId: string,
+    rules: Array<{ ip: string; description?: string }>,
+  ) {
+    const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
+    if (!db) throw new NotFoundException('Database not found.');
+
+    if (!Array.isArray(rules)) {
+      throw new BadRequestException('Rules must be an array of IP specifications.');
+    }
+
+    const cleanRules = rules.map(r => {
+      const ip = (r.ip || '').trim();
+      if (!ip) throw new BadRequestException('IP address or CIDR cannot be empty.');
+      const ipPattern = /^([0-9a-fA-F:.]+(\/[0-9]{1,3})?)$/;
+      if (!ipPattern.test(ip)) {
+        throw new BadRequestException(`Invalid IP or CIDR address format: ${ip}`);
+      }
+      return {
+        ip,
+        description: (r.description || '').trim() || (ip === '0.0.0.0/0' ? 'Allow All Traffic' : 'Allowed IP'),
+        addedAt: new Date().toISOString(),
+      };
+    });
+
+    const serialized = JSON.stringify(cleanRules);
+
+    await this.prisma.databaseInstance.update({
+      where: { id: dbId },
+      data: { allowedIps: serialized },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        teamId,
+        action: 'DATABASE.UPDATE_NETWORK_RULES',
+        targetType: 'DATABASE',
+        targetId: dbId,
+        details: JSON.stringify({
+          databaseName: db.name,
+          ruleCount: cleanRules.length,
+          rules: cleanRules.map(r => r.ip),
+        }),
+      },
+    });
+
+    sendDiscordNotification(teamId, 'database', {
+      title: `🛡️ Database Firewall Updated: ${db.name}`,
+      description: `Updated network access rules for **${db.name}** (${cleanRules.length} allowed rule${cleanRules.length === 1 ? '' : 's'}).`,
+      color: 3899904,
+      fields: [
+        { name: 'Rules', value: cleanRules.map(r => `\`${r.ip}\``).slice(0, 5).join(', ') || 'None', inline: false }
+      ]
+    });
+
+    return {
+      success: true,
+      rules: cleanRules,
+      isAllowAll: cleanRules.some(r => r.ip === '0.0.0.0/0' || r.ip === '::/0'),
+    };
+  }
 }
 

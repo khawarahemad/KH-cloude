@@ -609,6 +609,40 @@ export class AppController {
     return this.databases.getDatabaseCredentials(id, teamId);
   }
 
+  @Get('databases/:id/network')
+  async getDatabaseNetworkRules(
+    @Param('id') id: string,
+    @Query('teamId') teamId: string,
+    @Req() req: express.Request,
+  ) {
+    const userId = (req as any).user.id as string;
+    await this.rbac.verifyDatabaseAccess(userId, id, 'VIEWER');
+
+    const forwarded = req.headers['x-forwarded-for'];
+    let clientIp = Array.isArray(forwarded)
+      ? forwarded[0]
+      : typeof forwarded === 'string'
+      ? forwarded.split(',')[0].trim()
+      : req.socket.remoteAddress || '127.0.0.1';
+
+    if (clientIp.startsWith('::ffff:')) {
+      clientIp = clientIp.substring(7);
+    }
+
+    return this.databases.getDatabaseNetworkRules(id, teamId, clientIp);
+  }
+
+  @Put('databases/:id/network')
+  async updateDatabaseNetworkRules(
+    @Param('id') id: string,
+    @Body() body: { teamId: string; rules: Array<{ ip: string; description?: string }> },
+    @Req() req: express.Request,
+  ) {
+    const userId = (req as any).user.id as string;
+    await this.rbac.verifyDatabaseAccess(userId, id, 'DEVELOPER');
+    return this.databases.updateDatabaseNetworkRules(id, body.teamId, body.rules);
+  }
+
   @Delete('databases/:id')
   async deleteDatabase(
     @Param('id') id: string,

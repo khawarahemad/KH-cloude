@@ -231,9 +231,10 @@ model DatabaseInstance {
   port      Int
   dbName    String?
   username  String?
-  password  String?
-  status    String       @default("CREATING") // CREATING, RUNNING, STOPPED, FAILED
-  teamId    String
+  password   String?
+  allowedIps String?      @default("[{\"ip\":\"0.0.0.0/0\",\"description\":\"Allow All Traffic\"}]")
+  status     String       @default("CREATING") // CREATING, RUNNING, STOPPED, FAILED
+  teamId     String
   team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   projectId String?
   project   Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
