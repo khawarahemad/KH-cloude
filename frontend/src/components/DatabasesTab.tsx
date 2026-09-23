@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/lib/store';
-import { apiRequest, getApiBase } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
 import { useTeamRole } from '@/lib/rbac';
 import { 
-  Database, Plus, RefreshCw, Key, Copy, Check, Loader2, Trash, 
+  Database, Plus, RefreshCw, Copy, Check, Loader2, Trash, 
   Play, Terminal, ArrowLeft, AlertCircle, FileText, LayoutGrid,
-  Table, Pencil, Save, X, ChevronLeft, ChevronRight, Search
+  Table, Pencil, Save, X, ChevronLeft, ChevronRight, Search, Eye, EyeOff
 } from 'lucide-react';
 import { useDialog } from './CustomDialogProvider';
 
@@ -30,7 +30,7 @@ export default function DatabasesTab() {
   const [tablesLoading, setTablesLoading] = useState(false);
 
   // SQL Console
-  const [sqlQuery, setSqlQuery] = useState('-- Welcome to the KH Cloud SQL Console\n-- Write your SQL below and press Run Query\n\nCREATE TABLE IF NOT EXISTS users (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  name TEXT NOT NULL,\n  email TEXT UNIQUE NOT NULL,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);\n\nINSERT INTO users (name, email) VALUES (\'Alex Mercer\', \'alex@khcloud.app\');\n\nSELECT * FROM users;');
+  const [sqlQuery, setSqlQuery] = useState('-- Welcome to the KH Cloud SQL Console\n-- Write your SQL below and press Run Query\n\nCREATE TABLE IF NOT EXISTS users (\n  id SERIAL PRIMARY KEY,\n  name TEXT NOT NULL,\n  email TEXT UNIQUE NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\n\nINSERT INTO users (name, email) VALUES (\'Alex Mercer\', \'alex@khcloud.app\');\n\nSELECT * FROM users;');
   const [queryExecuting, setQueryExecuting] = useState(false);
   const [queryResult, setQueryResult] = useState<any | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
@@ -51,6 +51,7 @@ export default function DatabasesTab() {
   const [tableFilter, setTableFilter] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<any | null>(null);
+  const [showDbPassword, setShowDbPassword] = useState(false);
 
   const fetchDatabases = async (silent = false) => {
     if (!activeTeam) return;
@@ -91,6 +92,19 @@ export default function DatabasesTab() {
       return () => clearInterval(interval);
     }
   }, [databases]);
+
+  // Ensure active database has credentials/password loaded
+  useEffect(() => {
+    if (activeDb && !activeDb.password && activeTeam) {
+      apiRequest(`/databases/${activeDb.id}/credentials?teamId=${activeTeam.id}`)
+        .then((creds) => {
+          if (creds?.password) {
+            setActiveDb((prev: any) => (prev && prev.id === activeDb.id ? { ...prev, ...creds } : prev));
+          }
+        })
+        .catch((err) => console.warn('Could not fetch database credentials:', err));
+    }
+  }, [activeDb?.id, activeTeam?.id]);
 
   // ---- Table Editor Methods ----
 
@@ -246,9 +260,13 @@ export default function DatabasesTab() {
   };
 
   const getConnectionString = (db: any) => {
-    if (db.type === 'POSTGRESQL') return `postgresql://${db.username}:${db.password}@${db.host}:${db.port}/${db.dbName}`;
-    if (db.type === 'REDIS') return `redis://default:${db.password}@${db.host}:${db.port}`;
-    return `mysql://${db.username}:${db.password}@${db.host}:${db.port}/${db.dbName}`;
+    if (!db) return '';
+    const user = db.username || (db.type === 'REDIS' ? 'default' : 'khclouduser');
+    const pass = db.password || '••••••••';
+    const dbName = db.dbName || (db.type === 'REDIS' ? '0' : db.name);
+    if (db.type === 'POSTGRESQL') return `postgresql://${user}:${pass}@${db.host}:${db.port}/${dbName}`;
+    if (db.type === 'REDIS') return `redis://default:${pass}@${db.host}:${db.port}`;
+    return `mysql://${user}:${pass}@${db.host}:${db.port}/${dbName}`;
   };
 
   const handleExecuteQuery = async (queryText?: string) => {
@@ -284,7 +302,7 @@ export default function DatabasesTab() {
         <div style={{ backgroundColor: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
             <button
-              onClick={() => { setActiveDb(null); setActiveTable(null); }}
+              onClick={() => { setActiveDb(null); setActiveTable(null); setShowDbPassword(false); }}
               style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ba3af', cursor: 'pointer', transition: 'all 0.12s' }}
               className="hover:bg-white/5 hover:text-white"
             >
@@ -526,15 +544,15 @@ export default function DatabasesTab() {
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           disabled={tablePage === 1 || tableLoading}
-                          onClick={() => setTablePage(p => Math.max(1, p - 1))}
+                          onClick={() => { const newPage = Math.max(1, tablePage - 1); setTablePage(newPage); loadTableData(activeTable!, newPage, tableFilter); }}
                           style={{ height: '24px', padding: '0 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', opacity: tablePage === 1 ? 0.4 : 1 }}
                         >
                           <ChevronLeft size={10} /> Prev
                         </button>
                         <button
-                          disabled={tableRows.length < 50 || tableLoading}
-                          onClick={() => setTablePage(p => p + 1)}
-                          style={{ height: '24px', padding: '0 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', opacity: tableRows.length < 50 ? 0.4 : 1 }}
+                          disabled={tableRows.length < tablePageSize || tableLoading}
+                          onClick={() => { const newPage = tablePage + 1; setTablePage(newPage); loadTableData(activeTable!, newPage, tableFilter); }}
+                          style={{ height: '24px', padding: '0 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', opacity: tableRows.length < tablePageSize ? 0.4 : 1 }}
                         >
                           Next <ChevronRight size={10} />
                         </button>
@@ -633,105 +651,136 @@ export default function DatabasesTab() {
                     {[
                       { label: 'Host / Server', value: activeDb.host },
                       { label: 'Port', value: String(activeDb.port) },
-                      { label: 'Database Name', value: activeDb.dbName || activeDb.name },
-                      { label: 'Username', value: activeDb.username || 'default' },
-                      { label: 'Password', value: '••••••••••••' },
+                      { label: 'Database Name', value: activeDb.dbName || (activeDb.type === 'REDIS' ? '0 (default)' : activeDb.name) },
+                      { label: 'Username', value: activeDb.username || (activeDb.type === 'REDIS' ? 'default' : 'khclouduser') },
                     ].map(f => (
                       <div key={f.label} style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '8px' }}>
                         <span style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>{f.label}</span>
                         <code style={{ fontFamily: 'monospace', color: '#9ba3af' }}>{f.value}</code>
                       </div>
                     ))}
+                    {/* Password field with show/hide toggle and copy button */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '8px' }}>
+                      <span style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Password</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <code style={{ fontFamily: 'monospace', color: '#9ba3af', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {showDbPassword ? (activeDb.password || '—') : '••••••••••••'}
+                        </code>
+                        <button
+                          onClick={() => setShowDbPassword(v => !v)}
+                          title={showDbPassword ? 'Hide password' : 'Reveal password'}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', padding: '2px', flexShrink: 0 }}
+                        >
+                          {showDbPassword ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                        <button
+                          onClick={() => handleCopy(activeDb.password || '', activeDb.id + '-pw')}
+                          title="Copy password"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedId === activeDb.id + '-pw' ? '#22c55e' : '#4b5563', padding: '2px', flexShrink: 0 }}
+                        >
+                          {copiedId === activeDb.id + '-pw' ? <Check size={12} /> : <Copy size={12} />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Query via REST API */}
-                <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>Query via HTTP REST API</div>
-                  <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>Execute raw SQL from any backend, webhook, or serverless function.</p>
-                  <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '12px', fontSize: '11px', fontFamily: 'monospace', color: '#c4b5fd', whiteSpace: 'pre-wrap', overflow: 'auto', margin: 0 }}>
-{`# Execute SQL query via REST
-curl -X POST "${getApiBase()}/databases/${activeDb.id}/query" \\
-  -H "Content-Type: application/json" \\
-  -H "apikey: YOUR_TEAM_API_KEY" \\
-  -d '{
-    "teamId": "${activeTeam?.id || 'YOUR_TEAM_ID'}",
-    "sql": "SELECT * FROM users LIMIT 10;"
-  }'`}
-                  </pre>
-                </div>
+                {/* Direct Connection Snippets */}
+                <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>Backend Integration Snippets</div>
+                    <p style={{ fontSize: '11px', color: '#6b7280', margin: '4px 0 0 0' }}>Connect directly to this database using its credentials. Use the connection string or individual parameters below.</p>
+                  </div>
 
-                {/* Node.js / Python ORM & Client code */}
-                <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#f1f3f6' }}>Backend Integration Snippets</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    
-                    {/* HTTP REST Query */}
-                    <div>
-                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#818cf8' }}>Node.js / TypeScript (Fetch REST Query)</span>
-                      <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
-{`const response = await fetch('${getApiBase()}/databases/${activeDb.id}/query', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'apikey': process.env.KH_CLOUD_API_KEY,
-  },
-  body: JSON.stringify({
-    teamId: '${activeTeam?.id || 'YOUR_TEAM_ID'}',
-    sql: 'SELECT * FROM users WHERE active = 1',
-  }),
+                  {/* Node.js — pg */}
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#818cf8' }}>Node.js / TypeScript (pg driver)</span>
+                    <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
+{`import { Pool } from 'pg';
+
+const pool = new Pool({
+  host:     '${activeDb.host}',
+  port:      ${activeDb.port},
+  database: '${activeDb.dbName || activeDb.name}',
+  user:     '${activeDb.username || 'khclouduser'}',
+  password: '${activeDb.password || 'YOUR_DB_PASSWORD'}',
+  ssl:      { rejectUnauthorized: false },
 });
-const { rows } = await response.json();`}
-                      </pre>
-                    </div>
 
-                    {/* Prisma ORM */}
-                    <div>
-                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#a78bfa' }}>Prisma ORM (schema.prisma & .env)</span>
-                      <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
-{`// .env
+const { rows } = await pool.query('SELECT * FROM users LIMIT 10');
+console.log(rows);`}
+                    </pre>
+                  </div>
+
+                  {/* Prisma ORM */}
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#a78bfa' }}>Prisma ORM (.env + schema.prisma)</span>
+                    <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
+{`# .env
 DATABASE_URL="${getConnectionString(activeDb)}"
 
-// prisma/schema.prisma
+# prisma/schema.prisma
 datasource db {
   provider = "${activeDb.type.toLowerCase() === 'mysql' ? 'mysql' : 'postgresql'}"
   url      = env("DATABASE_URL")
 }`}
-                      </pre>
-                    </div>
+                    </pre>
+                  </div>
 
-                    {/* Python Requests */}
-                    <div>
-                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#38bdf8' }}>Python (Requests REST Query)</span>
-                      <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
-{`import requests, os
+                  {/* Python psycopg2 */}
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#38bdf8' }}>Python (psycopg2)</span>
+                    <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
+{`import psycopg2
 
-res = requests.post(
-    '${getApiBase()}/databases/${activeDb.id}/query',
-    headers={'apikey': os.getenv('KH_CLOUD_API_KEY')},
-    json={
-        'teamId': '${activeTeam?.id || 'YOUR_TEAM_ID'}',
-        'sql': 'SELECT * FROM users LIMIT 5'
-    }
+conn = psycopg2.connect(
+    host="${activeDb.host}",
+    port=${activeDb.port},
+    dbname="${activeDb.dbName || activeDb.name}",
+    user="${activeDb.username || 'khclouduser'}",
+    password="${activeDb.password || 'YOUR_DB_PASSWORD'}",
+    sslmode="require"
 )
-data = res.json()`}
-                      </pre>
-                    </div>
+cur = conn.cursor()
+cur.execute("SELECT * FROM users LIMIT 10")
+rows = cur.fetchall()`}
+                    </pre>
+                  </div>
 
-                    {/* Python SQLAlchemy / psycopg2 */}
-                    <div>
-                      <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#34d399' }}>Python (SQLAlchemy Engine)</span>
-                      <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
-{`from sqlalchemy import create_engine
+                  {/* Python SQLAlchemy */}
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#34d399' }}>Python (SQLAlchemy)</span>
+                    <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
+{`from sqlalchemy import create_engine, text
 
-# Connect via standard DB URI
 engine = create_engine("${getConnectionString(activeDb)}")
 with engine.connect() as conn:
-    result = conn.execute("SELECT 1")`}
-                      </pre>
-                    </div>
-
+    rows = conn.execute(text("SELECT * FROM users LIMIT 10")).fetchall()`}
+                    </pre>
                   </div>
+
+                  {/* Go pgx */}
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', color: '#fb923c' }}>Go (pgx)</span>
+                    <pre style={{ backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px', fontSize: '11px', fontFamily: 'monospace', color: '#d1d5db', whiteSpace: 'pre-wrap', margin: '4px 0 0 0' }}>
+{`package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/jackc/pgx/v5"
+)
+
+func main() {
+    conn, _ := pgx.Connect(context.Background(),
+        "${getConnectionString(activeDb)}",
+    )
+    defer conn.Close(context.Background())
+    fmt.Println("Connected!")
+}`}
+                    </pre>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -741,6 +790,7 @@ with engine.connect() as conn:
       </div>
     );
   }
+
 
   // ---- Render: Database List ----
   return (
@@ -804,8 +854,10 @@ with engine.connect() as conn:
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4b5563' }}>Internal URI</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0e1015', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '6px', padding: '6px 10px' }}>
-                        <code style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{connStr}</code>
-                        <button onClick={() => handleCopy(connStr, db.id + '-uri')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedId === db.id + '-uri' ? '#22c55e' : '#4b5563', display: 'flex' }}>
+                        <code style={{ flex: 1, fontSize: '10px', fontFamily: 'monospace', color: '#9ba3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {connStr.replace(/:([^:@]+)@/, ':*****@')}
+                        </code>
+                        <button onClick={() => handleCopy(connStr, db.id + '-uri')} title="Copy full URI (includes password)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedId === db.id + '-uri' ? '#22c55e' : '#4b5563', display: 'flex' }}>
                           {copiedId === db.id + '-uri' ? <Check size={11} /> : <Copy size={11} />}
                         </button>
                       </div>
@@ -814,7 +866,7 @@ with engine.connect() as conn:
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                     {isRunning ? (
-                      <button onClick={() => { setActiveDb(db); setDbView('table-editor'); setActiveTable(null); fetchTables(db.id); }} style={{ display: 'flex', alignItems: 'center', gap: '5px', height: '28px', padding: '0 12px', borderRadius: '6px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
+                      <button onClick={() => { setActiveDb(db); setDbView('table-editor'); setActiveTable(null); setShowDbPassword(false); fetchTables(db.id); }} style={{ display: 'flex', alignItems: 'center', gap: '5px', height: '28px', padding: '0 12px', borderRadius: '6px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>
                         <Table size={11} /> Open
                       </button>
                     ) : <div />}
