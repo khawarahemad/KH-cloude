@@ -1639,14 +1639,45 @@ export class ProjectsService {
       });
     };
 
-    const logsRes = await runCmd(`docker logs --tail 150 ${containerName}`).catch(() => ({ stdout: '', stderr: 'Container not running or not found.' }));
-    return { logs: (logsRes.stdout || '') + '\n' + (logsRes.stderr || '') };
+    const logsRes = await runCmd(`docker logs --tail 200 ${containerName}`).catch(() => ({ stdout: '', stderr: 'Container not running or not found.' }));
+    const containerLogs = (logsRes.stdout || '') + (logsRes.stderr ? '\n' + logsRes.stderr : '');
+
+    // Fetch recent website HTTP traffic logs from Traefik
+    let httpLogs: any[] = [];
+    try {
+      httpLogs = await (this.prisma as any).networkLog.findMany({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          ip: true,
+          method: true,
+          path: true,
+          host: true,
+          statusCode: true,
+          responseTimeMs: true,
+          createdAt: true,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to fetch httpLogs for project ${projectId}: ${err.message}`);
+    }
+
+    return {
+      logs: containerLogs.trim(),
+      httpLogs,
+      containerName,
+    };
   }
 
-  streamRuntimeLogs(projectId: string, teamId: string): Observable<{ data: { chunk: string } }> {
+  streamRuntimeLogs(projectId: string, teamId: string): Observable<{ data: { chunk: string; type?: string } }> {
     return new Observable((subscriber) => {
       let proc: any;
-      
+      let heartbeatTimer: any;
+      let httpPollTimer: any;
+      let lastHttpLogTime = new Date();
+
       this.prisma.project.findFirst({
         where: { id: projectId, teamId },
       }).then((project) => {
@@ -1658,31 +1689,97 @@ export class ProjectsService {
         const cleanSlug = project.slug.toLowerCase().replace(/[^a-z0-9]/g, '');
         const containerName = `kh-cloud-app-${cleanSlug}-${project.id.substring(0, 8)}`;
 
-        proc = spawn('docker', ['logs', '--tail', '100', '-f', containerName]);
+        const startDockerLogs = () => {
+          try {
+            proc = spawn('docker', ['logs', '--tail', '50', '-f', containerName]);
 
-        proc.stdout.on('data', (data: Buffer) => {
-          subscriber.next({ data: { chunk: data.toString() } });
-        });
-        
-        proc.stderr.on('data', (data: Buffer) => {
-          subscriber.next({ data: { chunk: data.toString() } });
-        });
+            proc.stdout.on('data', (data: Buffer) => {
+              subscriber.next({ data: { chunk: data.toString(), type: 'app' } });
+            });
 
-        proc.on('close', () => {
-          subscriber.complete();
-        });
+            proc.stderr.on('data', (data: Buffer) => {
+              const text = data.toString();
+              if (text.includes('No such container')) {
+                subscriber.next({
+                  data: {
+                    chunk: `[System] Container ${containerName} is currently not running.\n`,
+                    type: 'system',
+                  },
+                });
+              } else {
+                subscriber.next({ data: { chunk: text, type: 'app' } });
+              }
+            });
 
-        proc.on('error', (err: any) => {
-          subscriber.error(err);
-        });
+            proc.on('close', () => {
+              // Retry attaching in 5 seconds instead of terminating the SSE stream
+              setTimeout(() => {
+                if (!subscriber.closed) {
+                  startDockerLogs();
+                }
+              }, 5000);
+            });
+
+            proc.on('error', (err: any) => {
+              subscriber.next({
+                data: {
+                  chunk: `[System] Log reader note: ${err.message}\n`,
+                  type: 'system',
+                },
+              });
+            });
+          } catch (err: any) {
+            subscriber.next({
+              data: {
+                chunk: `[System] Unable to attach to container logs: ${err.message}\n`,
+                type: 'system',
+              },
+            });
+          }
+        };
+
+        startDockerLogs();
+
+        // Stream real-time HTTP website logs as they hit Traefik
+        httpPollTimer = setInterval(async () => {
+          if (subscriber.closed) return;
+          try {
+            const newHttpLogs = await (this.prisma as any).networkLog.findMany({
+              where: {
+                projectId,
+                createdAt: { gt: lastHttpLogTime },
+              },
+              orderBy: { createdAt: 'asc' },
+              take: 20,
+            });
+
+            if (newHttpLogs.length > 0) {
+              lastHttpLogTime = newHttpLogs[newHttpLogs.length - 1].createdAt;
+              for (const log of newHttpLogs) {
+                const timeStr = new Date(log.createdAt).toLocaleTimeString();
+                const formatted = `[HTTP ${timeStr}] ${log.method} ${log.path} -> ${log.statusCode} (${log.responseTimeMs || 0}ms) from ${log.ip}\n`;
+                subscriber.next({ data: { chunk: formatted, type: 'http' } });
+              }
+            }
+          } catch {}
+        }, 2000);
+
+        // Keep-alive heartbeat ping every 15s to prevent Traefik/browser idle timeout
+        heartbeatTimer = setInterval(() => {
+          if (!subscriber.closed) {
+            subscriber.next({ data: { chunk: '', type: 'ping' } });
+          }
+        }, 15000);
 
       }).catch(err => subscriber.error(err));
 
       // Cleanup when client disconnects
       return () => {
         if (proc) {
-          proc.kill();
+          try { proc.kill(); } catch {}
         }
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        if (httpPollTimer) clearInterval(httpPollTimer);
       };
     });
   }

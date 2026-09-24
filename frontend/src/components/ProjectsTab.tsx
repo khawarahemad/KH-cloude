@@ -48,6 +48,7 @@ export default function ProjectsTab() {
   const {
     activeTeam,
     user,
+    accessToken,
     projectsCache: projects,
     setProjectsCache: setProjects,
     selectedProjectId,
@@ -140,6 +141,10 @@ export default function ProjectsTab() {
   // Active details tab
   const [detailsTab, setDetailsTab] = useState<'deployments' | 'env' | 'networking' | 'metrics' | 'network' | 'console' | 'terminal' | 'settings'>('deployments');
   const [runtimeLogs, setRuntimeLogs] = useState<string[]>(['Fetching runtime logs...']);
+  const [logFilter, setLogFilter] = useState<'all' | 'app' | 'http'>('all');
+  const [logSearch, setLogSearch] = useState('');
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [isLogStreaming, setIsLogStreaming] = useState(false);
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalHistory, setTerminalHistory] = useState<string[]>([
     'Welcome to KH Cloud Interactive Terminal.',
@@ -559,48 +564,105 @@ export default function ProjectsTab() {
     }
   }, [activeProjectId]);
 
-  // Setup SSE for runtime logs
+  const fetchRuntimeLogs = async (silent = false) => {
+    if (!activeProjectId || !activeTeam?.id) return;
+    if (!silent) setLogsLoading(true);
+    try {
+      const data = await apiRequest(`/projects/${activeProjectId}/runtime-logs?teamId=${activeTeam.id}`);
+      if (data?.logs || Array.isArray(data?.httpLogs)) {
+        const lines = (data.logs || '').split('\n').filter((l: string) => l.trim() !== '');
+        const httpLines: string[] = [];
+        if (Array.isArray(data.httpLogs)) {
+          for (const log of data.httpLogs.slice().reverse()) {
+            const timeStr = new Date(log.createdAt).toLocaleTimeString();
+            httpLines.push(`[HTTP ${timeStr}] ${log.method} ${log.path} -> ${log.statusCode} (${log.responseTimeMs || 0}ms) from ${log.ip}`);
+          }
+        }
+        const combined = [...lines, ...httpLines];
+        setRuntimeLogs(combined.length > 300 ? combined.slice(combined.length - 300) : combined);
+      } else if (!silent) {
+        setRuntimeLogs(['[System] No container output recorded yet.']);
+      }
+    } catch (err: any) {
+      if (!silent) {
+        setRuntimeLogs([`[System] Could not load logs: ${err.message || 'Error'}`]);
+      }
+    } finally {
+      if (!silent) setLogsLoading(false);
+    }
+  };
+
+  // Setup SSE for runtime logs & live website traffic
   useEffect(() => {
     if (!activeProjectId || !activeTeam?.id || detailsTab !== 'console') return;
     
     let isSubscribed = true;
-    setRuntimeLogs(['Connecting to log stream...']);
+    let eventSource: EventSource | null = null;
+    let fallbackPollTimer: any = null;
 
-    const token = localStorage.getItem('access_token');
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.khawarahemad.com/api';
-    
-    const eventSource = new EventSource(
-      `${baseUrl}/projects/${activeProjectId}/runtime-logs-stream?teamId=${activeTeam.id}&token=${token}`
-    );
+    // 1. Immediately fetch existing logs so the console is populated instantly
+    fetchRuntimeLogs(false);
 
-    eventSource.onmessage = (event) => {
-      if (!isSubscribed) return;
+    // 2. Resolve token for SSE
+    let token = accessToken;
+    if (!token && typeof window !== 'undefined') {
       try {
-        const data = JSON.parse(event.data);
-        if (data.chunk) {
-          const lines = data.chunk.split('\n').filter((l: string) => l.trim() !== '');
-          setRuntimeLogs((prev) => {
-            const newLogs = [...prev, ...lines];
-            // Keep max 200 lines to avoid UI lag
-            return newLogs.length > 200 ? newLogs.slice(newLogs.length - 200) : newLogs;
-          });
-        }
-      } catch (e) {
-        // Ignore parse errors
-      }
-    };
+        const stored = JSON.parse(localStorage.getItem('kh-cloud-session') || '{}');
+        token = stored?.state?.accessToken || null;
+      } catch {}
+    }
 
-    eventSource.onerror = () => {
+    const baseUrl = getApiBase();
+    const sseUrl = `${baseUrl}/projects/${activeProjectId}/runtime-logs-stream?teamId=${activeTeam.id}&token=${encodeURIComponent(token || '')}`;
+
+    try {
+      eventSource = new EventSource(sseUrl, { withCredentials: true });
+
+      eventSource.onopen = () => {
+        if (!isSubscribed) return;
+        setIsLogStreaming(true);
+      };
+
+      eventSource.onmessage = (event) => {
+        if (!isSubscribed) return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.chunk && data.chunk.trim() !== '') {
+            const lines = data.chunk.split('\n').filter((l: string) => l.trim() !== '');
+            setRuntimeLogs((prev) => {
+              const newLogs = [...prev, ...lines];
+              return newLogs.length > 300 ? newLogs.slice(newLogs.length - 300) : newLogs;
+            });
+          }
+        } catch {
+          if (event.data && typeof event.data === 'string' && event.data.trim()) {
+            setRuntimeLogs((prev) => [...prev, event.data].slice(-300));
+          }
+        }
+      };
+
+      eventSource.onerror = () => {
+        if (!isSubscribed) return;
+        setIsLogStreaming(false);
+      };
+    } catch {
+      setIsLogStreaming(false);
+    }
+
+    // 3. Fallback poll every 8 seconds to ensure logs never freeze if SSE is blocked
+    fallbackPollTimer = setInterval(() => {
       if (isSubscribed) {
-        setRuntimeLogs((prev) => [...prev, '[Disconnected from log stream. Reconnecting...]'].slice(-200));
+        fetchRuntimeLogs(true);
       }
-    };
+    }, 8000);
 
     return () => {
       isSubscribed = false;
-      eventSource.close();
+      setIsLogStreaming(false);
+      if (eventSource) eventSource.close();
+      if (fallbackPollTimer) clearInterval(fallbackPollTimer);
     };
-  }, [activeProjectId, activeTeam?.id, detailsTab]);
+  }, [activeProjectId, activeTeam?.id, detailsTab, accessToken]);
 
   const handleTerminalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1519,23 +1581,162 @@ export default function ProjectsTab() {
                 </div>
               )}
 
-              {/* ── Runtime Logs ── */}
-              {detailsTab === 'console' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Runtime Console</div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Live stdout/stderr stream from the running container.</div>
+              {/* ── Runtime Logs & Website Traffic ── */}
+              {detailsTab === 'console' && (() => {
+                const filteredLogs = runtimeLogs.filter(line => {
+                  if (logFilter === 'app' && (line.startsWith('[HTTP ') || line.startsWith('[HTTP]'))) return false;
+                  if (logFilter === 'http' && !(line.startsWith('[HTTP ') || line.startsWith('[HTTP]'))) return false;
+                  if (logSearch.trim() && !line.toLowerCase().includes(logSearch.toLowerCase().trim())) return false;
+                  return true;
+                });
+
+                const appCount = runtimeLogs.filter(l => !l.startsWith('[HTTP ') && !l.startsWith('[HTTP]')).length;
+                const httpCount = runtimeLogs.filter(l => l.startsWith('[HTTP ') || l.startsWith('[HTTP]')).length;
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>
+                          Runtime Console &amp; Website Logs
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                          Live stdout/stderr stream from container + incoming HTTP website traffic from Traefik edge.
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isLogStreaming ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '9999px', border: '1px solid rgba(34,197,94,0.25)' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e' }} className="animate-pulse" />
+                            Live SSE Stream
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: '#fbbf24', backgroundColor: 'rgba(245,158,11,0.1)', padding: '4px 10px', borderRadius: '9999px', border: '1px solid rgba(245,158,11,0.25)' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#fbbf24' }} />
+                            Auto-Polling (8s)
+                          </span>
+                        )}
+                        <button
+                          onClick={() => fetchRuntimeLogs(false)}
+                          disabled={logsLoading}
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }}
+                          className="hover:bg-white/5 hover:text-white"
+                        >
+                          <RefreshCw size={11} className={logsLoading ? 'animate-spin' : ''} /> Refresh
+                        </button>
+                        <button
+                          onClick={() => setRuntimeLogs([])}
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }}
+                          className="hover:bg-white/5 hover:text-white"
+                        >
+                          Clear
+                        </button>
+                      </div>
                     </div>
-                    <button onClick={() => setRuntimeLogs([])} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }} className="hover:bg-white/5 hover:text-white">
-                      <RefreshCw size={11} /> Clear
-                    </button>
+
+                    {/* Filter & Search Bar */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', backgroundColor: '#111318', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {[
+                          { id: 'all', label: `All Logs (${runtimeLogs.length})` },
+                          { id: 'app', label: `App Output (${appCount})` },
+                          { id: 'http', label: `Website Requests (${httpCount})` },
+                        ].map((tab) => (
+                          <button
+                            key={tab.id}
+                            onClick={() => setLogFilter(tab.id as any)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              border: logFilter === tab.id ? '1px solid rgba(124,58,237,0.4)' : '1px solid transparent',
+                              backgroundColor: logFilter === tab.id ? 'rgba(124,58,237,0.15)' : 'transparent',
+                              color: logFilter === tab.id ? '#c4b5fd' : '#6b7280',
+                              transition: 'all 0.12s',
+                            }}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input
+                          type="text"
+                          value={logSearch}
+                          onChange={(e) => setLogSearch(e.target.value)}
+                          placeholder="Filter log entries..."
+                          style={{
+                            height: '28px',
+                            width: '200px',
+                            backgroundColor: '#08090c',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: '6px',
+                            padding: '0 10px',
+                            color: '#e2e8f0',
+                            fontSize: '11px',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Main Log Window */}
+                    <div
+                      style={{
+                        fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                        fontSize: '12px',
+                        lineHeight: 1.7,
+                        backgroundColor: '#08090c',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        padding: '16px',
+                        borderRadius: '10px',
+                        maxHeight: '480px',
+                        minHeight: '260px',
+                        overflowY: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        userSelect: 'text',
+                      }}
+                    >
+                      {filteredLogs.length === 0 ? (
+                        <div style={{ color: '#4b5563', textAlign: 'center', padding: '40px 0', fontSize: '12px' }}>
+                          No matching logs found.
+                        </div>
+                      ) : (
+                        filteredLogs.map((line, idx) => {
+                          const isHttp = line.startsWith('[HTTP ') || line.startsWith('[HTTP]');
+                          const isSystem = line.startsWith('[System]');
+                          const isErr = !isHttp && !isSystem && (/error|exception|fail|crash|fatal/i.test(line));
+                          const isWarn = !isHttp && !isSystem && (/warn|warning/i.test(line));
+
+                          let color = '#9ba3af';
+                          if (isSystem) color = '#38bdf8';
+                          else if (isErr) color = '#f87171';
+                          else if (isWarn) color = '#fbbf24';
+                          else if (isHttp) {
+                            if (/-> 5\d\d/.test(line)) color = '#ef4444';
+                            else if (/-> 4\d\d/.test(line)) color = '#fbbf24';
+                            else if (/-> 2\d\d|-> 3\d\d/.test(line)) color = '#22c55e';
+                            else color = '#a78bfa';
+                          }
+
+                          return (
+                            <div key={idx} style={{ color, display: 'flex', gap: '8px', alignItems: 'baseline' }}>
+                              <span style={{ color: '#374151', fontSize: '10px', userSelect: 'none', minWidth: '28px', textAlign: 'right' }}>
+                                {idx + 1}
+                              </span>
+                              <span style={{ flex: 1, wordBreak: 'break-word' }}>
+                                {line}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '12px', lineHeight: 1.7, color: '#9ba3af', backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', padding: '16px', borderRadius: '10px', maxHeight: '420px', overflowY: 'auto', whiteSpace: 'pre-wrap', userSelect: 'text' }}>
-                    {runtimeLogs.join('\n')}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* ── Interactive Terminal ── */}
               {detailsTab === 'terminal' && (
