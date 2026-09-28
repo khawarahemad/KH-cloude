@@ -1,11 +1,36 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DatabaseType } from '@prisma/client';
 import { sendDiscordNotification } from '../utils/discord-webhook';
 
 @Injectable()
-export class DatabasesService {
+export class DatabasesService implements OnModuleInit {
+  private readonly logger = new Logger(DatabasesService.name);
+
   constructor(private prisma: PrismaService) {}
+
+  async onModuleInit() {
+    // Automatically verify and provision all registered PostgreSQL instances on startup
+    this.syncAllPostgresDatabases().catch((err) => {
+      this.logger.warn(`Postgres initial sync note: ${err.message}`);
+    });
+  }
+
+  async syncAllPostgresDatabases() {
+    try {
+      const postgresDbs = await this.prisma.databaseInstance.findMany({
+        where: { type: 'POSTGRESQL' },
+      });
+      for (const db of postgresDbs) {
+        if (db.username && db.password && db.dbName) {
+          await this.provisionPostgresDatabase(db.username, db.password, db.dbName);
+        }
+      }
+      this.logger.log(`Verified and synced ${postgresDbs.length} PostgreSQL instances in kh-cloud-postgres`);
+    } catch (err: any) {
+      this.logger.warn(`Failed to sync PostgreSQL instances: ${err.message}`);
+    }
+  }
 
   async createDatabase(data: {
     name: string;
@@ -47,7 +72,7 @@ export class DatabasesService {
     });
 
     if (data.type === 'POSTGRESQL') {
-      this.provisionPostgresDatabase(username, password, dbName);
+      await this.provisionPostgresDatabase(username, password, dbName);
     }
 
     // Simulate provisioning complete in 5 seconds
@@ -105,7 +130,7 @@ export class DatabasesService {
     });
     if (!db) throw new NotFoundException('Database not found.');
     if (db.type === 'POSTGRESQL') {
-      this.provisionPostgresDatabase(db.username, db.password, db.dbName);
+      await this.provisionPostgresDatabase(db.username, db.password, db.dbName);
     }
     return {
       host: db.host,
@@ -579,23 +604,68 @@ export class DatabasesService {
     };
   }
 
-  private provisionPostgresDatabase(username?: string | null, password?: string | null, dbName?: string | null) {
-    if (!username || !password || !dbName) return;
+  async provisionPostgresDatabase(username?: string | null, password?: string | null, dbName?: string | null): Promise<boolean> {
+    if (!username || !password || !dbName) return false;
     try {
       const { exec } = require('child_process');
+      const util = require('util');
+      const execAsync = util.promisify(exec);
+
       const safeUser = username.replace(/[^a-zA-Z0-9_]/g, '');
       const safeDb = dbName.replace(/[^a-zA-Z0-9_]/g, '');
       const safePass = password.replace(/'/g, "''");
 
-      const script = `DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${safeUser}') THEN CREATE ROLE "${safeUser}" WITH LOGIN PASSWORD '${safePass}' CREATEDB; ELSE ALTER ROLE "${safeUser}" WITH PASSWORD '${safePass}'; END IF; END $$;`;
+      const sqlScript = `
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${safeUser}') THEN
+    CREATE ROLE "${safeUser}" WITH LOGIN PASSWORD '${safePass}' CREATEDB;
+  ELSE
+    ALTER ROLE "${safeUser}" WITH LOGIN PASSWORD '${safePass}' CREATEDB;
+  END IF;
+END
+$$;
 
-      const cmd = `docker exec -i kh-cloud-postgres psql -U khclouduser -d khclouddb -c "${script}" && docker exec -i kh-cloud-postgres createdb -U khclouduser -O "${safeUser}" "${safeDb}" 2>/dev/null || true`;
+SELECT 'CREATE DATABASE "${safeDb}" OWNER "${safeUser}"'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${safeDb}')\\gexec
 
-      exec(cmd, (err: any) => {
-        if (err) console.warn('Could not auto-provision Postgres container:', err.message);
-      });
+GRANT ALL PRIVILEGES ON DATABASE "${safeDb}" TO "${safeUser}";
+ALTER DATABASE "${safeDb}" OWNER TO "${safeUser}";
+
+\\c "${safeDb}"
+GRANT ALL ON SCHEMA public TO "${safeUser}";
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "${safeUser}";
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "${safeUser}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "${safeUser}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "${safeUser}";
+`;
+
+      const base64Sql = Buffer.from(sqlScript).toString('base64');
+
+      const shellScript = `
+echo '${base64Sql}' | base64 -d > /tmp/provision_${safeUser}.sql
+PUSER="\${POSTGRES_USER:-khclouduser}"
+PPASS="\${POSTGRES_PASSWORD:-khcloudpassword}"
+PDB="\${POSTGRES_DB:-postgres}"
+export PGPASSWORD="$PPASS"
+
+psql -U "$PUSER" -d "$PDB" -f /tmp/provision_${safeUser}.sql 2>/dev/null || \\
+psql -U postgres -d postgres -f /tmp/provision_${safeUser}.sql 2>/dev/null || \\
+psql -U khclouduser -d khclouddb -f /tmp/provision_${safeUser}.sql 2>/dev/null || \\
+psql -U "$PUSER" -d postgres -f /tmp/provision_${safeUser}.sql
+
+rm -f /tmp/provision_${safeUser}.sql
+`;
+
+      const base64Shell = Buffer.from(shellScript).toString('base64');
+      const cmd = `docker exec -i kh-cloud-postgres sh -c "echo '${base64Shell}' | base64 -d | sh"`;
+
+      await execAsync(cmd, { timeout: 15000 });
+      this.logger.log(`Provisioned PostgreSQL user "${safeUser}" and database "${safeDb}" in kh-cloud-postgres`);
+      return true;
     } catch (e: any) {
-      console.warn('Postgres auto-provision error:', e.message);
+      this.logger.warn(`Postgres provision note for ${username}: ${e.message}`);
+      return false;
     }
   }
 }
