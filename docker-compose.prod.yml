@@ -54,7 +54,7 @@ services:
       - kh-cloud-network
 
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: kh-cloud-minio
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-khcloudroot}
@@ -128,7 +128,7 @@ services:
       - DDOS_BAN_THRESHOLD=${DDOS_BAN_THRESHOLD:-5}
       - DDOS_BAN_TTL_SECONDS=${DDOS_BAN_TTL_SECONDS:-3600}
       - DDOS_ALERT_DISCORD_WEBHOOK=${DDOS_ALERT_DISCORD_WEBHOOK:-}
-      - PLATFORM_ADMIN_EMAIL=${PLATFORM_ADMIN_EMAIL}
+      - PLATFORM_ADMIN_EMAIL=${PLATFORM_ADMIN_EMAIL:-}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
       - JWT_SECRET=${JWT_SECRET}
       - BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY:-${ADMIN_API_KEY:-}}

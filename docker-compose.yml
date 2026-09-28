@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: kh-cloud-minio
     ports:
       - "9000:9000"       # API
