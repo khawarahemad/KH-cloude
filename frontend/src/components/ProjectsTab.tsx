@@ -221,6 +221,8 @@ export default function ProjectsTab() {
   const [domainAdding, setDomainAdding] = useState(false);
   const [domainError, setDomainError] = useState('');
   const [removingDomainId, setRemovingDomainId] = useState<string | null>(null);
+  const [verifyingDomainId, setVerifyingDomainId] = useState<string | null>(null);
+  const [domainVerifyResult, setDomainVerifyResult] = useState<{ [id: string]: { success: boolean; details: string } }>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, key: string) => {
@@ -976,6 +978,31 @@ export default function ProjectsTab() {
     }
   };
 
+  const handleVerifyDomain = async (domainId: string) => {
+    if (!activeProjectId || !activeTeam) return;
+    setVerifyingDomainId(domainId);
+    try {
+      const res = await apiRequest(`/projects/${activeProjectId}/domain/${domainId}/verify`, {
+        method: 'POST',
+        body: JSON.stringify({ teamId: activeTeam.id }),
+      });
+      if (res?.health) {
+        setDomainVerifyResult(prev => ({
+          ...prev,
+          [domainId]: {
+            success: res.success,
+            details: res.health.details,
+          },
+        }));
+      }
+      await fetchProjectDetails(activeProjectId);
+    } catch (err: any) {
+      alert({ title: 'Verification Error', message: err?.message || 'Failed to verify domain.', type: 'error' });
+    } finally {
+      setVerifyingDomainId(null);
+    }
+  };
+
   const handleRestart = async () => {
     if (!canDeploy) {
       alert({ title: 'Permission Denied', message: 'You need Developer or higher role to restart services.', type: 'error' });
@@ -1488,7 +1515,9 @@ export default function ProjectsTab() {
                             </div>
                           </div>
                         )}
-                        <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>☁ In Cloudflare, set Proxy status to <strong style={{ color: '#8a929e' }}>DNS only</strong> (gray cloud) to allow Let's Encrypt to verify.</div>
+                        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.4' }}>
+                          ☁ <strong style={{ color: '#e5e7eb' }}>Cloudflare Users:</strong> In Cloudflare SSL/TLS settings, set mode to <strong style={{ color: '#f59e0b' }}>Full</strong> (not Full Strict) or set Proxy to <strong style={{ color: '#c4b5fd' }}>DNS only</strong> (gray cloud) so Traefik can complete Let&apos;s Encrypt validation.
+                        </div>
                       </div>
                     );
                   })()}
@@ -1502,28 +1531,45 @@ export default function ProjectsTab() {
                     ) : (
                       projectDetails?.domains?.map((dom: any) => {
                         const isSystem = dom.hostname.endsWith(`.${getBaseDomain()}`);
-                        const isActive = dom.status === 'ACTIVE' || !dom.status;
+                        const isActive = dom.status === 'ACTIVE' || (!dom.status && !dom.isCustom);
                         const isPending = dom.status === 'PENDING';
+                        const verifyRes = domainVerifyResult[dom.id];
+
                         return (
-                          <div key={dom.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}>
-                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#6b7280' }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <a href={`https://${dom.hostname}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', textDecoration: 'none', transition: 'all 0.12s' }} className="hover:text-violet-400">{dom.hostname}</a>
-                                {isSystem && <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.1)', color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.04em' }}>free subdomain</span>}
-                                {dom.isCustom && <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#8a929e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>custom domain</span>}
+                          <div key={dom.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 16px', borderRadius: '8px', backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#ef4444' }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <a href={`https://${dom.hostname}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: '#f1f3f6', textDecoration: 'none', transition: 'all 0.12s' }} className="hover:text-violet-400">{dom.hostname}</a>
+                                  {isSystem && <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.1)', color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.04em' }}>free subdomain</span>}
+                                  {dom.isCustom && <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#8a929e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>custom domain</span>}
+                                </div>
+                                <div style={{ fontSize: '11px', color: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#ef4444', marginTop: '3px' }}>
+                                  {isPending ? '⟳ Provisioning SSL certificate & routing...' : isActive ? '✓ HTTPS Active' : '⚠ Verification / SSL pending'}
+                                </div>
                               </div>
-                              <div style={{ fontSize: '11px', color: isPending ? '#f59e0b' : isActive ? '#22c55e' : '#ef4444', marginTop: '3px' }}>
-                                {isPending ? '⟳ Provisioning SSL certificate & routing...' : isActive ? '✓ HTTPS Active' : '⚠ Verification failed'}
-                              </div>
+                              {!isSystem && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <button onClick={() => handleVerifyDomain(dom.id)} disabled={verifyingDomainId === dom.id}
+                                    style={{ height: '26px', padding: '0 10px', borderRadius: '5px', border: '1px solid rgba(124,58,237,0.3)', backgroundColor: 'rgba(124,58,237,0.08)', color: '#c4b5fd', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s', opacity: verifyingDomainId === dom.id ? 0.5 : 1 }}
+                                    className="hover:bg-violet-600/20"
+                                  >
+                                    {verifyingDomainId === dom.id ? 'Checking...' : 'Check SSL'}
+                                  </button>
+                                  <button onClick={() => handleRemoveDomain(dom.id)} disabled={removingDomainId === dom.id}
+                                    style={{ height: '26px', padding: '0 10px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#8a929e', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s', opacity: removingDomainId === dom.id ? 0.5 : 1 }}
+                                    className="hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10"
+                                  >
+                                    {removingDomainId === dom.id ? '...' : 'Remove'}
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            {!isSystem && (
-                              <button onClick={() => handleRemoveDomain(dom.id)} disabled={removingDomainId === dom.id}
-                                style={{ height: '26px', padding: '0 10px', borderRadius: '5px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'transparent', color: '#8a929e', fontSize: '11px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s', opacity: removingDomainId === dom.id ? 0.5 : 1 }}
-                                className="hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10"
-                              >
-                                {removingDomainId === dom.id ? '...' : 'Remove'}
-                              </button>
+                            {verifyRes && (
+                              <div style={{ fontSize: '11px', padding: '6px 10px', borderRadius: '6px', backgroundColor: verifyRes.success ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: verifyRes.success ? '#4ade80' : '#fca5a5', border: `1px solid ${verifyRes.success ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+                                {verifyRes.details}
+                              </div>
                             )}
                           </div>
                         );
