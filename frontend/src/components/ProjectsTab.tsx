@@ -1485,11 +1485,11 @@ export default function ProjectsTab() {
                         {showApex && (
                           <div style={{ borderRadius: '8px', border: '1px solid rgba(245,158,11,0.15)', backgroundColor: '#111318', overflow: 'hidden' }}>
                             <div style={{ padding: '8px 12px', backgroundColor: 'rgba(245,158,11,0.04)', borderBottom: '1px solid rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', textTransform: 'uppercase' }}>A Record</span>
-                              <span style={{ fontSize: '11px', color: '#8a929e' }}>Apex / root domain mapping</span>
+                              <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', textTransform: 'uppercase' }}>A Record (Recommended)</span>
+                              <span style={{ fontSize: '11px', color: '#8a929e' }}>Apex / Root &amp; Subdomains (@ or www)</span>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
-                              {[{ l: 'Type', v: 'A', c: '#f59e0b' }, { l: 'Name / Host', v: '@', c: '#f1f3f6' }, { l: 'Value / IPv4', v: '204.168.147.13', c: '#22c55e' }].map((f, i) => (
+                              {[{ l: 'Type', v: 'A', c: '#f59e0b' }, { l: 'Name / Host', v: dtype === 'www' ? 'www' : '@', c: '#f1f3f6' }, { l: 'Value / IPv4', v: '204.168.147.13', c: '#22c55e' }].map((f, i) => (
                                 <div key={f.l} style={{ padding: '10px 12px', borderRight: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                                   <div style={{ fontSize: '9px', color: '#4b5563', marginBottom: '4px', textTransform: 'uppercase' }}>{f.l}</div>
                                   <span style={{ color: f.c, fontWeight: 700 }}>{f.v}</span>
@@ -1502,8 +1502,8 @@ export default function ProjectsTab() {
                         {showCname && (
                           <div style={{ borderRadius: '8px', border: '1px solid rgba(124,58,237,0.15)', backgroundColor: '#111318', overflow: 'hidden' }}>
                             <div style={{ padding: '8px 12px', backgroundColor: 'rgba(124,58,237,0.04)', borderBottom: '1px solid rgba(124,58,237,0.1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd', textTransform: 'uppercase' }}>CNAME Record</span>
-                              <span style={{ fontSize: '11px', color: '#8a929e' }}>Subdomain mapping</span>
+                              <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd', textTransform: 'uppercase' }}>Alternative: CNAME Record</span>
+                              <span style={{ fontSize: '11px', color: '#8a929e' }}>Subdomain mapping (Non-Cloudflare DNS only)</span>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', fontFamily: 'monospace', fontSize: '11px' }}>
                               {[{ l: 'Type', v: 'CNAME', c: '#c4b5fd' }, { l: 'Name / Host', v: nameLabel, c: '#f1f3f6' }, { l: 'Value / Target', v: `cloud.${getBaseDomain()}`, c: '#22c55e' }].map((f, i) => (
@@ -1515,8 +1515,10 @@ export default function ProjectsTab() {
                             </div>
                           </div>
                         )}
-                        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.4' }}>
-                          ☁ <strong style={{ color: '#e5e7eb' }}>Cloudflare Users:</strong> In Cloudflare SSL/TLS settings, set mode to <strong style={{ color: '#f59e0b' }}>Full</strong> (not Full Strict) or set Proxy to <strong style={{ color: '#c4b5fd' }}>DNS only</strong> (gray cloud) so Traefik can complete Let&apos;s Encrypt validation.
+                        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.5' }}>
+                          ☁ <strong style={{ color: '#e5e7eb' }}>Cloudflare Users Notice:</strong><br />
+                          1. <strong>Do NOT use CNAME on Cloudflare:</strong> It causes <strong style={{ color: '#ef4444' }}>Error 1014 (CNAME Cross-User Banned)</strong>. Use an <strong>A Record</strong> pointing to <code style={{ color: '#22c55e', backgroundColor: '#111318', padding: '1px 4px', borderRadius: '3px' }}>204.168.147.13</code> for both <code style={{ color: '#f59e0b' }}>@</code> and <code style={{ color: '#c4b5fd' }}>www</code>.<br />
+                          2. <strong>SSL/TLS Settings:</strong> Set mode to <strong style={{ color: '#f59e0b' }}>Full</strong> (not Full Strict) or set Proxy status to <strong style={{ color: '#c4b5fd' }}>DNS only</strong> (gray cloud) so Traefik can complete Let&apos;s Encrypt validation.
                         </div>
                       </div>
                     );
