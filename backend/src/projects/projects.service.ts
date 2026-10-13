@@ -494,7 +494,7 @@ export class ProjectsService {
         const inspectRes = await runCmd('docker', ['inspect', '--format', '{{.Config.Image}}', containerName]);
         if (inspectRes.code !== 0 || !inspectRes.stdout.trim()) {
           this.logger.warn(`[Domain Route] Container ${containerName} not found, skipping re-route.`);
-          await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } });
+          await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'FAILED', sslStatus: 'FAILED' } });
           return;
         }
 
@@ -534,19 +534,165 @@ export class ProjectsService {
 
         const rerunRes = await runCmd('docker', runArgs);
         if (rerunRes.code === 0) {
-          this.logger.log(`[Domain Route] Container ${containerName} re-launched with ${hostname} in Traefik routing.`);
-          await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } });
+          this.logger.log(`[Domain Route] Container ${containerName} re-launched with ${hostname} in Traefik routing. Polling for SSL & DNS activation...`);
+          void this.pollDomainVerification(domain.id, hostname);
         } else {
           this.logger.error(`[Domain Route] Failed to re-launch container: ${rerunRes.stderr}`);
+          await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'FAILED', sslStatus: 'FAILED' } }).catch(() => null);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         this.logger.error(`[Domain Route] Error during container re-route: ${message}`);
-        await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() } }).catch(() => null);
+        await this.prisma.domain.update({ where: { id: domain.id }, data: { status: 'FAILED', sslStatus: 'FAILED' } }).catch(() => null);
       }
     });
 
     return domain;
+  }
+
+  /**
+   * Probes domain DNS and SSL validity.
+   */
+  async checkDomainHealth(hostname: string): Promise<{
+    verified: boolean;
+    statusCode?: number;
+    error?: string;
+    details: string;
+  }> {
+    const dns = require('dns').promises;
+    const https = require('https');
+
+    // 1. Check DNS resolution
+    try {
+      await dns.lookup(hostname);
+    } catch (err: any) {
+      return {
+        verified: false,
+        error: 'DNS_UNRESOLVED',
+        details: `DNS lookup failed for ${hostname}. Please configure your A/CNAME record.`,
+      };
+    }
+
+    // 2. Check HTTPS probe
+    return new Promise((resolve) => {
+      const req = https.request(
+        `https://${hostname}/`,
+        {
+          method: 'HEAD',
+          timeout: 6000,
+          headers: { 'User-Agent': 'KHCloud-SSL-Checker/1.0' },
+        },
+        (res: any) => {
+          if (res.statusCode === 526) {
+            resolve({
+              verified: false,
+              statusCode: 526,
+              error: 'CLOUDFLARE_526_INVALID_SSL',
+              details: 'Cloudflare cannot validate origin SSL (Error 526). Change Cloudflare SSL mode to "Full" or set DNS proxy to "DNS only".',
+            });
+            return;
+          }
+          if (res.statusCode === 525) {
+            resolve({
+              verified: false,
+              statusCode: 525,
+              error: 'CLOUDFLARE_525_HANDSHAKE_FAILED',
+              details: 'SSL handshake failed between Cloudflare and origin (Error 525). Traefik SSL certificate is still provisioning.',
+            });
+            return;
+          }
+
+          resolve({
+            verified: true,
+            statusCode: res.statusCode,
+            details: `SSL handshake active. Host responded with HTTP ${res.statusCode}.`,
+          });
+        },
+      );
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({
+          verified: false,
+          error: 'TIMEOUT',
+          details: `HTTPS connection timed out for ${hostname}.`,
+        });
+      });
+
+      req.on('error', (err: any) => {
+        const msg = err.message || '';
+        resolve({
+          verified: false,
+          error: 'SSL_ERROR',
+          details: `SSL verification failed: ${msg}`,
+        });
+      });
+
+      req.end();
+    });
+  }
+
+  /**
+   * Periodically poll domain health in the background after router setup.
+   */
+  async pollDomainVerification(domainId: string, hostname: string, maxAttempts = 6): Promise<void> {
+    const delays = [4000, 8000, 15000, 20000, 30000, 30000];
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, delays[i] || 15000));
+
+      const domain = await this.prisma.domain.findUnique({ where: { id: domainId } });
+      if (!domain) return;
+
+      const health = await this.checkDomainHealth(hostname);
+      if (health.verified) {
+        this.logger.log(`[Domain Verify] ${hostname} successfully verified SSL on attempt ${i + 1}.`);
+        await this.prisma.domain.update({
+          where: { id: domainId },
+          data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() },
+        });
+        return;
+      }
+      this.logger.debug(`[Domain Verify] ${hostname} attempt ${i + 1}/${maxAttempts}: ${health.details}`);
+    }
+
+    const finalDomain = await this.prisma.domain.findUnique({ where: { id: domainId } });
+    if (finalDomain && finalDomain.status === 'PENDING') {
+      await this.prisma.domain.update({
+        where: { id: domainId },
+        data: { status: 'FAILED', sslStatus: 'FAILED' },
+      });
+      this.logger.warn(`[Domain Verify] ${hostname} automatic verification timed out.`);
+    }
+  }
+
+  /**
+   * Manual verification method triggered by user or API.
+   */
+  async verifyCustomDomain(projectId: string, domainId: string, teamId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, teamId },
+    });
+    if (!project) throw new NotFoundException('Project not found.');
+
+    const domain = await this.prisma.domain.findFirst({
+      where: { id: domainId, projectId },
+    });
+    if (!domain) throw new NotFoundException('Domain not found.');
+
+    const health = await this.checkDomainHealth(domain.hostname);
+    if (health.verified) {
+      const updated = await this.prisma.domain.update({
+        where: { id: domainId },
+        data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() },
+      });
+      return { success: true, domain: updated, health };
+    } else {
+      const updated = await this.prisma.domain.update({
+        where: { id: domainId },
+        data: { status: 'FAILED', sslStatus: 'FAILED' },
+      });
+      return { success: false, domain: updated, health };
+    }
   }
 
   async removeCustomDomain(projectId: string, domainId: string, teamId: string) {

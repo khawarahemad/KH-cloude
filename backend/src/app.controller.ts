@@ -477,6 +477,19 @@ export class AppController {
     return this.projects.removeCustomDomain(id, domainId, body.teamId);
   }
 
+  @Post('projects/:id/domain/:domainId/verify')
+  async verifyCustomDomain(
+    @Param('id') id: string,
+    @Param('domainId') domainId: string,
+    @Body() body: { teamId: string },
+    @Req() req: express.Request,
+  ) {
+    const userId = (req as any).user.id as string;
+
+    await this.rbac.verifyProjectAccess(userId, id, 'DEVELOPER');
+    return this.projects.verifyCustomDomain(id, domainId, body.teamId);
+  }
+
   @Get('projects/:id/metrics')
   async getProjectMetrics(@Param('id') id: string, @Req() req: express.Request) {
     const userId = (req as any).user.id as string;
