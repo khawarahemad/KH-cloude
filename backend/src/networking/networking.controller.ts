@@ -34,14 +34,28 @@ export class NetworkingController {
       where: { networkId: network.id }
     });
 
-    return resources.map(res => ({
-      id: res.id,
-      type: res.type,
-      provider: res.provider,
-      status: res.status,
-      createdAt: res.createdAt,
-      updatedAt: res.updatedAt
-    }));
+    return resources.map(res => {
+      let errorDetails = null;
+      let lastReconciled = null;
+      if (res.config) {
+        try {
+          const parsed = JSON.parse(res.config);
+          errorDetails = parsed.error || null;
+          lastReconciled = parsed.lastReconciled || null;
+        } catch {}
+      }
+
+      return {
+        id: res.id,
+        type: res.type,
+        provider: res.provider,
+        status: res.status,
+        createdAt: res.createdAt,
+        updatedAt: res.updatedAt,
+        errorDetails,
+        lastReconciled
+      };
+    });
   }
 
   @Post()
@@ -103,6 +117,16 @@ export class NetworkingController {
       connectionInfo = driver.getConnectionInfo({ resource, canonicalDomain, hostnames });
     }
 
+    let errorDetails = null;
+    let lastReconciled = null;
+    if (resource.config) {
+      try {
+        const parsed = JSON.parse(resource.config);
+        errorDetails = parsed.error || null;
+        lastReconciled = parsed.lastReconciled || null;
+      } catch {}
+    }
+
     return {
       id: resource.id,
       type: resource.type,
@@ -110,7 +134,9 @@ export class NetworkingController {
       status: resource.status,
       createdAt: resource.createdAt,
       updatedAt: resource.updatedAt,
-      connectionInfo
+      connectionInfo,
+      errorDetails,
+      lastReconciled
     };
   }
 
@@ -149,5 +175,25 @@ export class NetworkingController {
     await this.networkingService.regenerateProxyCredential(projectId, resource.id);
     
     return { message: 'Credential regeneration started' };
+  }
+
+  @Post(':resourceId/reconcile')
+  async reconcileResource(@Param('projectId') projectId: string, @Param('resourceId') resourceId: string, @Req() req: any) {
+    const userId = this.getUserId(req);
+    await this.rbacService.verifyProjectAccess(userId, projectId, 'DEVELOPER');
+    
+    await this.networkingService.ensureProjectNetwork(projectId);
+    const resource = await this.networkingService.reconcileResource(projectId, resourceId);
+    
+    return { message: 'Resource reconciliation completed', status: resource.status };
+  }
+
+  @Get(':resourceId/diagnose')
+  async diagnoseResource(@Param('projectId') projectId: string, @Param('resourceId') resourceId: string, @Req() req: any) {
+    const userId = this.getUserId(req);
+    await this.rbacService.verifyProjectAccess(userId, projectId, 'VIEWER');
+    
+    await this.networkingService.ensureProjectNetwork(projectId);
+    return await this.networkingService.diagnoseResource(projectId, resourceId);
   }
 }

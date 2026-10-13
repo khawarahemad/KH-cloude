@@ -7,6 +7,9 @@ export interface ProxyConnectionInfo {
   transport: string;
   path: string;
   security: string;
+  sni?: string;
+  host?: string;
+  uuid?: string;
   uri: string;
 }
 
@@ -37,4 +40,15 @@ export interface ProxyDriver {
    * Performs a runtime health check against the proxy container/process.
    */
   healthCheck(resource: NetworkResource): Promise<boolean>;
+
+  /**
+   * Inspects detailed runtime state, status, exit codes, and container logs.
+   */
+  diagnose?(resource: NetworkResource, canonicalDomain: string): Promise<{
+    running: boolean;
+    containerStatus: string;
+    exitCode?: number;
+    error?: string;
+    logs?: string;
+  }>;
 }
