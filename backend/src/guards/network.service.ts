@@ -1,5 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Inject, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Redis } from 'ioredis';
 
 export interface LogRequestParams {
   ip: string;
@@ -15,7 +16,10 @@ export class NetworkService implements OnModuleInit {
   private readonly logger = new Logger(NetworkService.name);
   private cleanupInterval: NodeJS.Timeout | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject('DDOS_REDIS') private readonly redis?: Redis,
+  ) {}
 
   onModuleInit() {
     // Run cleanup on boot and every 6 hours automatically
@@ -83,7 +87,44 @@ export class NetworkService implements OnModuleInit {
     };
 
     if (projectId) {
-      whereClause.projectId = projectId;
+      try {
+        const project = await (this.prisma as any).project.findUnique({
+          where: { id: projectId },
+          select: { slug: true, name: true, domains: { select: { hostname: true } } },
+        });
+        const hosts: string[] = [];
+        const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+        if (project?.slug) {
+          hosts.push(`${project.slug.toLowerCase()}.${baseDomain}`);
+          hosts.push(`${project.slug.toLowerCase().replace(/[^a-z0-9]/g, '')}.${baseDomain}`);
+          hosts.push(`${project.slug.toLowerCase().replace(/-/g, '.')}.${baseDomain}`);
+        }
+        if (project?.name) {
+          const nameSlug = project.name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+          hosts.push(`${nameSlug}.${baseDomain}`);
+        }
+        if (project?.domains) {
+          for (const d of project.domains) {
+            if (d.hostname) {
+              const hn = d.hostname.toLowerCase().trim();
+              hosts.push(hn);
+              if (hn.startsWith('www.')) hosts.push(hn.substring(4));
+              else hosts.push(`www.${hn}`);
+            }
+          }
+        }
+
+        if (hosts.length > 0) {
+          whereClause.OR = [
+            { projectId },
+            { host: { in: Array.from(new Set(hosts)) } },
+          ];
+        } else {
+          whereClause.projectId = projectId;
+        }
+      } catch {
+        whereClause.projectId = projectId;
+      }
     }
 
     // Fetch all records within the last 7 days
@@ -207,20 +248,50 @@ export class NetworkService implements OnModuleInit {
       else if (l.statusCode >= 500) entry.status5xx++;
     });
 
-    const topIps = Array.from(ipMap.values())
+    const rawTopIps = Array.from(ipMap.values())
       .sort((a, b) => b.totalHits - a.totalHits)
       .slice(0, 50);
+
+    // Enrich top IPs with active ban status from Redis if available
+    let bannedIpsSet = new Set<string>();
+    if (this.redis) {
+      try {
+        const banKeys = await this.redis.keys('ddos:ban:*');
+        bannedIpsSet = new Set(banKeys.map((k) => k.replace('ddos:ban:', '')));
+      } catch (err: any) {
+        this.logger.warn(`Failed to inspect Redis ban keys: ${err.message}`);
+      }
+    }
+
+    const topIps = await Promise.all(
+      rawTopIps.map(async (ipData) => {
+        const isBanned = bannedIpsSet.has(ipData.ip);
+        let expiresInSeconds = 0;
+        if (isBanned && this.redis) {
+          try {
+            expiresInSeconds = await this.redis.ttl(`ddos:ban:${ipData.ip}`);
+          } catch {}
+        }
+        return {
+          ...ipData,
+          isBanned,
+          banExpiresInSeconds: Math.max(0, expiresInSeconds),
+        };
+      }),
+    );
 
     // Recent 50 logs feed
     const recentLogs = logs7d.slice(0, 50);
 
     return {
+      timestamp: new Date().toISOString(),
       overview: {
         totalRequests7d,
         totalRequests24h,
         uniqueIps7d,
         uniqueIps24h,
         rateLimitedCount7d,
+        activeBansCount: bannedIpsSet.size,
         retentionDays: 7,
       },
       dailyTrends,

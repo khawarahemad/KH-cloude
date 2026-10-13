@@ -498,6 +498,19 @@ export class AppController {
     return this.projects.getProjectMetrics(id);
   }
 
+  @Get('projects/:id/network')
+  async getProjectNetwork(
+    @Param('id') id: string,
+    @Query('userId') queryUserId: string,
+    @Req() req: express.Request,
+  ) {
+    const userId = (req as any).user?.id || queryUserId;
+    if (userId) {
+      await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
+    }
+    return this.networkService.getStats(id);
+  }
+
   @Get('projects/:id/runtime-logs')
   async getRuntimeLogs(
     @Param('id') id: string,

@@ -50,8 +50,8 @@ export default function NetworkMonitorTab({ projectId }: { projectId: string }) 
   const [ipSearch, setIpSearch] = useState('');
   const [logSearch, setLogSearch] = useState('');
 
-  // Auto-refresh state
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  // Auto-refresh state (default ON for live tracking)
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Action pending state
   const [actionIp, setActionIp] = useState<string | null>(null);
@@ -73,7 +73,7 @@ export default function NetworkMonitorTab({ projectId }: { projectId: string }) 
 
   useEffect(() => {
     fetchStats();
-  }, [user]);
+  }, [user, projectId]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -81,7 +81,7 @@ export default function NetworkMonitorTab({ projectId }: { projectId: string }) 
       fetchStats();
     }, 5000);
     return () => clearInterval(interval);
-  }, [autoRefresh, user]);
+  }, [autoRefresh, user, projectId]);
 
   const handleCleanLogs = async () => {
     if (!user) return;

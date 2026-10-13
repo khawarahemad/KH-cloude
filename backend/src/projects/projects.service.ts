@@ -18,6 +18,17 @@ export class ProjectsService implements OnModuleInit {
   // Simulated live logs in-memory mapping deploymentId -> log lines
   private deploymentLogs = new Map<string, string[]>();
 
+  // Rolling real Docker container metrics history per project
+  private projectMetricsHistory = new Map<
+    string,
+    {
+      cpu: { time: string; value: number }[];
+      ram: { time: string; value: number }[];
+      network: { time: string; rx: number; tx: number }[];
+      lastSampleTime: number;
+    }
+  >();
+
   constructor(
     private prisma: PrismaService,
     private githubApp: GithubAppService,
@@ -952,22 +963,192 @@ export class ProjectsService implements OnModuleInit {
     return updated;
   }
 
-  async getProjectMetrics(projectId: string) {
-    // Generate high-fidelity metric timeseries for dashboard graphs
-    const now = new Date();
-    const dataPoints = 20;
-    const cpu: any[] = [];
-    const ram: any[] = [];
-    const network: any[] = [];
+  private parseSizeToMb(str: string): number {
+    const trimmed = (str || '').trim();
+    const match = trimmed.match(/^([\d.]+)\s*([a-zA-Z]+)/);
+    if (!match) return 0;
+    const num = parseFloat(match[1]);
+    const unit = match[2].toLowerCase();
+    if (unit.startsWith('gi') || unit === 'gb') return Math.round(num * 1024 * 10) / 10;
+    if (unit.startsWith('mi') || unit === 'mb') return Math.round(num * 10) / 10;
+    if (unit.startsWith('ki') || unit === 'kb') return Math.round((num / 1024) * 10) / 10;
+    if (unit === 'b') return Math.round((num / (1024 * 1024)) * 10) / 10;
+    return Math.round(num * 10) / 10;
+  }
 
-    for (let i = dataPoints - 1; i >= 0; i--) {
-      const time = new Date(now.getTime() - i * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      cpu.push({ time, value: Math.floor(Math.sin(i / 2) * 15 + 30 + Math.random() * 8) });
-      ram.push({ time, value: Math.floor(512 + Math.cos(i / 3) * 50 + Math.random() * 20) }); // MBs
-      network.push({ time, rx: Math.floor(Math.random() * 200 + 50), tx: Math.floor(Math.random() * 150 + 20) }); // KB/s
+  private parseSizeToKb(str: string): number {
+    const trimmed = (str || '').trim();
+    const match = trimmed.match(/^([\d.]+)\s*([a-zA-Z]+)/);
+    if (!match) return 0;
+    const num = parseFloat(match[1]);
+    const unit = match[2].toLowerCase();
+    if (unit.startsWith('gi') || unit === 'gb') return Math.round(num * 1024 * 1024);
+    if (unit.startsWith('mi') || unit === 'mb') return Math.round(num * 1024);
+    if (unit.startsWith('ki') || unit === 'kb') return Math.round(num);
+    if (unit === 'b') return Math.round(num / 1024);
+    return Math.round(num);
+  }
+
+  private async findProjectContainerName(project: any): Promise<string> {
+    const cleanSlug = project.slug ? project.slug.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    const shortId = project.id.substring(0, 8);
+    const expectedName = `kh-cloud-app-${cleanSlug}-${shortId}`;
+
+    const isRunning = await new Promise<boolean>((resolve) => {
+      exec(`docker inspect -f "{{.State.Running}}" ${expectedName}`, { timeout: 2000 }, (err, stdout) => {
+        resolve(!err && stdout.trim() === 'true');
+      });
+    });
+
+    if (isRunning) return expectedName;
+
+    // Fallback: search for any running container with this project ID
+    const discovered = await new Promise<string>((resolve) => {
+      exec(`docker ps --filter "name=${shortId}" --format "{{.Names}}"`, { timeout: 2000 }, (err, stdout) => {
+        if (!err && stdout.trim()) {
+          const names = stdout.trim().split('\n');
+          resolve(names[0].trim());
+        } else {
+          resolve('');
+        }
+      });
+    });
+
+    return discovered || expectedName;
+  }
+
+  private async getContainerLiveStats(containerName: string): Promise<{
+    cpuPercent: number;
+    memUsedMb: number;
+    memLimitMb: number;
+    netRxKb: number;
+    netTxKb: number;
+    pids: number;
+    isOnline: boolean;
+  }> {
+    return new Promise((resolve) => {
+      exec(
+        `docker stats --no-stream --format "{{json .}}" ${containerName}`,
+        { timeout: 3500 },
+        (error, stdout) => {
+          if (error || !stdout.trim()) {
+            resolve({
+              cpuPercent: 0,
+              memUsedMb: 0,
+              memLimitMb: 0,
+              netRxKb: 0,
+              netTxKb: 0,
+              pids: 0,
+              isOnline: false,
+            });
+            return;
+          }
+
+          try {
+            const firstLine = stdout.trim().split('\n')[0];
+            const data = JSON.parse(firstLine);
+
+            const cpuPercent = parseFloat((data.CPUPerc || '0').replace('%', '')) || 0;
+            
+            const memParts = (data.MemUsage || '').split('/');
+            const memUsedMb = this.parseSizeToMb(memParts[0] || '0');
+            const memLimitMb = memParts[1] ? this.parseSizeToMb(memParts[1]) : 0;
+
+            const netParts = (data.NetIO || '').split('/');
+            const netRxKb = this.parseSizeToKb(netParts[0] || '0');
+            const netTxKb = netParts[1] ? this.parseSizeToKb(netParts[1]) : 0;
+
+            const pids = parseInt(data.PIDs || '0', 10) || 0;
+
+            resolve({
+              cpuPercent: Math.round(cpuPercent * 100) / 100,
+              memUsedMb,
+              memLimitMb,
+              netRxKb,
+              netTxKb,
+              pids,
+              isOnline: true,
+            });
+          } catch {
+            resolve({
+              cpuPercent: 0,
+              memUsedMb: 0,
+              memLimitMb: 0,
+              netRxKb: 0,
+              netTxKb: 0,
+              pids: 0,
+              isOnline: false,
+            });
+          }
+        },
+      );
+    });
+  }
+
+  async getProjectMetrics(projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const containerName = await this.findProjectContainerName(project);
+    const liveStats = await this.getContainerLiveStats(containerName);
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    let history = this.projectMetricsHistory.get(projectId);
+    if (!history) {
+      // Pre-populate with baseline points leading up to now
+      const cpu: any[] = [];
+      const ram: any[] = [];
+      const network: any[] = [];
+      const points = 15;
+
+      for (let i = points - 1; i >= 0; i--) {
+        const t = new Date(now.getTime() - i * 3000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        cpu.push({ time: t, value: liveStats.cpuPercent });
+        ram.push({ time: t, value: liveStats.memUsedMb });
+        network.push({ time: t, rx: liveStats.netRxKb, tx: liveStats.netTxKb });
+      }
+
+      history = {
+        cpu,
+        ram,
+        network,
+        lastSampleTime: now.getTime(),
+      };
+      this.projectMetricsHistory.set(projectId, history);
+    } else {
+      // Append only if at least 1.5 seconds have elapsed since last sample
+      if (now.getTime() - history.lastSampleTime >= 1500) {
+        history.cpu.push({ time: timeStr, value: liveStats.cpuPercent });
+        history.ram.push({ time: timeStr, value: liveStats.memUsedMb });
+        history.network.push({ time: timeStr, rx: liveStats.netRxKb, tx: liveStats.netTxKb });
+
+        if (history.cpu.length > 25) history.cpu.shift();
+        if (history.ram.length > 25) history.ram.shift();
+        if (history.network.length > 25) history.network.shift();
+
+        history.lastSampleTime = now.getTime();
+      }
     }
 
-    return { cpu, ram, network };
+    return {
+      cpu: history.cpu,
+      ram: history.ram,
+      network: history.network,
+      live: {
+        online: liveStats.isOnline,
+        cpu: liveStats.cpuPercent,
+        ram: liveStats.memUsedMb,
+        ramLimit: liveStats.memLimitMb,
+        netRx: liveStats.netRxKb,
+        netTx: liveStats.netTxKb,
+        pids: liveStats.pids,
+        container: containerName,
+      },
+    };
   }
 
   private runLiveDeploymentEngine(projectId: string, deploymentId: string, targetCommitHash?: string | null) {

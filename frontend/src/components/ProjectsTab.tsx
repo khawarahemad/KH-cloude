@@ -566,6 +566,16 @@ export default function ProjectsTab() {
     }
   }, [activeProjectId]);
 
+  // Real-time periodic polling of container metrics when viewing metrics tab (3s)
+  useEffect(() => {
+    if (!activeProjectId || detailsTab !== 'metrics') return;
+    fetchMetrics(activeProjectId);
+    const interval = setInterval(() => {
+      fetchMetrics(activeProjectId);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeProjectId, detailsTab]);
+
   const fetchRuntimeLogs = async (silent = false) => {
     if (!activeProjectId || !activeTeam?.id) return;
     if (!silent) setLogsLoading(true);
@@ -1584,41 +1594,96 @@ export default function ProjectsTab() {
 
               {/* ── Metrics ── */}
               {detailsTab === 'metrics' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
-                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>CPU Usage (%)</div>
-                    <div style={{ height: '180px', fontSize: '10px' }}>
-                      {metrics?.cpu && (
-                        <RechartsContainer width="100%" height="100%">
-                          <AreaChart data={metrics.cpu}>
-                            <defs><linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#818cf8" stopOpacity={0.2}/><stop offset="95%" stopColor="#818cf8" stopOpacity={0}/></linearGradient></defs>
-                            <XAxis dataKey="time" stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
-                            <YAxis stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
-                            <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '11px' }} />
-                            <Area type="monotone" dataKey="value" stroke="#818cf8" fillOpacity={1} fill="url(#colorCpu)" strokeWidth={1.5} />
-                          </AreaChart>
-                        </RechartsContainer>
-                      )}
-                      {!metrics?.cpu && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontSize: '12px' }}>No metrics data available</div>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
+                    {/* CPU Usage Card */}
+                    <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          CPU Usage (%)
+                          {metrics?.live?.online && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '1px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)', textTransform: 'none' }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} className="animate-pulse" /> Live Container
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: '#818cf8' }}>
+                          {metrics?.live?.cpu !== undefined ? `${metrics.live.cpu}%` : `${metrics?.cpu?.[metrics.cpu.length - 1]?.value ?? 0}%`}
+                        </div>
+                      </div>
+                      <div style={{ height: '180px', fontSize: '10px' }}>
+                        {metrics?.cpu && (
+                          <RechartsContainer width="100%" height="100%">
+                            <AreaChart data={metrics.cpu}>
+                              <defs><linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#818cf8" stopOpacity={0.25}/><stop offset="95%" stopColor="#818cf8" stopOpacity={0}/></linearGradient></defs>
+                              <XAxis dataKey="time" stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                              <YAxis stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                              <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '11px' }} />
+                              <Area type="monotone" dataKey="value" stroke="#818cf8" fillOpacity={1} fill="url(#colorCpu)" strokeWidth={1.5} />
+                            </AreaChart>
+                          </RechartsContainer>
+                        )}
+                        {!metrics?.cpu && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontSize: '12px' }}>No metrics data available</div>}
+                      </div>
+                    </div>
+
+                    {/* Memory Usage Card */}
+                    <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          Memory Usage (MB)
+                          {metrics?.live?.ramLimit > 0 && (
+                            <span style={{ fontSize: '10px', color: '#6b7280', textTransform: 'none' }}>
+                              / {metrics.live.ramLimit} MB
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: '#c084fc' }}>
+                          {metrics?.live?.ram !== undefined ? `${metrics.live.ram} MB` : `${metrics?.ram?.[metrics.ram.length - 1]?.value ?? 0} MB`}
+                        </div>
+                      </div>
+                      <div style={{ height: '180px', fontSize: '10px' }}>
+                        {metrics?.ram && (
+                          <RechartsContainer width="100%" height="100%">
+                            <AreaChart data={metrics.ram}>
+                              <defs><linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#c084fc" stopOpacity={0.25}/><stop offset="95%" stopColor="#c084fc" stopOpacity={0}/></linearGradient></defs>
+                              <XAxis dataKey="time" stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                              <YAxis stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
+                              <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '11px' }} />
+                              <Area type="monotone" dataKey="value" stroke="#c084fc" fillOpacity={1} fill="url(#colorRam)" strokeWidth={1.5} />
+                            </AreaChart>
+                          </RechartsContainer>
+                        )}
+                        {!metrics?.ram && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontSize: '12px' }}>No metrics data available</div>}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '20px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '12px' }}>Memory Usage (MB)</div>
-                    <div style={{ height: '180px', fontSize: '10px' }}>
-                      {metrics?.ram && (
-                        <RechartsContainer width="100%" height="100%">
-                          <AreaChart data={metrics.ram}>
-                            <defs><linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#c084fc" stopOpacity={0.2}/><stop offset="95%" stopColor="#c084fc" stopOpacity={0}/></linearGradient></defs>
-                            <XAxis dataKey="time" stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
-                            <YAxis stroke="#374151" tick={{ fill: '#4b5563', fontSize: 9 }} />
-                            <Tooltip contentStyle={{ background: '#0a0a0c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '11px' }} />
-                            <Area type="monotone" dataKey="value" stroke="#c084fc" fillOpacity={1} fill="url(#colorRam)" strokeWidth={1.5} />
-                          </AreaChart>
-                        </RechartsContainer>
-                      )}
-                      {!metrics?.ram && <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563', fontSize: '12px' }}>No metrics data available</div>}
+
+                  {/* Container Health & I/O Bar */}
+                  {metrics?.live && (
+                    <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: '#6b7280' }}>Container:</span>
+                        <code style={{ color: '#e5e7eb', backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px' }}>
+                          {metrics.live.container || 'Not running'}
+                        </code>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div>
+                          <span style={{ color: '#6b7280' }}>Net In (RX): </span>
+                          <span style={{ color: '#38bdf8', fontWeight: 600 }}>{metrics.live.netRx ?? 0} KB</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#6b7280' }}>Net Out (TX): </span>
+                          <span style={{ color: '#a78bfa', fontWeight: 600 }}>{metrics.live.netTx ?? 0} KB</span>
+                        </div>
+                        <div>
+                          <span style={{ color: '#6b7280' }}>Processes (PIDs): </span>
+                          <span style={{ color: '#34d399', fontWeight: 600 }}>{metrics.live.pids ?? 0}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
