@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TraefikDriver } from './drivers/traefik.driver';
 import { ProxyFactory } from './proxy/proxy.factory';
@@ -111,7 +111,10 @@ export class NetworkingService {
             if (isHealthy) {
               await this.prisma.networkResource.update({
                 where: { id: resource.id },
-                data: { status: NetworkResourceStatus.READY }
+                data: { 
+                  status: NetworkResourceStatus.READY,
+                  config: JSON.stringify({ lastReconciled: new Date().toISOString() })
+                }
               });
             } else {
               throw new Error('Health check failed post-reconciliation');
@@ -121,7 +124,10 @@ export class NetworkingService {
           this.logger.error(`Failed to reconcile resource ${resource.id}: ${err.message}`);
           await this.prisma.networkResource.update({
             where: { id: resource.id },
-            data: { status: NetworkResourceStatus.ERROR }
+            data: { 
+              status: NetworkResourceStatus.ERROR,
+              config: JSON.stringify({ error: err.message, failedAt: new Date().toISOString() })
+            }
           });
         }
       }
@@ -141,7 +147,8 @@ export class NetworkingService {
       }
     });
 
-    const credential = existing?.credential || crypto.randomUUID();
+    const isUUID = existing?.credential && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(existing.credential);
+    const credential = isUUID ? existing.credential : crypto.randomUUID();
 
     // Create or update resource
     const resource = await this.prisma.networkResource.upsert({
@@ -231,7 +238,10 @@ export class NetworkingService {
         if (isHealthy) {
           await this.prisma.networkResource.update({
             where: { id: resourceId },
-            data: { status: NetworkResourceStatus.READY }
+            data: { 
+              status: NetworkResourceStatus.READY,
+              config: JSON.stringify({ lastReconciled: new Date().toISOString() })
+            }
           });
         } else {
           throw new Error('Health check failed post-reconciliation');
@@ -240,10 +250,66 @@ export class NetworkingService {
         this.logger.error(`Failed to reconcile resource ${resourceId} during credential regeneration: ${err.message}`);
         await this.prisma.networkResource.update({
           where: { id: resourceId },
-          data: { status: NetworkResourceStatus.ERROR }
+          data: { 
+            status: NetworkResourceStatus.ERROR,
+            config: JSON.stringify({ error: err.message, failedAt: new Date().toISOString() })
+          }
         });
         throw new Error('Credential was rotated in DB but failed to apply to Xray runtime. Check logs.');
       }
     });
+  }
+
+  async reconcileResource(projectId: string, resourceId: string): Promise<NetworkResource> {
+    const resource = await this.prisma.networkResource.findUnique({
+      where: { id: resourceId }
+    });
+    if (!resource) throw new NotFoundException('Resource not found');
+
+    await this.reconcileProjectNetwork(projectId);
+
+    return (await this.prisma.networkResource.findUnique({
+      where: { id: resourceId }
+    }))!;
+  }
+
+  async diagnoseResource(projectId: string, resourceId: string): Promise<any> {
+    const resource = await this.prisma.networkResource.findUnique({
+      where: { id: resourceId }
+    });
+    if (!resource) throw new NotFoundException('Resource not found');
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: { domains: true }
+    });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+    const verifiedCustom = project.domains.find(d => d.isCustom && d.status === 'ACTIVE');
+    const defaultDomain = project.domains.find(d => !d.isCustom);
+    const canonicalDomain = verifiedCustom?.hostname || defaultDomain?.hostname || project.domains[0]?.hostname || `${project.slug}.${baseDomain}`;
+
+    const driver = this.proxyFactory.getDriver(resource.provider);
+    let diagnostics: any = { running: false, containerStatus: 'UNKNOWN' };
+    if (driver.diagnose) {
+      diagnostics = await driver.diagnose(resource, canonicalDomain);
+    } else {
+      const isHealthy = await driver.healthCheck(resource);
+      diagnostics = { running: isHealthy, containerStatus: isHealthy ? 'running' : 'stopped' };
+    }
+
+    let parsedConfig: any = null;
+    if (resource.config) {
+      try { parsedConfig = JSON.parse(resource.config); } catch {}
+    }
+
+    return {
+      resourceId: resource.id,
+      status: resource.status,
+      canonicalDomain,
+      errorDetails: parsedConfig?.error || null,
+      ...diagnostics
+    };
   }
 }

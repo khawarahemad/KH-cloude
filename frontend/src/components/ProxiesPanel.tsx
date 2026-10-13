@@ -4,7 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiRequest } from '@/lib/api';
 import { useDialog } from './CustomDialogProvider';
-import { Loader2, ShieldCheck, Activity, Copy, Eye, EyeOff, RefreshCw, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { 
+  Loader2, ShieldCheck, Activity, Copy, Eye, EyeOff, 
+  RefreshCw, Trash2, CheckCircle2, AlertCircle, Server, Terminal, Wrench 
+} from 'lucide-react';
 
 export default function ProxiesPanel({ projectId }: { projectId: string }) {
   const { user } = useAppStore();
@@ -14,10 +17,14 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
   const [resources, setResources] = useState<any[]>([]);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   
-  // Connection info modal/reveal state
+  // Connection info state
   const [connectionInfo, setConnectionInfo] = useState<any | null>(null);
   const [showUri, setShowUri] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Diagnostics state
+  const [diagnostics, setDiagnostics] = useState<any | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
 
   const fetchResources = async () => {
     try {
@@ -34,17 +41,18 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     fetchResources();
-    // Poll every 5s if any resource is provisioning
-    const interval = setInterval(() => {
-      setResources(prev => {
-        if (prev.some(r => r.status === 'PROVISIONING' || r.status === 'REMOVING')) {
-          fetchResources();
-        }
-        return prev;
-      });
-    }, 5000);
-    return () => clearInterval(interval);
   }, [projectId]);
+
+  // Clean polling when a resource is in transition
+  useEffect(() => {
+    const isBusy = resources.some(r => r.status === 'PROVISIONING' || r.status === 'REMOVING');
+    if (!isBusy) return;
+
+    const interval = setInterval(() => {
+      fetchResources();
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [resources, projectId]);
 
   const handleEnableProxy = async () => {
     setActionInProgress('enable');
@@ -58,6 +66,29 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
       alert({
         title: 'Provisioning Failed',
         message: err.message || 'Failed to enable proxy.',
+        type: 'error'
+      });
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleReconcile = async (resourceId: string) => {
+    setActionInProgress(`reconcile-${resourceId}`);
+    try {
+      await apiRequest(`/projects/${projectId}/networking/resources/${resourceId}/reconcile`, {
+        method: 'POST'
+      });
+      await fetchResources();
+      alert({
+        title: 'Reconciliation Started',
+        message: 'Proxy configuration has been synchronized with Traefik edge routing.',
+        type: 'info'
+      });
+    } catch (err: any) {
+      alert({
+        title: 'Reconciliation Failed',
+        message: err.message || 'Failed to re-sync proxy.',
         type: 'error'
       });
     } finally {
@@ -81,6 +112,7 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
       });
       await fetchResources();
       if (connectionInfo?.id === resourceId) setConnectionInfo(null);
+      setDiagnostics(null);
     } catch (err: any) {
       alert({
         title: 'Action Failed',
@@ -109,6 +141,7 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
       await fetchResources();
       setConnectionInfo(null);
       setShowUri(false);
+      setDiagnostics(null);
     } catch (err: any) {
       alert({
         title: 'Regeneration Failed',
@@ -142,6 +175,22 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
     }
   };
 
+  const handleDiagnose = async (resourceId: string) => {
+    setDiagnosing(true);
+    try {
+      const data = await apiRequest(`/projects/${projectId}/networking/resources/${resourceId}/diagnose`);
+      setDiagnostics(data);
+    } catch (err: any) {
+      alert({
+        title: 'Diagnostics Failed',
+        message: err.message || 'Unable to query proxy container status.',
+        type: 'error'
+      });
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -170,7 +219,7 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
       </div>
 
       {/* WebSocket Proxy Card */}
-      <div className="rw-card" style={{ padding: '20px', maxWidth: '600px' }}>
+      <div className="rw-card" style={{ padding: '20px', maxWidth: '640px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -189,7 +238,7 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
                 </div>
               )}
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>Secure WebSocket proxy powered by Xray (VLESS)</p>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>Secure VLESS WebSocket proxy routed via Traefik edge (TLS port 443)</p>
           </div>
           
           {!wsProxy && (
@@ -207,31 +256,55 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
         {wsProxy && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', padding: '14px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Provider</div>
-                <div style={{ fontSize: '13px', color: '#e5e7eb', fontWeight: 500 }}>{wsProxy.provider}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px', textTransform: 'uppercase' }}>Provider</div>
+                <div style={{ fontSize: '12px', color: '#e5e7eb', fontWeight: 600 }}>{wsProxy.provider}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Protocol</div>
-                <div style={{ fontSize: '13px', color: '#e5e7eb', fontWeight: 500 }}>VLESS</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px', textTransform: 'uppercase' }}>Protocol</div>
+                <div style={{ fontSize: '12px', color: '#e5e7eb', fontWeight: 600 }}>VLESS</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Transport</div>
-                <div style={{ fontSize: '13px', color: '#e5e7eb', fontWeight: 500 }}>WebSocket (ws)</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px', textTransform: 'uppercase' }}>Transport</div>
+                <div style={{ fontSize: '12px', color: '#e5e7eb', fontWeight: 600 }}>WS (TLS 443)</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '2px' }}>Path</div>
-                <div style={{ fontSize: '13px', color: '#e5e7eb', fontWeight: 500, fontFamily: 'monospace' }}>/v2ray-ws</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px', textTransform: 'uppercase' }}>Path</div>
+                <div style={{ fontSize: '12px', color: '#a78bfa', fontWeight: 600, fontFamily: 'monospace' }}>/v2ray-ws</div>
               </div>
             </div>
 
             {wsProxy.status === 'ERROR' && (
-              <div style={{ padding: '12px', borderRadius: '6px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#fca5a5', fontSize: '12px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', gap: '8px' }}>
-                <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>Proxy provisioning failed.</div>
-                  <div style={{ opacity: 0.8 }}>The backend failed to reconcile the desired networking state. Check project logs or contact support.</div>
+              <div style={{ padding: '14px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#fca5a5', fontSize: '12px', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                  <AlertCircle size={16} />
+                  Proxy provisioning encountered an error
+                </div>
+                {wsProxy.errorDetails && (
+                  <div style={{ fontSize: '11px', fontFamily: 'monospace', backgroundColor: 'rgba(0,0,0,0.4)', padding: '8px 10px', borderRadius: '6px', color: '#f87171', wordBreak: 'break-all' }}>
+                    {wsProxy.errorDetails}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button 
+                    className="rw-btn rw-btn-primary" 
+                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto' }}
+                    onClick={() => handleReconcile(wsProxy.id)}
+                    disabled={actionInProgress !== null}
+                  >
+                    <RefreshCw size={12} className={actionInProgress?.startsWith('reconcile') ? 'animate-spin' : ''} />
+                    Retry Provisioning
+                  </button>
+                  <button 
+                    className="rw-btn" 
+                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.1)' }}
+                    onClick={() => handleDiagnose(wsProxy.id)}
+                    disabled={diagnosing}
+                  >
+                    <Wrench size={12} />
+                    Run Diagnostics
+                  </button>
                 </div>
               </div>
             )}
@@ -245,6 +318,17 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
               >
                 {actionInProgress === `fetch-conn-${wsProxy.id}` ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
                 {connectionInfo?.id === wsProxy.id ? 'Hide Connection' : 'Show Connection'}
+              </button>
+
+              <button 
+                className="rw-btn" 
+                style={{ backgroundColor: '#181b22', border: '1px solid rgba(255,255,255,0.1)', color: '#9ca3af' }}
+                onClick={() => handleDiagnose(wsProxy.id)}
+                disabled={diagnosing || actionInProgress !== null}
+                title="Inspect Docker runtime container and health"
+              >
+                {diagnosing ? <Loader2 size={14} className="animate-spin" /> : <Server size={14} />}
+                Diagnose
               </button>
               
               <button 
@@ -268,42 +352,132 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
               </button>
             </div>
 
+            {/* Diagnostics Drawer */}
+            {diagnostics && (
+              <div style={{ padding: '14px', backgroundColor: '#0d1117', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Server size={14} style={{ color: diagnostics.running ? '#34d399' : '#f87171' }} />
+                    Proxy Runtime Health
+                  </div>
+                  <div style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{
+                      padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
+                      backgroundColor: diagnostics.running ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                      color: diagnostics.running ? '#34d399' : '#f87171'
+                    }}>
+                      Container: {diagnostics.containerStatus || (diagnostics.running ? 'running' : 'stopped')}
+                    </span>
+                    <button 
+                      onClick={() => setDiagnostics(null)} 
+                      style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '11px', marginLeft: '6px' }}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '11px', backgroundColor: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '6px' }}>
+                  <div>
+                    <span style={{ color: '#6b7280' }}>Edge Domain: </span>
+                    <span style={{ color: '#e5e7eb', fontFamily: 'monospace' }}>{diagnostics.canonicalDomain}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#6b7280' }}>Internal Port: </span>
+                    <span style={{ color: '#e5e7eb', fontFamily: 'monospace' }}>10000 (ws)</span>
+                  </div>
+                  <div>
+                    <span style={{ color: '#6b7280' }}>Exit Code: </span>
+                    <span style={{ color: diagnostics.exitCode === 0 || diagnostics.running ? '#34d399' : '#f87171', fontFamily: 'monospace' }}>
+                      {diagnostics.exitCode ?? (diagnostics.running ? 0 : 'N/A')}
+                    </span>
+                  </div>
+                </div>
+
+                {diagnostics.logs && (
+                  <div style={{ marginTop: '4px' }}>
+                    <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Terminal size={10} /> Container Logs
+                    </div>
+                    <pre style={{ margin: 0, padding: '8px 10px', backgroundColor: '#000', borderRadius: '6px', fontSize: '10px', color: '#9ca3af', fontFamily: 'monospace', maxHeight: '120px', overflowY: 'auto' }}>
+                      {diagnostics.logs}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Connection Information Drawer */}
             {connectionInfo?.id === wsProxy.id && connectionInfo.connectionInfo && (
-              <div style={{ marginTop: '8px', padding: '16px', backgroundColor: '#0e1015', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#c4b5fd' }}>Connection String (URI)</div>
-                  <button 
-                    onClick={() => copyToClipboard(connectionInfo.connectionInfo.uri)}
-                    className="rw-btn" 
-                    style={{ fontSize: '11px', padding: '4px 8px', height: 'auto', backgroundColor: copied ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.1)' }}
-                  >
-                    {copied ? <CheckCircle2 size={12} style={{ color: '#34d399' }}/> : <Copy size={12} />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
+              <div style={{ marginTop: '8px', padding: '16px', backgroundColor: '#0e1015', borderRadius: '8px', border: '1px solid rgba(124,58,237,0.3)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#c4b5fd' }}>VLESS Connection String (URI)</div>
+                    <button 
+                      onClick={() => copyToClipboard(connectionInfo.connectionInfo.uri)}
+                      className="rw-btn" 
+                      style={{ fontSize: '11px', padding: '4px 8px', height: 'auto', backgroundColor: copied ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.1)' }}
+                    >
+                      {copied ? <CheckCircle2 size={12} style={{ color: '#34d399' }}/> : <Copy size={12} />}
+                      {copied ? 'Copied' : 'Copy URI'}
+                    </button>
+                  </div>
+                  
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input 
+                      type={showUri ? "text" : "password"} 
+                      readOnly 
+                      value={connectionInfo.connectionInfo.uri}
+                      style={{ 
+                        width: '100%', padding: '10px 40px 10px 12px', backgroundColor: '#000', 
+                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', 
+                        color: '#a78bfa', fontFamily: 'monospace', fontSize: '11px', outline: 'none'
+                      }}
+                    />
+                    <button 
+                      onClick={() => setShowUri(!showUri)}
+                      style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 0, display: 'flex' }}
+                    >
+                      {showUri ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Manual Configuration Breakdown Table */}
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Manual Client Parameters
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', fontSize: '11px', backgroundColor: '#000', padding: '10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div>
+                      <span style={{ color: '#6b7280' }}>Address: </span>
+                      <span style={{ color: '#e5e7eb', fontFamily: 'monospace' }}>{connectionInfo.connectionInfo.address}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#6b7280' }}>Port: </span>
+                      <span style={{ color: '#e5e7eb', fontFamily: 'monospace' }}>{connectionInfo.connectionInfo.port}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#6b7280' }}>UUID: </span>
+                      <span style={{ color: '#a78bfa', fontFamily: 'monospace' }}>{connectionInfo.connectionInfo.uuid}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#6b7280' }}>Transport: </span>
+                      <span style={{ color: '#e5e7eb', fontFamily: 'monospace' }}>{connectionInfo.connectionInfo.transport} (WebSocket)</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#6b7280' }}>Path: </span>
+                      <span style={{ color: '#a78bfa', fontFamily: 'monospace' }}>{connectionInfo.connectionInfo.path}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#6b7280' }}>TLS / SNI: </span>
+                      <span style={{ color: '#e5e7eb', fontFamily: 'monospace' }}>{connectionInfo.connectionInfo.sni}</span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <input 
-                    type={showUri ? "text" : "password"} 
-                    readOnly 
-                    value={connectionInfo.connectionInfo.uri}
-                    style={{ 
-                      width: '100%', padding: '10px 40px 10px 12px', backgroundColor: '#000', 
-                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', 
-                      color: '#a78bfa', fontFamily: 'monospace', fontSize: '12px', outline: 'none'
-                    }}
-                  />
-                  <button 
-                    onClick={() => setShowUri(!showUri)}
-                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 0, display: 'flex' }}
-                  >
-                    {showUri ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-                
-                <div style={{ marginTop: '12px', fontSize: '11px', color: '#6b7280' }}>
-                  Import this URI into v2rayN, Nekobox, Shadowrocket, or any VLESS-compatible client. Ensure your project's custom domain is properly pointed via DNS.
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                  Import this URI or parameters into <strong>v2rayN</strong>, <strong>Shadowrocket</strong>, <strong>Nekobox</strong>, or <strong>Sing-box</strong>. Ensure your project domain DNS is resolving to this server and SSL certificate has verified.
                 </div>
               </div>
             )}
@@ -315,3 +489,4 @@ export default function ProxiesPanel({ projectId }: { projectId: string }) {
     </div>
   );
 }
+

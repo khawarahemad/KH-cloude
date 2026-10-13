@@ -25,8 +25,7 @@ export class XrayDriver implements ProxyDriver {
       dns: {
         servers: [
           "1.1.1.1",
-          "8.8.8.8",
-          "localhost"
+          "8.8.8.8"
         ]
       },
       inbounds: [
@@ -55,8 +54,9 @@ export class XrayDriver implements ProxyDriver {
       outbounds: [
         {
           protocol: "freedom",
+          tag: "direct",
           settings: {
-            domainStrategy: "UseIP"
+            domainStrategy: "AsIs"
           }
         }
       ]
@@ -64,14 +64,15 @@ export class XrayDriver implements ProxyDriver {
   }
 
   private getTraefikLabels(containerName: string, hostnames: string[], path: string): string[] {
-    const hostRules = hostnames.map(h => `Host("${h}")`).join(' || ');
+    const hostRules = hostnames.map(h => `Host(\`${h}\`)`).join(' || ');
     return [
       `traefik.enable=true`,
       `traefik.docker.network=kh-cloud-network`,
-      `traefik.http.routers.${containerName}.rule=(${hostRules}) && PathPrefix("${path}")`,
+      `traefik.http.routers.${containerName}.rule=(${hostRules}) && PathPrefix(\`${path}\`)`,
       `traefik.http.routers.${containerName}.entrypoints=websecure`,
       `traefik.http.routers.${containerName}.tls.certresolver=letsencrypt`,
       `traefik.http.routers.${containerName}.priority=10000`,
+      `traefik.http.routers.${containerName}.service=${containerName}`,
       `traefik.http.services.${containerName}.loadbalancer.server.port=10000`
     ];
   }
@@ -105,7 +106,7 @@ export class XrayDriver implements ProxyDriver {
 
     this.logger.log(`[XrayDriver] Reconciling container ${containerName} with hostnames: ${targetHosts.join(', ')}`);
 
-    // Ensure volume exists and write configuration with non-root readable permissions
+    // Ensure volume exists and write configuration with world-readable permissions
     await runDockerCmd(['volume', 'create', volumeName]);
     await runDockerCmd(['rm', '-f', `${containerName}-writer`]);
     const writeRes = await runDockerCmd([
@@ -113,7 +114,7 @@ export class XrayDriver implements ProxyDriver {
       '--name', `${containerName}-writer`,
       '--network', 'none', // Strict isolation for writer
       '-v', `${volumeName}:/data`,
-      'alpine', 'sh', '-c', 'cat > /data/config.json && chmod 644 /data/config.json'
+      'alpine', 'sh', '-c', 'cat > /data/config.json && chmod 777 /data && chmod 666 /data/config.json'
     ], configString);
 
     if (writeRes.code !== 0) {
@@ -129,12 +130,13 @@ export class XrayDriver implements ProxyDriver {
     const runArgs = [
       'run', '-d',
       '--name', containerName,
+      '--user', 'root',
       '--network', 'kh-cloud-network',
       '--restart', 'unless-stopped',
       '-v', `${volumeName}:/etc/xray:ro`,
       ...traefikLabels.flatMap(l => ['--label', l]),
       this.XRAY_IMAGE,
-      'run', '-config', '/etc/xray/config.json'
+      'run', '-c', '/etc/xray/config.json'
     ];
 
     const runRes = await runDockerCmd(runArgs);
@@ -142,11 +144,18 @@ export class XrayDriver implements ProxyDriver {
       throw new Error(`Failed to start Xray container: ${runRes.stderr || runRes.stdout}`);
     }
     
-    // Allow container a moment to initialize before verifying health
-    await new Promise(r => setTimeout(r, 1000));
-    const health = await this.healthCheck(resource);
-    if (!health) {
-      const logsRes = await runDockerCmd(['logs', '--tail', '30', containerName]);
+    // Allow container a moment to initialize before verifying health with retries
+    let isHealthy = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+      if (await this.healthCheck(resource)) {
+        isHealthy = true;
+        break;
+      }
+    }
+
+    if (!isHealthy) {
+      const logsRes = await runDockerCmd(['logs', '--tail', '50', containerName]);
       this.logger.error(`[XrayDriver] Container ${containerName} failed health check. Logs: ${logsRes.stdout} ${logsRes.stderr}`);
       throw new Error(`Xray container started but failed health check: ${logsRes.stderr || logsRes.stdout || 'Exited unexpectedly'}`);
     }
@@ -166,9 +175,9 @@ export class XrayDriver implements ProxyDriver {
     if (!resource.credential || resource.status !== 'READY') return null;
 
     const path = '/v2ray-ws';
-    // Standard XTLS VLESS WebSocket URI with TLS, SNI, and human-readable node remark:
+    // Standard XTLS VLESS WebSocket URI with TLS, SNI, Host header, and human-readable node remark:
     const encodedPath = encodeURIComponent(path);
-    const uri = `vless://${resource.credential}@${canonicalDomain}:443?encryption=none&security=tls&sni=${canonicalDomain}&type=ws&path=${encodedPath}#${encodeURIComponent(canonicalDomain)}`;
+    const uri = `vless://${resource.credential}@${canonicalDomain}:443?encryption=none&security=tls&sni=${canonicalDomain}&host=${canonicalDomain}&type=ws&path=${encodedPath}#${encodeURIComponent(canonicalDomain)}`;
 
     return {
       protocol: 'vless',
@@ -177,6 +186,9 @@ export class XrayDriver implements ProxyDriver {
       transport: 'ws',
       path: path,
       security: 'tls',
+      sni: canonicalDomain,
+      host: canonicalDomain,
+      uuid: resource.credential,
       uri
     };
   }
@@ -185,5 +197,52 @@ export class XrayDriver implements ProxyDriver {
     const containerName = this.getContainerName(resource);
     const inspectRes = await runDockerCmd(['inspect', '-f', '{{.State.Running}}', containerName]);
     return inspectRes.stdout.trim() === 'true';
+  }
+
+  async diagnose(resource: NetworkResource, canonicalDomain: string): Promise<{
+    running: boolean;
+    containerStatus: string;
+    exitCode?: number;
+    error?: string;
+    logs?: string;
+  }> {
+    const containerName = this.getContainerName(resource);
+    const inspectRes = await runDockerCmd([
+      'inspect',
+      '--format',
+      '{{json .State}}',
+      containerName
+    ]);
+
+    if (inspectRes.code !== 0) {
+      return {
+        running: false,
+        containerStatus: 'NOT_FOUND',
+        error: `Container ${containerName} was not found in the Docker daemon.`
+      };
+    }
+
+    try {
+      const state = JSON.parse(inspectRes.stdout);
+      const isRunning = state.Running === true;
+      let logs = '';
+      if (!isRunning || state.ExitCode !== 0) {
+        const logsRes = await runDockerCmd(['logs', '--tail', '30', containerName]);
+        logs = (logsRes.stdout + '\n' + logsRes.stderr).trim();
+      }
+
+      return {
+        running: isRunning,
+        containerStatus: state.Status || (isRunning ? 'running' : 'stopped'),
+        exitCode: state.ExitCode,
+        error: state.Error || (isRunning ? undefined : `Container exited with code ${state.ExitCode}`),
+        logs: logs || undefined
+      };
+    } catch {
+      return {
+        running: inspectRes.stdout.includes('"Running":true'),
+        containerStatus: 'UNKNOWN'
+      };
+    }
   }
 }
