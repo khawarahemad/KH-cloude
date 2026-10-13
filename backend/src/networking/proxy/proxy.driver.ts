@@ -13,6 +13,7 @@ export interface ProxyConnectionInfo {
 export interface ProxyReconciliationContext {
   resource: NetworkResource;
   canonicalDomain: string;
+  hostnames?: string[];
 }
 
 export interface ProxyDriver {

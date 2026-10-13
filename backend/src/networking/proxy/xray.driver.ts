@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { NetworkResource, ProjectNetwork, Project } from '@prisma/client';
+import { NetworkResource } from '@prisma/client';
 import { ProxyDriver, ProxyConnectionInfo, ProxyReconciliationContext } from './proxy.driver';
 import { runDockerCmd } from '../../utils/docker-run';
 import * as crypto from 'crypto';
@@ -22,8 +22,16 @@ export class XrayDriver implements ProxyDriver {
       log: {
         loglevel: "warning"
       },
+      dns: {
+        servers: [
+          "1.1.1.1",
+          "8.8.8.8",
+          "localhost"
+        ]
+      },
       inbounds: [
         {
+          listen: "0.0.0.0",
           port: 10000,
           protocol: "vless",
           settings: {
@@ -47,25 +55,29 @@ export class XrayDriver implements ProxyDriver {
       outbounds: [
         {
           protocol: "freedom",
-          settings: {}
+          settings: {
+            domainStrategy: "UseIP"
+          }
         }
       ]
     };
   }
 
-  private getTraefikLabels(containerName: string, domain: string, path: string): string[] {
+  private getTraefikLabels(containerName: string, hostnames: string[], path: string): string[] {
+    const hostRules = hostnames.map(h => `Host("${h}")`).join(' || ');
     return [
       `traefik.enable=true`,
       `traefik.docker.network=kh-cloud-network`,
-      `traefik.http.routers.${containerName}.rule=Host("${domain}") && PathPrefix("${path}")`,
+      `traefik.http.routers.${containerName}.rule=(${hostRules}) && PathPrefix("${path}")`,
       `traefik.http.routers.${containerName}.entrypoints=websecure`,
       `traefik.http.routers.${containerName}.tls.certresolver=letsencrypt`,
+      `traefik.http.routers.${containerName}.priority=10000`,
       `traefik.http.services.${containerName}.loadbalancer.server.port=10000`
     ];
   }
 
   async reconcile(context: ProxyReconciliationContext): Promise<void> {
-    const { resource, canonicalDomain } = context;
+    const { resource, canonicalDomain, hostnames } = context;
     if (!resource.credential) {
       throw new Error(`Cannot reconcile Xray without credential for resource ${resource.id}`);
     }
@@ -73,43 +85,45 @@ export class XrayDriver implements ProxyDriver {
     const containerName = this.getContainerName(resource);
     const volumeName = this.getVolumeName(resource);
     const configPath = '/v2ray-ws';
+    const targetHosts = hostnames && hostnames.length > 0 ? hostnames : [canonicalDomain];
 
     const config = this.generateXrayConfig(resource.credential, configPath);
-    const configString = JSON.stringify(config);
+    const configString = JSON.stringify(config, null, 2);
     const configHash = crypto.createHash('sha256').update(configString).digest('hex');
-    const labelHash = crypto.createHash('sha256').update(canonicalDomain).digest('hex');
+    const labelHash = crypto.createHash('sha256').update(targetHosts.slice().sort().join(',')).digest('hex');
     const desiredStateHash = `${configHash}-${labelHash}`;
 
-    // Check if exactly this container is already running
-    const inspectRes = await runDockerCmd(['inspect', '--format', '{{ index .Config.Labels "kh.cloud.xray.hash" }}', containerName]);
-    if (inspectRes.code === 0 && inspectRes.stdout.trim() === desiredStateHash) {
-      this.logger.debug(`[XrayDriver] Container ${containerName} is already up to date.`);
+    // Check if exactly this container is already running and healthy
+    const inspectRunning = await runDockerCmd(['inspect', '-f', '{{.State.Running}}', containerName]);
+    const isRunning = inspectRunning.stdout.trim() === 'true';
+    const inspectHash = await runDockerCmd(['inspect', '--format', '{{ index .Config.Labels "kh.cloud.xray.hash" }}', containerName]);
+    
+    if (isRunning && inspectHash.code === 0 && inspectHash.stdout.trim() === desiredStateHash) {
+      this.logger.debug(`[XrayDriver] Container ${containerName} is already up to date and running.`);
       return;
     }
 
-    this.logger.log(`[XrayDriver] Reconciling container ${containerName}`);
+    this.logger.log(`[XrayDriver] Reconciling container ${containerName} with hostnames: ${targetHosts.join(', ')}`);
 
-    // Atomic write of config via transient alpine container.
-    // Stdin guarantees no shell interpolation of the JSON.
+    // Ensure volume exists and write configuration with non-root readable permissions
     await runDockerCmd(['volume', 'create', volumeName]);
+    await runDockerCmd(['rm', '-f', `${containerName}-writer`]);
     const writeRes = await runDockerCmd([
       'run', '--rm', '-i',
-      '--name', `${containerName}-config-writer`,
+      '--name', `${containerName}-writer`,
       '--network', 'none', // Strict isolation for writer
       '-v', `${volumeName}:/data`,
-      'alpine', 'sh', '-c', 'cat > /data/config.json'
+      'alpine', 'sh', '-c', 'cat > /data/config.json && chmod 644 /data/config.json'
     ], configString);
 
     if (writeRes.code !== 0) {
       throw new Error(`Failed to write Xray config to volume: ${writeRes.stderr}`);
     }
 
-    // Stop existing container if it exists
+    // Stop and remove existing container if it exists
     await runDockerCmd(['rm', '-f', containerName]);
 
-    const traefikLabels = this.getTraefikLabels(containerName, canonicalDomain, configPath);
-    
-    // Add the state hash label to avoid unnecessary recreations
+    const traefikLabels = this.getTraefikLabels(containerName, targetHosts, configPath);
     traefikLabels.push(`kh.cloud.xray.hash=${desiredStateHash}`);
 
     const runArgs = [
@@ -118,20 +132,23 @@ export class XrayDriver implements ProxyDriver {
       '--network', 'kh-cloud-network',
       '--restart', 'unless-stopped',
       '-v', `${volumeName}:/etc/xray:ro`,
-      ...traefikLabels.map(l => `-l=${l}`),
+      ...traefikLabels.flatMap(l => ['--label', l]),
       this.XRAY_IMAGE,
       'run', '-config', '/etc/xray/config.json'
     ];
 
     const runRes = await runDockerCmd(runArgs);
     if (runRes.code !== 0) {
-      throw new Error(`Failed to start Xray container: ${runRes.stderr}`);
+      throw new Error(`Failed to start Xray container: ${runRes.stderr || runRes.stdout}`);
     }
     
-    // Quick runtime check to verify it didn't immediately crash
+    // Allow container a moment to initialize before verifying health
+    await new Promise(r => setTimeout(r, 1000));
     const health = await this.healthCheck(resource);
     if (!health) {
-      throw new Error(`Xray container started but failed health check.`);
+      const logsRes = await runDockerCmd(['logs', '--tail', '30', containerName]);
+      this.logger.error(`[XrayDriver] Container ${containerName} failed health check. Logs: ${logsRes.stdout} ${logsRes.stderr}`);
+      throw new Error(`Xray container started but failed health check: ${logsRes.stderr || logsRes.stdout || 'Exited unexpectedly'}`);
     }
   }
 
@@ -149,8 +166,9 @@ export class XrayDriver implements ProxyDriver {
     if (!resource.credential || resource.status !== 'READY') return null;
 
     const path = '/v2ray-ws';
-    // Match exact deployed router and standard XTLS VLESS URI
-    const uri = `vless://${resource.credential}@${canonicalDomain}:443?encryption=none&security=tls&type=ws&path=${encodeURIComponent(path)}`;
+    // Standard XTLS VLESS WebSocket URI with TLS, SNI, and human-readable node remark:
+    const encodedPath = encodeURIComponent(path);
+    const uri = `vless://${resource.credential}@${canonicalDomain}:443?encryption=none&security=tls&sni=${canonicalDomain}&type=ws&path=${encodedPath}#${encodeURIComponent(canonicalDomain)}`;
 
     return {
       protocol: 'vless',

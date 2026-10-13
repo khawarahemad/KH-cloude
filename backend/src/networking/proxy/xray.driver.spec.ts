@@ -41,7 +41,7 @@ describe('XrayDriver', () => {
     expect(info!.protocol).toBe('vless');
     expect(info!.port).toBe(443);
     expect(info!.transport).toBe('ws');
-    expect(info!.uri).toBe('vless://secret-uuid@example.com:443?encryption=none&security=tls&type=ws&path=%2Fv2ray-ws');
+    expect(info!.uri).toBe('vless://secret-uuid@example.com:443?encryption=none&security=tls&sni=example.com&type=ws&path=%2Fv2ray-ws#example.com');
   });
 
   it('should generate correct Xray configuration object', () => {
