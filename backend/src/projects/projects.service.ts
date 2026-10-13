@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectStatus, DeploymentStatus } from '@prisma/client';
 import { exec, spawn } from 'child_process';
@@ -11,8 +11,9 @@ import { NetworkingService } from '../networking/networking.service';
 import { TraefikDriver } from '../networking/drivers/traefik.driver';
 
 @Injectable()
-export class ProjectsService {
+export class ProjectsService implements OnModuleInit {
   private readonly logger = new Logger(ProjectsService.name);
+  private lastTraefikRestartTime = 0;
 
   // Simulated live logs in-memory mapping deploymentId -> log lines
   private deploymentLogs = new Map<string, string[]>();
@@ -23,6 +24,61 @@ export class ProjectsService {
     private networkingService: NetworkingService,
     private traefikDriver: TraefikDriver,
   ) {}
+
+  onModuleInit() {
+    // Automated background SSL Health Monitor runs every 6 hours
+    setInterval(() => {
+      void this.autoHealAllDomainSSL();
+    }, 6 * 60 * 60 * 1000);
+  }
+
+  /**
+   * Automatically refreshes Traefik SSL provisioning in the background.
+   * Debounced to ensure at most 1 restart per 30 seconds.
+   */
+  async autoHealTraefikSSL(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastTraefikRestartTime < 30000) {
+      this.logger.debug('[Auto SSL Heal] Skipped: Traefik was refreshed recently.');
+      return;
+    }
+    this.lastTraefikRestartTime = now;
+
+    this.logger.log('🔄 [Auto SSL Heal] Triggering Traefik restart for immediate ACME SSL provisioning...');
+    return new Promise((resolve) => {
+      exec('docker restart kh-cloud-traefik', (err) => {
+        if (err) {
+          this.logger.error(`[Auto SSL Heal] Failed to restart Traefik container: ${err.message}`);
+        } else {
+          this.logger.log('✓ [Auto SSL Heal] Traefik restarted successfully. ACME is actively provisioning certs.');
+        }
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Scans all custom domains and auto-heals any with expired or missing SSL certs.
+   */
+  async autoHealAllDomainSSL() {
+    try {
+      const customDomains = await this.prisma.domain.findMany({ where: { isCustom: true } });
+      for (const dom of customDomains) {
+        const health = await this.checkDomainHealth(dom.hostname);
+        if (health.verified && dom.status !== 'ACTIVE') {
+          await this.prisma.domain.update({
+            where: { id: dom.id },
+            data: { status: 'ACTIVE', sslStatus: 'ACTIVE', verifiedAt: new Date() },
+          });
+        } else if (!health.verified && (health.error === 'CERT_EXPIRED' || health.error === 'SSL_ERROR')) {
+          await this.autoHealTraefikSSL();
+          break;
+        }
+      }
+    } catch (e: any) {
+      this.logger.error(`[Auto SSL Heal] Error during background check: ${e.message}`);
+    }
+  }
 
   private getBaseDomain(): string {
     return process.env.BASE_DOMAIN || 'khawarahemad.com';
@@ -621,6 +677,15 @@ export class ProjectsService {
 
       req.on('error', (err: any) => {
         const msg = err.message || '';
+        if (msg.includes('CERT_HAS_EXPIRED') || msg.includes('certificate has expired')) {
+          void this.autoHealTraefikSSL();
+          resolve({
+            verified: false,
+            error: 'CERT_EXPIRED',
+            details: `Origin certificate has expired. KH Cloud auto-healer is refreshing Traefik to renew it.`,
+          });
+          return;
+        }
         resolve({
           verified: false,
           error: 'SSL_ERROR',
@@ -652,6 +717,12 @@ export class ProjectsService {
         });
         return;
       }
+
+      // Automatically nudge Traefik if not verified by attempt 2
+      if (i === 1) {
+        void this.autoHealTraefikSSL();
+      }
+
       this.logger.debug(`[Domain Verify] ${hostname} attempt ${i + 1}/${maxAttempts}: ${health.details}`);
     }
 
@@ -687,6 +758,9 @@ export class ProjectsService {
       });
       return { success: true, domain: updated, health };
     } else {
+      if (health.error === 'CERT_EXPIRED' || health.error === 'SSL_ERROR') {
+        void this.autoHealTraefikSSL();
+      }
       const updated = await this.prisma.domain.update({
         where: { id: domainId },
         data: { status: 'FAILED', sslStatus: 'FAILED' },
