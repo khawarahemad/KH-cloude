@@ -80,7 +80,16 @@ export class NetworkingService {
       });
       if (!project) return;
       
-      const canonicalDomain = project.domains.length > 0 ? project.domains[0].hostname : `${project.slug}.${process.env.BASE_DOMAIN || 'khawarahemad.com'}`;
+      const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+      const verifiedCustom = project.domains.find(d => d.isCustom && d.status === 'ACTIVE');
+      const defaultDomain = project.domains.find(d => !d.isCustom);
+      const canonicalDomain = verifiedCustom?.hostname || defaultDomain?.hostname || project.domains[0]?.hostname || `${project.slug}.${baseDomain}`;
+
+      const hostnames = Array.from(new Set([
+        canonicalDomain,
+        `${project.slug}.${baseDomain}`,
+        ...project.domains.map(d => d.hostname)
+      ])).filter(Boolean);
 
       const resources = await this.prisma.networkResource.findMany({
         where: { networkId: network.id }
@@ -96,7 +105,7 @@ export class NetworkingService {
               data: { status: NetworkResourceStatus.PROVISIONING }
             });
 
-            await driver.reconcile({ resource, canonicalDomain });
+            await driver.reconcile({ resource, canonicalDomain, hostnames });
             
             const isHealthy = await driver.healthCheck(resource);
             if (isHealthy) {
@@ -123,6 +132,17 @@ export class NetworkingService {
   async enableProxy(projectId: string): Promise<NetworkResource> {
     const network = await this.ensureProjectNetwork(projectId);
     
+    const existing = await this.prisma.networkResource.findUnique({
+      where: {
+        networkId_type: {
+          networkId: network.id,
+          type: NetworkResourceType.WEBSOCKET_PROXY
+        }
+      }
+    });
+
+    const credential = existing?.credential || crypto.randomUUID();
+
     // Create or update resource
     const resource = await this.prisma.networkResource.upsert({
       where: {
@@ -136,10 +156,11 @@ export class NetworkingService {
         type: NetworkResourceType.WEBSOCKET_PROXY,
         provider: NetworkProvider.XRAY,
         status: NetworkResourceStatus.PROVISIONING,
-        credential: crypto.randomUUID(),
+        credential,
       },
       update: {
-        status: NetworkResourceStatus.PROVISIONING
+        status: NetworkResourceStatus.PROVISIONING,
+        credential,
       }
     });
 
@@ -190,12 +211,21 @@ export class NetworkingService {
           include: { domains: true }
         });
         if (!project) throw new Error('Project not found');
-        const canonicalDomain = project.domains.length > 0 ? project.domains[0].hostname : `${project.slug}.${process.env.BASE_DOMAIN || 'khawarahemad.com'}`;
+        const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
+        const verifiedCustom = project.domains.find(d => d.isCustom && d.status === 'ACTIVE');
+        const defaultDomain = project.domains.find(d => !d.isCustom);
+        const canonicalDomain = verifiedCustom?.hostname || defaultDomain?.hostname || project.domains[0]?.hostname || `${project.slug}.${baseDomain}`;
+
+        const hostnames = Array.from(new Set([
+          canonicalDomain,
+          `${project.slug}.${baseDomain}`,
+          ...project.domains.map(d => d.hostname)
+        ])).filter(Boolean);
 
         const driver = this.proxyFactory.getDriver(resource.provider);
         const updatedResource = { ...resource, credential: newCredential };
         
-        await driver.reconcile({ resource: updatedResource, canonicalDomain });
+        await driver.reconcile({ resource: updatedResource, canonicalDomain, hostnames });
         
         const isHealthy = await driver.healthCheck(updatedResource);
         if (isHealthy) {
