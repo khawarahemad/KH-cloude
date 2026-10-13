@@ -54,39 +54,7 @@ export class NetworkAdminController {
     @Query('adminUserId') adminUserId?: string,
   ) {
     await this.requireAdmin(token, adminUserId);
-
-    const stats = await this.networkService.getStats();
-
-    // Enrich top IPs with active ban status from Redis
-    const banKeys = await this.redis.keys('ddos:ban:*');
-    const bannedIpsSet = new Set(banKeys.map((k) => k.replace('ddos:ban:', '')));
-
-    const topIpsWithBans = await Promise.all(
-      stats.topIps.map(async (ipData) => {
-        const isBanned = bannedIpsSet.has(ipData.ip);
-        let expiresInSeconds = 0;
-        if (isBanned) {
-          expiresInSeconds = await this.redis.ttl(`ddos:ban:${ipData.ip}`);
-        }
-        return {
-          ...ipData,
-          isBanned,
-          banExpiresInSeconds: Math.max(0, expiresInSeconds),
-        };
-      }),
-    );
-
-    return {
-      timestamp: new Date().toISOString(),
-      overview: {
-        ...stats.overview,
-        activeBansCount: bannedIpsSet.size,
-      },
-      dailyTrends: stats.dailyTrends,
-      statusDistribution: stats.statusDistribution,
-      topIps: topIpsWithBans,
-      recentLogs: stats.recentLogs,
-    };
+    return this.networkService.getStats();
   }
 
   // -------------------------------------------------------------------------
