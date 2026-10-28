@@ -427,7 +427,7 @@ export default function DatabasesTab() {
           </div>
 
           <div style={{ display: 'flex', gap: '16px' }}>
-            {([['table-editor', 'Table Editor', LayoutGrid], ['sql', 'SQL Console', Terminal], ['guide', 'Guide', FileText], ['network', 'Network Access', Shield]] as const).map(([id, label, Icon]) => {
+            {([['table-editor', activeDb.type === 'REDIS' ? 'Key Browser' : 'Table Editor', LayoutGrid], ['sql', activeDb.type === 'REDIS' ? 'Redis Console' : 'SQL Console', Terminal], ['guide', 'Guide', FileText], ['network', 'Network Access', Shield]] as const).map(([id, label, Icon]) => {
               const isActive = dbView === id;
               return (
                 <button
@@ -673,8 +673,12 @@ export default function DatabasesTab() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>SQL Query Console</div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>Execute direct SQL statements against this database instance.</div>
+                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>
+                      {activeDb.type === 'REDIS' ? 'Redis Command Console' : 'SQL Query Console'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      {activeDb.type === 'REDIS' ? 'Execute direct Redis commands (e.g. SET, GET, HSET, KEYS, PING, INFO).' : 'Execute direct SQL statements against this database instance.'}
+                    </div>
                   </div>
                   <button
                     onClick={() => handleExecuteQuery()}
@@ -682,7 +686,7 @@ export default function DatabasesTab() {
                     style={{ height: '30px', padding: '0 14px', borderRadius: '7px', backgroundColor: '#7c3aed', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: (queryExecuting || !sqlQuery.trim()) ? 0.6 : 1 }}
                   >
                     {queryExecuting ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
-                    Run Query
+                    {activeDb.type === 'REDIS' ? 'Run Command' : 'Run Query'}
                   </button>
                 </div>
 
@@ -690,6 +694,7 @@ export default function DatabasesTab() {
                   value={sqlQuery}
                   onChange={e => setSqlQuery(e.target.value)}
                   rows={8}
+                  placeholder={activeDb.type === 'REDIS' ? 'SET user:100 "active"\nGET user:100\nKEYS *' : 'SELECT * FROM ...'}
                   style={{ width: '100%', padding: '16px', borderRadius: '10px', backgroundColor: '#08090c', border: '1px solid rgba(255,255,255,0.06)', color: '#c4b5fd', fontFamily: '"JetBrains Mono", "Fira Code", monospace', fontSize: '12px', lineHeight: 1.7, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                 />
 

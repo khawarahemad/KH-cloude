@@ -37,6 +37,7 @@
     "ioredis": "^5.11.1",
     "isolated-vm": "^6.2.0",
     "jose": "^6.2.10",
+    "mysql2": "^3.24.6",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

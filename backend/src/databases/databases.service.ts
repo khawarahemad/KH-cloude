@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DatabaseType } from '@prisma/client';
 import { sendDiscordNotification } from '../utils/discord-webhook';
 import { Client as PgClient } from 'pg';
+import * as mysql from 'mysql2/promise';
+import Redis from 'ioredis';
 
 @Injectable()
 export class DatabasesService implements OnModuleInit {
@@ -11,9 +13,15 @@ export class DatabasesService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit() {
-    // Automatically verify and provision all registered PostgreSQL instances on startup
+    // Automatically verify and provision all registered database instances on startup
     this.syncAllPostgresDatabases().catch((err) => {
       this.logger.warn(`Postgres initial sync note: ${err.message}`);
+    });
+    this.syncAllMysqlDatabases().catch((err) => {
+      this.logger.warn(`MySQL initial sync note: ${err.message}`);
+    });
+    this.syncAllRedisDatabases().catch((err) => {
+      this.logger.warn(`Redis initial sync note: ${err.message}`);
     });
   }
 
@@ -30,6 +38,38 @@ export class DatabasesService implements OnModuleInit {
       this.logger.log(`Verified and synced ${postgresDbs.length} PostgreSQL instances in kh-cloud-postgres`);
     } catch (err: any) {
       this.logger.warn(`Failed to sync PostgreSQL instances: ${err.message}`);
+    }
+  }
+
+  async syncAllMysqlDatabases() {
+    try {
+      const mysqlDbs = await this.prisma.databaseInstance.findMany({
+        where: { type: 'MYSQL' },
+      });
+      for (const db of mysqlDbs) {
+        if (db.username && db.password && db.dbName) {
+          await this.provisionMysqlDatabase(db.username, db.password, db.dbName);
+        }
+      }
+      this.logger.log(`Verified and synced ${mysqlDbs.length} MySQL instances in kh-cloud-mysql`);
+    } catch (err: any) {
+      this.logger.warn(`Failed to sync MySQL instances: ${err.message}`);
+    }
+  }
+
+  async syncAllRedisDatabases() {
+    try {
+      const redisDbs = await this.prisma.databaseInstance.findMany({
+        where: { type: 'REDIS' },
+      });
+      for (const db of redisDbs) {
+        if (db.password) {
+          await this.provisionRedisDatabase(db.username || 'default', db.password);
+        }
+      }
+      this.logger.log(`Verified and synced ${redisDbs.length} Redis instances in kh-cloud-redis`);
+    } catch (err: any) {
+      this.logger.warn(`Failed to sync Redis instances: ${err.message}`);
     }
   }
 
@@ -52,10 +92,10 @@ export class DatabasesService implements OnModuleInit {
     const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
     const host = `${cleanDbName}-${teamPrefix}-${data.type.toLowerCase()}.db.${baseDomain}`;
     const port = data.type === 'POSTGRESQL' ? 5432 : data.type === 'REDIS' ? 6379 : 3306;
-    const username = data.type === 'REDIS' ? undefined : `${cleanDbName}_user`;
+    const username = data.type === 'REDIS' ? `${cleanDbName}_user` : `${cleanDbName}_user`;
     const crypto = require('crypto');
     const password = crypto.randomBytes(32).toString('hex');
-    const dbName = data.type === 'REDIS' ? undefined : `${data.name.toLowerCase()}_db`;
+    const dbName = data.type === 'REDIS' ? '0' : `${data.name.toLowerCase()}_db`;
 
     const db = await this.prisma.databaseInstance.create({
       data: {
@@ -74,9 +114,13 @@ export class DatabasesService implements OnModuleInit {
 
     if (data.type === 'POSTGRESQL') {
       await this.provisionPostgresDatabase(username, password, dbName);
+    } else if (data.type === 'MYSQL') {
+      await this.provisionMysqlDatabase(username, password, dbName);
+    } else if (data.type === 'REDIS') {
+      await this.provisionRedisDatabase(username, password);
     }
 
-    // Simulate provisioning complete in 5 seconds
+    // Provision complete
     setTimeout(async () => {
       await this.prisma.databaseInstance.update({
         where: { id: db.id },
@@ -132,13 +176,16 @@ export class DatabasesService implements OnModuleInit {
     if (!db) throw new NotFoundException('Database not found.');
     if (db.type === 'POSTGRESQL') {
       await this.provisionPostgresDatabase(db.username, db.password, db.dbName);
+    } else if (db.type === 'MYSQL') {
+      await this.provisionMysqlDatabase(db.username, db.password, db.dbName);
+    } else if (db.type === 'REDIS') {
+      await this.provisionRedisDatabase(db.username || 'default', db.password);
     }
     return {
       host: db.host,
       port: db.port,
       username: db.username,
       password: db.password,
-      dbName: db.dbName,
     };
   }
 
@@ -150,110 +197,17 @@ export class DatabasesService implements OnModuleInit {
 
     await this.prisma.databaseInstance.delete({ where: { id } });
 
-    sendDiscordNotification(teamId, 'database', {
-      title: `🗑️ Database Deleted: ${db.name}`,
-      description: `The **${db.type}** database **${db.name}** has been deleted.`,
-      color: 16096779, // Orange/Yellow
-      fields: [
-        { name: 'Name', value: db.name, inline: true },
-        { name: 'Type', value: db.type, inline: true }
-      ]
-    });
-
     await this.prisma.auditLog.create({
       data: {
         teamId,
         action: 'DATABASE.DELETE',
         targetType: 'DATABASE',
         targetId: id,
-        details: JSON.stringify({ name: db.name }),
+        details: JSON.stringify({ name: db.name, type: db.type }),
       },
     });
 
     return { success: true };
-  }
-
-  async syncStorageTables(dbId: string, teamId: string) {
-    const buckets = await this.prisma.bucket.findMany({
-      where: { teamId },
-      include: { objects: true },
-    });
-
-    const { client } = this.openDb(dbId);
-    try {
-      client.prepare(`
-        CREATE TABLE IF NOT EXISTS storage_buckets (
-          id TEXT PRIMARY KEY,
-          name TEXT UNIQUE NOT NULL,
-          is_public INTEGER DEFAULT 0,
-          size_limit INTEGER,
-          size_used INTEGER,
-          status TEXT,
-          created_at TEXT
-        );
-      `).run();
-
-      client.prepare(`
-        CREATE TABLE IF NOT EXISTS storage_objects (
-          id TEXT PRIMARY KEY,
-          bucket_id TEXT,
-          name TEXT,
-          size INTEGER,
-          content_type TEXT,
-          etag TEXT,
-          is_folder INTEGER DEFAULT 0,
-          created_at TEXT,
-          FOREIGN KEY(bucket_id) REFERENCES storage_buckets(id) ON DELETE CASCADE
-        );
-      `).run();
-
-      // Clear existing records first to avoid stale entries
-      client.prepare('DELETE FROM storage_objects').run();
-      client.prepare('DELETE FROM storage_buckets').run();
-
-      const insertBucket = client.prepare(`
-        INSERT OR REPLACE INTO storage_buckets (id, name, is_public, size_limit, size_used, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      const insertObject = client.prepare(`
-        INSERT OR REPLACE INTO storage_objects (id, bucket_id, name, size, content_type, etag, is_folder, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      const transaction = client.transaction(() => {
-        for (const bucket of buckets) {
-          insertBucket.run(
-            bucket.id,
-            bucket.name,
-            bucket.isPublic ? 1 : 0,
-            Number(bucket.sizeLimit),
-            Number(bucket.sizeUsed),
-            bucket.status,
-            bucket.createdAt.toISOString()
-          );
-
-          for (const obj of bucket.objects) {
-            insertObject.run(
-              obj.id,
-              obj.bucketId,
-              obj.key,
-              Number(obj.size),
-              obj.contentType,
-              obj.etag,
-              obj.isFolder ? 1 : 0,
-              obj.createdAt.toISOString()
-            );
-          }
-        }
-      });
-
-      transaction();
-    } catch (err) {
-      console.error('Failed to sync storage tables into virtual database:', err);
-    } finally {
-      client.close();
-    }
   }
 
   private getPgClient(db: { dbName?: string | null; username?: string | null; password?: string | null }): PgClient {
@@ -272,6 +226,57 @@ export class DatabasesService implements OnModuleInit {
       database,
       statement_timeout: 10000,
     });
+  }
+
+  private async getMysqlConnection(db: { dbName?: string | null; username?: string | null; password?: string | null }) {
+    const isProd = process.env.NODE_ENV === 'production';
+    const host = isProd ? 'mysql' : (process.env.MYSQL_HOST || 'localhost');
+    const port = parseInt(process.env.MYSQL_PORT || '3306', 10);
+    const user = db.username || process.env.MYSQL_USER || 'khclouduser';
+    const password = db.password || process.env.MYSQL_PASSWORD || 'khcloudpassword';
+    const database = db.dbName || undefined;
+
+    return await mysql.createConnection({
+      host,
+      port,
+      user,
+      password,
+      database,
+      connectTimeout: 8000,
+      multipleStatements: true,
+    });
+  }
+
+  private getRedisClient(db: { username?: string | null; password?: string | null; port?: number | null }) {
+    const isProd = process.env.NODE_ENV === 'production';
+    const host = isProd ? 'redis' : (process.env.REDIS_HOST || 'localhost');
+    const port = parseInt(process.env.REDIS_PORT || '6379', 10);
+    const username = db.username || undefined;
+    const password = db.password || undefined;
+
+    return new Redis({
+      host,
+      port,
+      username: username && username !== 'default' ? username : undefined,
+      password: password || undefined,
+      connectTimeout: 5000,
+      lazyConnect: false,
+      maxRetriesPerRequest: 1,
+    });
+  }
+
+  private validateIdentifier(name: string, label = 'Identifier') {
+    if (!name || typeof name !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(name)) {
+      throw new BadRequestException(`Invalid ${label} "${name}". Only alphanumeric characters and underscores are allowed (1-64 chars).`);
+    }
+    return `"${name.replace(/"/g, '""')}"`;
+  }
+
+  private validateMysqlIdentifier(name: string, label = 'Identifier') {
+    if (!name || typeof name !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(name)) {
+      throw new BadRequestException(`Invalid ${label} "${name}". Only alphanumeric characters and underscores are allowed (1-64 chars).`);
+    }
+    return `\`${name.replace(/`/g, '``')}\``;
   }
 
   private buildPgWhereClause(filterStr: string): { clause: string; params: any[] } {
@@ -293,6 +298,34 @@ export class DatabasesService implements OnModuleInit {
         }
         params.push(f.value);
         clauses.push(`"${f.column}" ${f.op.toUpperCase()} $${params.length}`);
+      }
+      
+      return { clause: `WHERE ${clauses.join(' AND ')}`, params };
+    } catch (e: any) {
+      if (e instanceof BadRequestException) throw e;
+      throw new BadRequestException('Filter must be a valid JSON array of objects with column, op, and value.');
+    }
+  }
+
+  private buildMysqlWhereClause(filterStr: string): { clause: string; params: any[] } {
+    if (!filterStr || !filterStr.trim()) return { clause: '', params: [] };
+    try {
+      const filters = JSON.parse(filterStr);
+      if (!Array.isArray(filters) || filters.length === 0) return { clause: '', params: [] };
+      
+      const allowedOps = ['=', '!=', '>', '<', '>=', '<=', 'LIKE'];
+      const clauses: string[] = [];
+      const params: any[] = [];
+      
+      for (const f of filters) {
+        if (!f.column || typeof f.column !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(f.column)) {
+          throw new BadRequestException('Invalid column name in filter.');
+        }
+        if (!f.op || typeof f.op !== 'string' || !allowedOps.includes(f.op.toUpperCase())) {
+          throw new BadRequestException('Invalid operator in filter.');
+        }
+        params.push(f.value);
+        clauses.push(`${this.validateMysqlIdentifier(f.column)} ${f.op.toUpperCase()} ?`);
       }
       
       return { clause: `WHERE ${clauses.join(' AND ')}`, params };
@@ -328,25 +361,25 @@ export class DatabasesService implements OnModuleInit {
       }
     }
 
-    await this.syncStorageTables(dbId, teamId);
-
-    const dbPath = `./data/virtual_db_${dbId}.db`;
-    const fs = require('fs');
-    if (!fs.existsSync(dbPath)) {
-      return [];
+    if (db.type === 'MYSQL') {
+      let conn: any;
+      try {
+        conn = await this.getMysqlConnection(db);
+        const [rows]: any = await conn.query('SHOW TABLES');
+        return (rows || []).map((r: any) => Object.values(r)[0]);
+      } catch (err: any) {
+        this.logger.error(`Failed to get MySQL tables for ${db.dbName}: ${err.message}`);
+        return [];
+      } finally {
+        if (conn) await conn.end().catch(() => {});
+      }
     }
 
-    const Database = require('better-sqlite3');
-    const client = new Database(dbPath);
-
-    try {
-      const rows = client.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';").all();
-      return rows.map((r: any) => r.name);
-    } catch (err) {
-      return [];
-    } finally {
-      client.close();
+    if (db.type === 'REDIS') {
+      return ['(All Keys)'];
     }
+
+    return [];
   }
 
   async runQuery(dbId: string, teamId: string, sql: string) {
@@ -388,112 +421,78 @@ export class DatabasesService implements OnModuleInit {
       }
     }
 
-    await this.syncStorageTables(dbId, teamId);
-
-    const dbPath = `./data/virtual_db_${dbId}.db`;
-    
-    const fs = require('fs');
-    const path = require('path');
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    const Database = require('better-sqlite3');
-    const client = new Database(dbPath);
-
-    try {
-      const stmt = client.prepare(sql);
-      if (stmt.reader) {
-        const rows = stmt.all();
-        return { 
-          success: true, 
-          rows, 
-          columns: rows.length > 0 ? Object.keys(rows[0]) : [],
-          message: `Query returned ${rows.length} row(s).`
-        };
-      } else {
-        const info = stmt.run();
-        return { 
-          success: true, 
-          affectedRows: info.changes, 
-          lastInsertRowid: info.lastInsertRowid.toString(),
-          message: `Query executed successfully. ${info.changes} row(s) affected.`
-        };
-      }
-    } catch (err: any) {
+    if (db.type === 'MYSQL') {
+      let conn: any;
       try {
-        client.exec(sql);
-        return { success: true, message: 'Command executed successfully.' };
-      } catch (execErr: any) {
-        throw new BadRequestException(execErr.message);
+        conn = await this.getMysqlConnection(db);
+        const [result, fields]: any = await conn.query(sql);
+        if (Array.isArray(result)) {
+          return {
+            success: true,
+            rows: result,
+            columns: fields ? fields.map((f: any) => f.name) : (result.length > 0 ? Object.keys(result[0]) : []),
+            message: `Query returned ${result.length} row(s).`,
+          };
+        } else {
+          return {
+            success: true,
+            affectedRows: result?.affectedRows || 0,
+            lastInsertRowid: result?.insertId ? String(result.insertId) : undefined,
+            message: `Query executed successfully (${result?.affectedRows || 0} row(s) affected).`,
+          };
+        }
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        if (conn) await conn.end().catch(() => {});
       }
-    } finally {
-      client.close();
     }
+
+    if (db.type === 'REDIS') {
+      const redis = this.getRedisClient(db);
+      try {
+        const parts = sql.trim().match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+        const cleanParts = parts.map(p => p.replace(/^["']|["']$/g, ''));
+        if (cleanParts.length === 0) throw new BadRequestException('Empty command.');
+        const cmd = cleanParts[0].toLowerCase();
+        const args = cleanParts.slice(1);
+        const result = await (redis as any).call(cmd, ...args);
+        let rows: any[] = [];
+        let columns: string[] = ['result'];
+        if (Array.isArray(result)) {
+          rows = result.map((item, idx) => ({ index: idx + 1, item: typeof item === 'object' ? JSON.stringify(item) : String(item) }));
+          columns = ['index', 'item'];
+        } else if (typeof result === 'object' && result !== null) {
+          rows = [result];
+          columns = Object.keys(result);
+        } else {
+          rows = [{ command: sql.trim(), result: String(result) }];
+          columns = ['command', 'result'];
+        }
+        return {
+          success: true,
+          rows,
+          columns,
+          message: `Command "${cmd.toUpperCase()}" executed successfully.`,
+        };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        redis.disconnect();
+      }
+    }
+
+    throw new BadRequestException(`Database type "${db.type}" is not supported.`);
   }
 
   // ---- TABLE EDITOR METHODS ----
-
-  private openDb(dbId: string) {
-    const fs = require('fs');
-    const path = require('path');
-    const dbPath = `./data/virtual_db_${dbId}.db`;
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const Database = require('better-sqlite3');
-    return { client: new Database(dbPath), dbPath };
-  }
-
-  private validateIdentifier(name: string, label = 'Identifier') {
-    if (!name || typeof name !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(name)) {
-      throw new BadRequestException(`Invalid ${label} "${name}". Only alphanumeric characters and underscores are allowed (1-64 chars).`);
-    }
-    return `"${name.replace(/"/g, '""')}"`;
-  }
-
-  /**
-   * @security SQL Injection Mitigation
-   * Parses a structured JSON filter string into a parameterized WHERE clause.
-   * - Validates column names against a strict alphanumeric regex.
-   * - Enforces an explicit operator allowlist.
-   * - Uses parameterized SQLite queries (`?`) to prevent logic bypasses and logical injections.
-   */
-  private buildWhereClause(filterStr: string): { clause: string; params: any[] } {
-    if (!filterStr || !filterStr.trim()) return { clause: '', params: [] };
-    try {
-      const filters = JSON.parse(filterStr);
-      if (!Array.isArray(filters) || filters.length === 0) return { clause: '', params: [] };
-      
-      const allowedOps = ['=', '!=', '>', '<', '>=', '<=', 'LIKE'];
-      const clauses: string[] = [];
-      const params: any[] = [];
-      
-      for (const f of filters) {
-        if (!f.column || typeof f.column !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(f.column)) {
-          throw new BadRequestException('Invalid column name in filter.');
-        }
-        if (!f.op || typeof f.op !== 'string' || !allowedOps.includes(f.op.toUpperCase())) {
-          throw new BadRequestException('Invalid operator in filter.');
-        }
-        clauses.push(`"${f.column}" ${f.op.toUpperCase()} ?`);
-        params.push(f.value);
-      }
-      
-      return { clause: `WHERE ${clauses.join(' AND ')}`, params };
-    } catch (e: any) {
-      if (e instanceof BadRequestException) throw e;
-      throw new BadRequestException('Filter must be a valid JSON array of objects with column, op, and value.');
-    }
-  }
 
   async getTableSchema(dbId: string, teamId: string, tableName: string) {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
-    const safeTable = this.validateIdentifier(tableName, 'table name');
-
     if (db.type === 'POSTGRESQL') {
+      const safeTable = this.validateIdentifier(tableName, 'table name');
       const rawTable = tableName.replace(/"/g, '');
       const pgClient = this.getPgClient(db);
       try {
@@ -544,37 +543,51 @@ export class DatabasesService implements OnModuleInit {
       }
     }
 
-    await this.syncStorageTables(dbId, teamId);
-
-    const { client } = this.openDb(dbId);
-    try {
-      const cols = client.prepare(`PRAGMA table_info(${safeTable});`).all();
-      const pkCols = cols
-        .filter((c: any) => c.pk > 0)
-        .map((c: any) => c.name);
-      return {
-        columns: cols.map((c: any) => ({
-          cid: c.cid,
-          name: c.name,
-          type: c.type,
-          notnull: c.notnull === 1,
-          dflt_value: c.dflt_value,
-          pk: c.pk > 0,
-        })),
-        primaryKey: pkCols[0] || 'id',
-      };
-    } finally {
-      client.close();
+    if (db.type === 'MYSQL') {
+      let conn: any;
+      try {
+        conn = await this.getMysqlConnection(db);
+        const safeTable = this.validateMysqlIdentifier(tableName, 'table name');
+        const [cols]: any = await conn.query(`DESCRIBE ${safeTable}`);
+        const columns = (cols || []).map((c: any, idx: number) => ({
+          cid: idx,
+          name: c.Field,
+          type: c.Type,
+          notnull: c.Null === 'NO',
+          dflt_value: c.Default,
+          pk: c.Key === 'PRI',
+        }));
+        const pk = columns.find((c: any) => c.pk)?.name || columns[0]?.name || 'id';
+        return { columns, primaryKey: pk };
+      } catch (err: any) {
+        this.logger.error(`Failed to get MySQL schema for ${tableName}: ${err.message}`);
+        throw new BadRequestException(`Failed to read schema for table "${tableName}": ${err.message}`);
+      } finally {
+        if (conn) await conn.end().catch(() => {});
+      }
     }
+
+    if (db.type === 'REDIS') {
+      return {
+        columns: [
+          { cid: 0, name: 'key', type: 'string', notnull: true, pk: true },
+          { cid: 1, name: 'type', type: 'string', notnull: true, pk: false },
+          { cid: 2, name: 'ttl', type: 'string', notnull: false, pk: false },
+          { cid: 3, name: 'value', type: 'text', notnull: false, pk: false },
+        ],
+        primaryKey: 'key',
+      };
+    }
+
+    return { columns: [], primaryKey: 'id' };
   }
 
   async getTableRows(dbId: string, teamId: string, tableName: string, page = 1, pageSize = 50, filter = '') {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
-    const safeTable = this.validateIdentifier(tableName, 'table name');
-
     if (db.type === 'POSTGRESQL') {
+      const safeTable = this.validateIdentifier(tableName, 'table name');
       const pgClient = this.getPgClient(db);
       try {
         await pgClient.connect();
@@ -609,33 +622,88 @@ export class DatabasesService implements OnModuleInit {
       }
     }
 
-    const { clause: whereClause, params } = this.buildWhereClause(filter);
-    await this.syncStorageTables(dbId, teamId);
+    if (db.type === 'MYSQL') {
+      let conn: any;
+      try {
+        conn = await this.getMysqlConnection(db);
+        const safeTable = this.validateMysqlIdentifier(tableName, 'table name');
+        const { clause: whereClause, params: whereParams } = this.buildMysqlWhereClause(filter);
+        const [countRes]: any = await conn.query(`SELECT COUNT(*) as cnt FROM ${safeTable} ${whereClause}`, whereParams);
+        const total = countRes[0]?.cnt ? parseInt(countRes[0].cnt, 10) : 0;
 
-    const { client } = this.openDb(dbId);
-    try {
-      const offset = (page - 1) * pageSize;
-      const rows = client.prepare(`SELECT * FROM ${safeTable} ${whereClause} LIMIT ? OFFSET ?`).all(...params, pageSize, offset);
-      const total = (client.prepare(`SELECT COUNT(*) as cnt FROM ${safeTable} ${whereClause}`).get(...params) as any).cnt;
-      return {
-        rows,
-        columns: rows.length > 0 ? Object.keys(rows[0]) : [],
-        total,
-        page,
-        pageSize,
-      };
-    } finally {
-      client.close();
+        const offset = (page - 1) * pageSize;
+        const [rows]: any = await conn.query(`SELECT * FROM ${safeTable} ${whereClause} LIMIT ? OFFSET ?`, [...whereParams, pageSize, offset]);
+        const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+        return {
+          rows,
+          columns,
+          total,
+          page,
+          pageSize,
+        };
+      } catch (err: any) {
+        this.logger.error(`Failed to get MySQL rows for ${tableName}: ${err.message}`);
+        throw new BadRequestException(`Failed to fetch rows for table "${tableName}": ${err.message}`);
+      } finally {
+        if (conn) await conn.end().catch(() => {});
+      }
     }
+
+    if (db.type === 'REDIS') {
+      const redis = this.getRedisClient(db);
+      try {
+        const matchPattern = filter?.trim() ? `*${filter.trim()}*` : '*';
+        const keys = await redis.keys(matchPattern);
+        keys.sort();
+        const total = keys.length;
+        const offset = (page - 1) * pageSize;
+        const pageKeys = keys.slice(offset, offset + pageSize);
+        const rows = [];
+        for (const k of pageKeys) {
+          const type = await redis.type(k);
+          const ttl = await redis.ttl(k);
+          let val = '';
+          try {
+            if (type === 'string') val = (await redis.get(k)) || '';
+            else if (type === 'hash') val = JSON.stringify(await redis.hgetall(k));
+            else if (type === 'list') val = JSON.stringify(await redis.lrange(k, 0, 10));
+            else if (type === 'set') val = JSON.stringify(await redis.smembers(k));
+            else val = `[${type}]`;
+          } catch {
+            val = `[${type}]`;
+          }
+          rows.push({
+            key: k,
+            type,
+            ttl: ttl >= 0 ? `${ttl}s` : (ttl === -1 ? 'None' : 'Expired'),
+            value: val,
+          });
+        }
+        return {
+          rows,
+          columns: ['key', 'type', 'ttl', 'value'],
+          total,
+          page,
+          pageSize,
+        };
+      } catch (err: any) {
+        this.logger.error(`Failed to get Redis keys for ${db.name}: ${err.message}`);
+        throw new BadRequestException(`Failed to fetch Redis keys: ${err.message}`);
+      } finally {
+        redis.disconnect();
+      }
+    }
+
+    return { rows: [], columns: [], total: 0, page, pageSize };
   }
 
   async insertRow(dbId: string, teamId: string, tableName: string, data: Record<string, any>) {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
-    const safeTable = this.validateIdentifier(tableName, 'table name');
-
     if (db.type === 'POSTGRESQL') {
+      const safeTable = this.validateIdentifier(tableName, 'table name');
       const pgClient = this.getPgClient(db);
       try {
         await pgClient.connect();
@@ -656,30 +724,50 @@ export class DatabasesService implements OnModuleInit {
       }
     }
 
-    await this.syncStorageTables(dbId, teamId);
-
-    const { client } = this.openDb(dbId);
-    try {
-      const keys = Object.keys(data).filter(k => data[k] !== undefined && data[k] !== '');
-      if (keys.length === 0) throw new BadRequestException('No data provided for insert.');
-      const safeCols = keys.map(k => this.validateIdentifier(k, 'column name')).join(', ');
-      const placeholders = keys.map(() => '?').join(', ');
-      const values = keys.map(k => data[k]);
-      const info = client.prepare(`INSERT INTO ${safeTable} (${safeCols}) VALUES (${placeholders})`).run(...values);
-      return { success: true, lastInsertRowid: info.lastInsertRowid.toString() };
-    } finally {
-      client.close();
+    if (db.type === 'MYSQL') {
+      let conn: any;
+      try {
+        conn = await this.getMysqlConnection(db);
+        const safeTable = this.validateMysqlIdentifier(tableName, 'table name');
+        const keys = Object.keys(data).filter(k => data[k] !== undefined && data[k] !== '');
+        if (keys.length === 0) throw new BadRequestException('No data provided for insert.');
+        const safeCols = keys.map(k => this.validateMysqlIdentifier(k, 'column name')).join(', ');
+        const placeholders = keys.map(() => '?').join(', ');
+        const values = keys.map(k => data[k]);
+        const [res]: any = await conn.query(`INSERT INTO ${safeTable} (${safeCols}) VALUES (${placeholders})`, values);
+        return { success: true, lastInsertRowid: res.insertId?.toString() || '1' };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        if (conn) await conn.end().catch(() => {});
+      }
     }
+
+    if (db.type === 'REDIS') {
+      const redis = this.getRedisClient(db);
+      try {
+        const key = data.key || data.Key;
+        if (!key) throw new BadRequestException('A key name is required to insert into Redis.');
+        const val = data.value !== undefined ? String(data.value) : '';
+        await redis.set(key, val);
+        return { success: true, lastInsertRowid: key };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        redis.disconnect();
+      }
+    }
+
+    throw new BadRequestException(`Database type "${db.type}" is not supported.`);
   }
 
   async updateRow(dbId: string, teamId: string, tableName: string, primaryKey: string, pkValue: any, data: Record<string, any>) {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
-    const safeTable = this.validateIdentifier(tableName, 'table name');
-    const safePk = this.validateIdentifier(primaryKey, 'primary key');
-
     if (db.type === 'POSTGRESQL') {
+      const safeTable = this.validateIdentifier(tableName, 'table name');
+      const safePk = this.validateIdentifier(primaryKey, 'primary key');
       const pgClient = this.getPgClient(db);
       try {
         await pgClient.connect();
@@ -699,29 +787,48 @@ export class DatabasesService implements OnModuleInit {
       }
     }
 
-    await this.syncStorageTables(dbId, teamId);
-
-    const { client } = this.openDb(dbId);
-    try {
-      const keys = Object.keys(data).filter(k => k !== primaryKey);
-      if (keys.length === 0) throw new BadRequestException('No fields to update.');
-      const setClauses = keys.map(k => `${this.validateIdentifier(k, 'column name')} = ?`).join(', ');
-      const values = [...keys.map(k => data[k]), pkValue];
-      const info = client.prepare(`UPDATE ${safeTable} SET ${setClauses} WHERE ${safePk} = ?`).run(...values);
-      return { success: true, affectedRows: info.changes };
-    } finally {
-      client.close();
+    if (db.type === 'MYSQL') {
+      let conn: any;
+      try {
+        conn = await this.getMysqlConnection(db);
+        const safeTable = this.validateMysqlIdentifier(tableName, 'table name');
+        const safePk = this.validateMysqlIdentifier(primaryKey, 'primary key');
+        const keys = Object.keys(data).filter(k => k !== primaryKey);
+        if (keys.length === 0) throw new BadRequestException('No fields to update.');
+        const setClauses = keys.map(k => `${this.validateMysqlIdentifier(k, 'column name')} = ?`).join(', ');
+        const values = [...keys.map(k => data[k]), pkValue];
+        const [res]: any = await conn.query(`UPDATE ${safeTable} SET ${setClauses} WHERE ${safePk} = ?`, values);
+        return { success: true, affectedRows: res.affectedRows || 0 };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        if (conn) await conn.end().catch(() => {});
+      }
     }
+
+    if (db.type === 'REDIS') {
+      const redis = this.getRedisClient(db);
+      try {
+        const val = data.value !== undefined ? String(data.value) : '';
+        await redis.set(pkValue, val);
+        return { success: true, affectedRows: 1 };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        redis.disconnect();
+      }
+    }
+
+    throw new BadRequestException(`Database type "${db.type}" is not supported.`);
   }
 
   async deleteRow(dbId: string, teamId: string, tableName: string, primaryKey: string, pkValue: any) {
     const db = await this.prisma.databaseInstance.findFirst({ where: { id: dbId, teamId } });
     if (!db) throw new NotFoundException('Database not found.');
 
-    const safeTable = this.validateIdentifier(tableName, 'table name');
-    const safePk = this.validateIdentifier(primaryKey, 'primary key');
-
     if (db.type === 'POSTGRESQL') {
+      const safeTable = this.validateIdentifier(tableName, 'table name');
+      const safePk = this.validateIdentifier(primaryKey, 'primary key');
       const pgClient = this.getPgClient(db);
       try {
         await pgClient.connect();
@@ -737,15 +844,34 @@ export class DatabasesService implements OnModuleInit {
       }
     }
 
-    await this.syncStorageTables(dbId, teamId);
-
-    const { client } = this.openDb(dbId);
-    try {
-      const info = client.prepare(`DELETE FROM ${safeTable} WHERE ${safePk} = ?`).run(pkValue);
-      return { success: true, affectedRows: info.changes };
-    } finally {
-      client.close();
+    if (db.type === 'MYSQL') {
+      let conn: any;
+      try {
+        conn = await this.getMysqlConnection(db);
+        const safeTable = this.validateMysqlIdentifier(tableName, 'table name');
+        const safePk = this.validateMysqlIdentifier(primaryKey, 'primary key');
+        const [res]: any = await conn.query(`DELETE FROM ${safeTable} WHERE ${safePk} = ?`, [pkValue]);
+        return { success: true, affectedRows: res.affectedRows || 0 };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        if (conn) await conn.end().catch(() => {});
+      }
     }
+
+    if (db.type === 'REDIS') {
+      const redis = this.getRedisClient(db);
+      try {
+        const res = await redis.del(pkValue);
+        return { success: true, affectedRows: res };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        redis.disconnect();
+      }
+    }
+
+    throw new BadRequestException(`Database type "${db.type}" is not supported.`);
   }
 
   async getDatabaseNetworkRules(dbId: string, teamId: string, clientIp?: string) {
@@ -818,7 +944,7 @@ export class DatabasesService implements OnModuleInit {
     const serialized = JSON.stringify(cleanRules);
 
     await this.prisma.databaseInstance.update({
-      where: { id: dbId },
+      where: { id: dbId, teamId },
       data: { allowedIps: serialized },
     });
 
@@ -863,7 +989,10 @@ export class DatabasesService implements OnModuleInit {
       const safeDb = dbName.replace(/[^a-zA-Z0-9_]/g, '');
       const safePass = password.replace(/'/g, "''");
 
-      const sqlScript = `
+      const isSuperUser = safeUser.toLowerCase() === (process.env.POSTGRES_USER || 'khclouduser').toLowerCase() || safeUser.toLowerCase() === 'postgres';
+      const roleScript = isSuperUser
+        ? `-- Superuser "${safeUser}" is managed by platform environment; preserve credentials`
+        : `
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${safeUser}') THEN
@@ -872,7 +1001,10 @@ BEGIN
     ALTER ROLE "${safeUser}" WITH LOGIN PASSWORD '${safePass}' CREATEDB;
   END IF;
 END
-$$;
+$$;`;
+
+      const sqlScript = `
+${roleScript}
 
 SELECT 'CREATE DATABASE "${safeDb}" OWNER "${safeUser}"'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${safeDb}')\\gexec
@@ -916,5 +1048,58 @@ rm -f /tmp/provision_${safeUser}.sql
       return false;
     }
   }
-}
 
+  async provisionMysqlDatabase(username?: string | null, password?: string | null, dbName?: string | null): Promise<boolean> {
+    if (!username || !password || !dbName) return false;
+    try {
+      const { exec } = require('child_process');
+      const util = require('util');
+      const execAsync = util.promisify(exec);
+
+      const safeUser = username.replace(/[^a-zA-Z0-9_]/g, '');
+      const safeDb = dbName.replace(/[^a-zA-Z0-9_]/g, '');
+      const safePass = password.replace(/'/g, "''");
+
+      if (safeUser === 'root') return true;
+
+      const sql = `
+CREATE DATABASE IF NOT EXISTS \\\`${safeDb}\\\`;
+CREATE USER IF NOT EXISTS '${safeUser}'@'%' IDENTIFIED WITH mysql_native_password BY '${safePass}';
+ALTER USER '${safeUser}'@'%' IDENTIFIED WITH mysql_native_password BY '${safePass}';
+GRANT ALL PRIVILEGES ON \\\`${safeDb}\\\`.* TO '${safeUser}'@'%';
+FLUSH PRIVILEGES;
+`;
+      const rootPass = process.env.MYSQL_ROOT_PASSWORD || 'khcloudrootpassword';
+      const oneLine = sql.replace(/\n/g, ' ').replace(/"/g, '\\"');
+      const cmd = `docker exec -i kh-cloud-mysql mysql -uroot -p"${rootPass}" -e "${oneLine}"`;
+
+      await execAsync(cmd, { timeout: 15000 });
+      this.logger.log(`Provisioned MySQL user "${safeUser}" and database "${safeDb}" in kh-cloud-mysql`);
+      return true;
+    } catch (e: any) {
+      this.logger.warn(`MySQL provision note for ${username}: ${e.message}`);
+      return false;
+    }
+  }
+
+  async provisionRedisDatabase(username?: string | null, password?: string | null): Promise<boolean> {
+    if (!password) return false;
+    try {
+      const { exec } = require('child_process');
+      const util = require('util');
+      const execAsync = util.promisify(exec);
+
+      const safeUser = (username || 'default').replace(/[^a-zA-Z0-9_]/g, '');
+      const safePass = password.replace(/["\\]/g, '');
+
+      // In Redis 7, configure ACL for this instance user
+      const cmd = `docker exec -i kh-cloud-redis redis-cli ACL SETUSER ${safeUser} on >"${safePass}" ~* &* +@all`;
+      await execAsync(cmd, { timeout: 10000 });
+      this.logger.log(`Provisioned Redis ACL user "${safeUser}" in kh-cloud-redis`);
+      return true;
+    } catch (e: any) {
+      this.logger.warn(`Redis provision note for ${username}: ${e.message}`);
+      return false;
+    }
+  }
+}
