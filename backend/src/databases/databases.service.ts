@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, NotFoundException, OnModuleIni
 import { PrismaService } from '../prisma/prisma.service';
 import { DatabaseType } from '@prisma/client';
 import { sendDiscordNotification } from '../utils/discord-webhook';
+import { Client as PgClient } from 'pg';
 
 @Injectable()
 export class DatabasesService implements OnModuleInit {
@@ -255,11 +256,77 @@ export class DatabasesService implements OnModuleInit {
     }
   }
 
+  private getPgClient(db: { dbName?: string | null; username?: string | null; password?: string | null }): PgClient {
+    const isProd = process.env.NODE_ENV === 'production';
+    const host = isProd ? 'postgres' : (process.env.POSTGRES_HOST || 'localhost');
+    const port = parseInt(process.env.POSTGRES_PORT || '5432', 10);
+    const user = process.env.POSTGRES_USER || 'khclouduser';
+    const password = process.env.POSTGRES_PASSWORD || 'khcloudpassword';
+    const database = db.dbName || 'postgres';
+
+    return new PgClient({
+      host,
+      port,
+      user,
+      password,
+      database,
+      statement_timeout: 10000,
+    });
+  }
+
+  private buildPgWhereClause(filterStr: string): { clause: string; params: any[] } {
+    if (!filterStr || !filterStr.trim()) return { clause: '', params: [] };
+    try {
+      const filters = JSON.parse(filterStr);
+      if (!Array.isArray(filters) || filters.length === 0) return { clause: '', params: [] };
+      
+      const allowedOps = ['=', '!=', '>', '<', '>=', '<=', 'LIKE', 'ILIKE'];
+      const clauses: string[] = [];
+      const params: any[] = [];
+      
+      for (const f of filters) {
+        if (!f.column || typeof f.column !== 'string' || !/^[a-zA-Z0-9_]{1,64}$/.test(f.column)) {
+          throw new BadRequestException('Invalid column name in filter.');
+        }
+        if (!f.op || typeof f.op !== 'string' || !allowedOps.includes(f.op.toUpperCase())) {
+          throw new BadRequestException('Invalid operator in filter.');
+        }
+        params.push(f.value);
+        clauses.push(`"${f.column}" ${f.op.toUpperCase()} $${params.length}`);
+      }
+      
+      return { clause: `WHERE ${clauses.join(' AND ')}`, params };
+    } catch (e: any) {
+      if (e instanceof BadRequestException) throw e;
+      throw new BadRequestException('Filter must be a valid JSON array of objects with column, op, and value.');
+    }
+  }
+
   async getTables(dbId: string, teamId: string) {
     const db = await this.prisma.databaseInstance.findFirst({
       where: { id: dbId, teamId },
     });
     if (!db) throw new NotFoundException('Database not found.');
+
+    if (db.type === 'POSTGRESQL') {
+      const pgClient = this.getPgClient(db);
+      try {
+        await pgClient.connect();
+        const res = await pgClient.query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+            AND table_type = 'BASE TABLE'
+          ORDER BY table_name;
+        `);
+        return res.rows.map((r: any) => r.table_name);
+      } catch (err: any) {
+        this.logger.error(`Failed to get PostgreSQL tables for ${db.dbName}: ${err.message}`);
+        return [];
+      } finally {
+        await pgClient.end().catch(() => {});
+      }
+    }
 
     await this.syncStorageTables(dbId, teamId);
 
@@ -287,6 +354,39 @@ export class DatabasesService implements OnModuleInit {
       where: { id: dbId, teamId },
     });
     if (!db) throw new NotFoundException('Database not found.');
+
+    if (db.type === 'POSTGRESQL') {
+      const pgClient = this.getPgClient(db);
+      try {
+        await pgClient.connect();
+        const result = await pgClient.query(sql);
+
+        if (Array.isArray(result)) {
+          const last = result[result.length - 1];
+          return {
+            success: true,
+            rows: last?.rows || [],
+            columns: last?.fields ? last.fields.map((f: any) => f.name) : (last?.rows?.length > 0 ? Object.keys(last.rows[0]) : []),
+            message: `Executed ${result.length} statement(s).`,
+          };
+        }
+
+        const isSelect = result.command === 'SELECT';
+        return {
+          success: true,
+          rows: result.rows || [],
+          columns: result.fields ? result.fields.map((f: any) => f.name) : (result.rows?.length > 0 ? Object.keys(result.rows[0]) : []),
+          affectedRows: result.rowCount || 0,
+          message: isSelect
+            ? `Query returned ${result.rows?.length || 0} row(s).`
+            : `Query executed successfully (${result.command} ${result.rowCount || 0}).`,
+        };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        await pgClient.end().catch(() => {});
+      }
+    }
 
     await this.syncStorageTables(dbId, teamId);
 
@@ -392,6 +492,58 @@ export class DatabasesService implements OnModuleInit {
     if (!db) throw new NotFoundException('Database not found.');
 
     const safeTable = this.validateIdentifier(tableName, 'table name');
+
+    if (db.type === 'POSTGRESQL') {
+      const rawTable = tableName.replace(/"/g, '');
+      const pgClient = this.getPgClient(db);
+      try {
+        await pgClient.connect();
+        const colsRes = await pgClient.query(`
+          SELECT 
+            column_name as name, 
+            data_type as type, 
+            is_nullable = 'NO' as notnull, 
+            column_default as dflt_value,
+            ordinal_position as cid
+          FROM information_schema.columns 
+          WHERE table_schema = 'public' AND table_name = $1
+          ORDER BY ordinal_position;
+        `, [rawTable]);
+
+        const pkRes = await pgClient.query(`
+          SELECT kcu.column_name
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu
+            ON tc.constraint_name = kcu.constraint_name
+            AND tc.table_schema = kcu.table_schema
+          WHERE tc.constraint_type = 'PRIMARY KEY'
+            AND tc.table_schema = 'public'
+            AND tc.table_name = $1
+          ORDER BY kcu.ordinal_position;
+        `, [rawTable]);
+
+        const pkCols = new Set(pkRes.rows.map((r: any) => r.column_name));
+        const primaryKey = pkRes.rows[0]?.column_name || colsRes.rows[0]?.name || 'id';
+
+        return {
+          columns: colsRes.rows.map((c: any) => ({
+            cid: c.cid,
+            name: c.name,
+            type: c.type,
+            notnull: c.notnull,
+            dflt_value: c.dflt_value,
+            pk: pkCols.has(c.name),
+          })),
+          primaryKey,
+        };
+      } catch (err: any) {
+        this.logger.error(`Failed to get PostgreSQL schema for ${rawTable}: ${err.message}`);
+        throw new BadRequestException(`Failed to read schema for table "${tableName}": ${err.message}`);
+      } finally {
+        await pgClient.end().catch(() => {});
+      }
+    }
+
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
@@ -421,6 +573,42 @@ export class DatabasesService implements OnModuleInit {
     if (!db) throw new NotFoundException('Database not found.');
 
     const safeTable = this.validateIdentifier(tableName, 'table name');
+
+    if (db.type === 'POSTGRESQL') {
+      const pgClient = this.getPgClient(db);
+      try {
+        await pgClient.connect();
+        const { clause: whereClause, params: whereParams } = this.buildPgWhereClause(filter);
+        
+        const countSql = `SELECT COUNT(*) as cnt FROM ${safeTable} ${whereClause}`;
+        const countRes = await pgClient.query(countSql, whereParams);
+        const total = parseInt(countRes.rows[0]?.cnt || '0', 10);
+
+        const offset = (page - 1) * pageSize;
+        const limitParamIndex = whereParams.length + 1;
+        const offsetParamIndex = whereParams.length + 2;
+        const querySql = `SELECT * FROM ${safeTable} ${whereClause} LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}`;
+        const queryParams = [...whereParams, pageSize, offset];
+
+        const rowsRes = await pgClient.query(querySql, queryParams);
+        const rows = rowsRes.rows;
+        const columns = rowsRes.fields ? rowsRes.fields.map((f: any) => f.name) : (rows.length > 0 ? Object.keys(rows[0]) : []);
+
+        return {
+          rows,
+          columns,
+          total,
+          page,
+          pageSize,
+        };
+      } catch (err: any) {
+        this.logger.error(`Failed to get PostgreSQL rows for ${safeTable}: ${err.message}`);
+        throw new BadRequestException(`Failed to fetch rows for table "${tableName}": ${err.message}`);
+      } finally {
+        await pgClient.end().catch(() => {});
+      }
+    }
+
     const { clause: whereClause, params } = this.buildWhereClause(filter);
     await this.syncStorageTables(dbId, teamId);
 
@@ -446,6 +634,28 @@ export class DatabasesService implements OnModuleInit {
     if (!db) throw new NotFoundException('Database not found.');
 
     const safeTable = this.validateIdentifier(tableName, 'table name');
+
+    if (db.type === 'POSTGRESQL') {
+      const pgClient = this.getPgClient(db);
+      try {
+        await pgClient.connect();
+        const keys = Object.keys(data).filter(k => data[k] !== undefined && data[k] !== '');
+        if (keys.length === 0) throw new BadRequestException('No data provided for insert.');
+        const safeCols = keys.map(k => this.validateIdentifier(k, 'column name')).join(', ');
+        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+        const values = keys.map(k => data[k]);
+        const res = await pgClient.query(
+          `INSERT INTO ${safeTable} (${safeCols}) VALUES (${placeholders}) RETURNING *`,
+          values
+        );
+        return { success: true, lastInsertRowid: res.rows[0]?.id?.toString() || '1' };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        await pgClient.end().catch(() => {});
+      }
+    }
+
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
@@ -468,6 +678,27 @@ export class DatabasesService implements OnModuleInit {
 
     const safeTable = this.validateIdentifier(tableName, 'table name');
     const safePk = this.validateIdentifier(primaryKey, 'primary key');
+
+    if (db.type === 'POSTGRESQL') {
+      const pgClient = this.getPgClient(db);
+      try {
+        await pgClient.connect();
+        const keys = Object.keys(data).filter(k => k !== primaryKey);
+        if (keys.length === 0) throw new BadRequestException('No fields to update.');
+        const setClauses = keys.map((k, i) => `${this.validateIdentifier(k, 'column name')} = $${i + 1}`).join(', ');
+        const values = [...keys.map(k => data[k]), pkValue];
+        const res = await pgClient.query(
+          `UPDATE ${safeTable} SET ${setClauses} WHERE ${safePk} = $${values.length}`,
+          values
+        );
+        return { success: true, affectedRows: res.rowCount || 0 };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        await pgClient.end().catch(() => {});
+      }
+    }
+
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);
@@ -489,6 +720,23 @@ export class DatabasesService implements OnModuleInit {
 
     const safeTable = this.validateIdentifier(tableName, 'table name');
     const safePk = this.validateIdentifier(primaryKey, 'primary key');
+
+    if (db.type === 'POSTGRESQL') {
+      const pgClient = this.getPgClient(db);
+      try {
+        await pgClient.connect();
+        const res = await pgClient.query(
+          `DELETE FROM ${safeTable} WHERE ${safePk} = $1`,
+          [pkValue]
+        );
+        return { success: true, affectedRows: res.rowCount || 0 };
+      } catch (err: any) {
+        throw new BadRequestException(err.message);
+      } finally {
+        await pgClient.end().catch(() => {});
+      }
+    }
+
     await this.syncStorageTables(dbId, teamId);
 
     const { client } = this.openDb(dbId);

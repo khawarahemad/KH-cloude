@@ -232,6 +232,7 @@ $SUDO_CMD mkdir -p /var/lib/kh-cloud/storage-mock
 $SUDO_CMD mkdir -p /var/log/kh-cloud
 
 $SUDO_CMD chmod -R 777 /var/lib/kh-cloud/
+$SUDO_CMD chown -R 65532:65532 /var/lib/kh-cloud/minio 2>/dev/null || true
 $SUDO_CMD touch /var/lib/kh-cloud/traefik-acme/acme.json
 $SUDO_CMD chmod 600 /var/lib/kh-cloud/traefik-acme/acme.json
 
