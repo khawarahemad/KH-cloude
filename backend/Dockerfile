@@ -27,7 +27,10 @@ RUN npm prune --omit=dev
 FROM node:22-alpine AS runner
 
 # Install git, docker-cli, and docker-cli-buildx for modern BuildKit live deployment engine
-RUN apk add --no-cache git docker-cli docker-cli-buildx
+RUN apk add --no-cache git docker-cli docker-cli-buildx curl
+
+# Copy MinIO Client (mc) binary from verified image
+COPY --from=cgr.dev/chainguard/minio-client:latest /usr/bin/mc /usr/local/bin/mc
 
 WORKDIR /usr/src/app
 

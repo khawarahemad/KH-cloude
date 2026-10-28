@@ -137,16 +137,18 @@ export class StorageService {
     secretKey: string,
   ): Promise<boolean> {
     const rootUser =
-      process.env.STORAGE_ACCESS_KEY ||
-      process.env.MINIO_ACCESS_KEY ||
       process.env.MINIO_ROOT_USER ||
+      process.env.MINIO_ACCESS_KEY ||
+      process.env.STORAGE_ACCESS_KEY ||
       'khcloudroot';
 
     const rootPassword =
-      process.env.STORAGE_SECRET_KEY ||
-      process.env.MINIO_SECRET_KEY ||
       process.env.MINIO_ROOT_PASSWORD ||
+      process.env.MINIO_SECRET_KEY ||
+      process.env.STORAGE_SECRET_KEY ||
       'khcloudrootpassword';
+
+    const minioHost = process.env.NODE_ENV === 'production' ? 'http://minio:9000' : 'http://localhost:9000';
 
     const policy = JSON.stringify({
       Version: '2012-10-17',
@@ -169,20 +171,34 @@ export class StorageService {
       const util = require('util');
       const execAsync = util.promisify(exec);
 
-      // Check if mc exists in minio container
+      // 1. Direct local mc execution (inside backend container)
+      const hasLocalMc = await execAsync('which mc').catch(() => null);
+      if (hasLocalMc && hasLocalMc.stdout?.trim()) {
+        const cmd = `sh -c "echo '${policyBase64}' | base64 -d > /tmp/p_${accessKey}.json && mc alias set local ${minioHost} '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p_${accessKey}.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p_${accessKey}.json) && rm -f /tmp/p_${accessKey}.json"`;
+        await execAsync(cmd, { timeout: 15000 });
+        this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via local mc`);
+        return true;
+      }
+
+      // 2. Check if mc exists in minio container
       const hasMc = await execAsync('docker exec kh-cloud-minio which mc').catch(() => null);
       if (hasMc && hasMc.stdout?.trim()) {
-        const cmd = `docker exec kh-cloud-minio sh -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://localhost:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json) && rm -f /tmp/p.json"`;
+        const cmd = `docker exec kh-cloud-minio sh -c "echo '${policyBase64}' | base64 -d > /tmp/p_${accessKey}.json && mc alias set local http://localhost:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p_${accessKey}.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p_${accessKey}.json) && rm -f /tmp/p_${accessKey}.json"`;
         await execAsync(cmd, { timeout: 15000 });
         this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via container mc`);
         return true;
       }
 
-      // Fallback: run via quay.io/minio/mc container
-      const runCmd = `docker run --rm --entrypoint sh --network kh-cloud-network quay.io/minio/mc -c "echo '${policyBase64}' | base64 -d > /tmp/p.json && mc alias set local http://minio:9000 '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p.json || mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}') && rm -f /tmp/p.json"`;
-      await execAsync(runCmd, { timeout: 20000 });
-      this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via quay.io/minio/mc container`);
-      return true;
+      // 3. Fallback: run via host docker if mc is available on host
+      const hasHostMc = await execAsync('mc --version').catch(() => null);
+      if (hasHostMc && hasHostMc.stdout?.trim()) {
+        const cmd = `sh -c "echo '${policyBase64}' | base64 -d > /tmp/p_${accessKey}.json && mc alias set local ${minioHost} '${rootUser}' '${rootPassword}' && (mc admin user svcacct add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p_${accessKey}.json || mc admin accesskey add local '${rootUser}' --access-key '${accessKey}' --secret-key '${secretKey}' --policy /tmp/p_${accessKey}.json) && rm -f /tmp/p_${accessKey}.json"`;
+        await execAsync(cmd, { timeout: 15000 });
+        this.logger.log(`Provisioned MinIO service account ${accessKey} for ${physicalBucketName} via host mc`);
+        return true;
+      }
+
+      return false;
     } catch (err: any) {
       if (
         err.stdout?.includes('already exists') ||
@@ -662,6 +678,84 @@ export class StorageService {
   }
 
   async listFiles(bucketId: string, prefix = '') {
+    const bucket = await this.prisma.bucket.findUnique({ where: { id: bucketId } });
+    if (bucket && !this.useMock && this.s3Client) {
+      try {
+        const physicalBucketName = this.getPhysicalBucketName(bucket);
+        const s3Objects = await this.s3Client.send(
+          new ListObjectsV2Command({
+            Bucket: physicalBucketName,
+            Prefix: prefix || undefined,
+          }),
+        );
+
+        const s3Keys = new Set<string>();
+        let totalSize = BigInt(0);
+
+        if (s3Objects.Contents && s3Objects.Contents.length > 0) {
+          for (const obj of s3Objects.Contents) {
+            if (!obj.Key) continue;
+            s3Keys.add(obj.Key);
+            const size = BigInt(obj.Size || 0);
+            totalSize += size;
+
+            const existing = await this.prisma.objectMetadata.findUnique({
+              where: { bucketId_key: { bucketId, key: obj.Key } },
+            });
+            if (!existing) {
+              await this.prisma.objectMetadata.create({
+                data: {
+                  bucketId,
+                  key: obj.Key,
+                  size,
+                  contentType: inferContentType(obj.Key),
+                  etag: obj.ETag?.replace(/"/g, '') || '',
+                  createdAt: obj.LastModified || new Date(),
+                  updatedAt: obj.LastModified || new Date(),
+                },
+              });
+            } else if (existing.size !== size) {
+              await this.prisma.objectMetadata.update({
+                where: { bucketId_key: { bucketId, key: obj.Key } },
+                data: {
+                  size,
+                  etag: obj.ETag?.replace(/"/g, '') || existing.etag,
+                  updatedAt: obj.LastModified || new Date(),
+                },
+              });
+            }
+          }
+        }
+
+        // If listing the entire bucket, prune DB entries that were deleted directly in S3
+        if (!prefix) {
+          const dbFiles = await this.prisma.objectMetadata.findMany({
+            where: { bucketId },
+            select: { key: true },
+          });
+          for (const dbF of dbFiles) {
+            if (!s3Keys.has(dbF.key)) {
+              await this.prisma.objectMetadata
+                .delete({
+                  where: { bucketId_key: { bucketId, key: dbF.key } },
+                })
+                .catch(() => {});
+            }
+          }
+
+          // Update bucket sizeUsed
+          await this.prisma.bucket
+            .update({
+              where: { id: bucketId },
+              data: { sizeUsed: totalSize },
+            })
+            .catch(() => {});
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to sync S3 objects for bucket ${bucketId}: ${err.message}`);
+      }
+    }
+
     const files = await this.prisma.objectMetadata.findMany({
       where: {
         bucketId,
