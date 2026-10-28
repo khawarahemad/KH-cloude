@@ -72,7 +72,7 @@ export class StorageService {
 
     // If endpoint points to external domain in production Docker, route internally to minio container
     const baseDomain = process.env.BASE_DOMAIN || 'khawarahemad.com';
-    if ((endpoint.includes(`storage.${baseDomain}`) || endpoint.includes('storage.khawarahemad.com')) && process.env.NODE_ENV === 'production') {
+    if ((endpoint.includes(`storage.${baseDomain}`) || endpoint.includes(`s3.${baseDomain}`) || endpoint.includes('storage.khawarahemad.com') || endpoint.includes('s3.khawarahemad.com')) && process.env.NODE_ENV === 'production') {
       endpoint = 'http://minio:9000';
     }
 
