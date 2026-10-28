@@ -54,6 +54,8 @@ echo -e "    ${GREEN}✓ Repository updated successfully.${NC}"
 echo -e "${CYAN}==> [2/4] Verifying Storage & Volume Permissions...${NC}"
 $SUDO_CMD mkdir -p /var/lib/kh-cloud/traefik-acme
 $SUDO_CMD mkdir -p /var/lib/kh-cloud/redis
+$SUDO_CMD mkdir -p /var/lib/kh-cloud/postgres
+$SUDO_CMD mkdir -p /var/lib/kh-cloud/mysql
 $SUDO_CMD mkdir -p /var/lib/kh-cloud/minio
 $SUDO_CMD mkdir -p /var/lib/kh-cloud/db
 $SUDO_CMD mkdir -p /var/lib/kh-cloud/storage-mock
