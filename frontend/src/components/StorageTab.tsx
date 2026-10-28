@@ -314,6 +314,7 @@ export default function StorageTab() {
     const physicalBucket = s3Credentials?.physicalBucketName || bName;
     const teamId = activeTeam?.id || 'TEAM_ID';
     const s3Endpoint = s3Credentials?.endpoint || getDomainUrl('s3');
+    const cdnEndpoint = getDomainUrl('storage');
     const apiBase = getUploadApiBase();
     const accessKey = s3Credentials?.accessKey || 'YOUR_ACCESS_KEY';
     const secretKey = s3Credentials?.secretKey || 'YOUR_SECRET_KEY';
@@ -321,7 +322,7 @@ export default function StorageTab() {
     const region = s3Credentials?.region || 'us-east-1';
 
     if (sdkLanguage === 'curl') {
-      return `# 1. Upload via REST API with Team API Key:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: ${apiKey}" \\\n  -F "file=@avatar.png"\n\n# 2. Download Private File (API Key):\ncurl -O "${apiBase}/storage/buckets/${activeBucket?.id}/download?key=avatar.png&apikey=${apiKey}"\n\n# 3. Direct Public CDN Link (if public):\ncurl https://storage.khawarahemad.com/${teamId}/${bName}/avatar.png -o avatar.png`;
+      return `# 1. Upload via REST API with Team API Key:\ncurl -X POST "${apiBase}/storage/buckets/${activeBucket?.id}/upload?key=avatar.png&teamId=${teamId}" \\\n  -H "apikey: ${apiKey}" \\\n  -F "file=@avatar.png"\n\n# 2. Download Private File (API Key):\ncurl -O "${apiBase}/storage/buckets/${activeBucket?.id}/download?key=avatar.png&apikey=${apiKey}"\n\n# 3. Direct Public CDN Link (if public):\ncurl ${cdnEndpoint}/${teamId}/${bName}/avatar.png -o avatar.png`;
     }
 
     if (sdkLanguage === 'node') {

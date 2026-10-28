@@ -103,7 +103,7 @@ services:
       - COMPOSE_DOCKER_CLI_BUILD=1
       - BASE_DOMAIN=${BASE_DOMAIN:-khawarahemad.com}
       - DATABASE_URL=file:/usr/src/app/data/dev.db
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-https://storage.${BASE_DOMAIN:-khawarahemad.com}}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-https://s3.${BASE_DOMAIN:-khawarahemad.com}}
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-khcloudroot}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
       - STORAGE_ENDPOINT=http://minio:9000
