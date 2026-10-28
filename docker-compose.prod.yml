@@ -123,6 +123,10 @@ services:
       # 🛡️ DDoS Protection configuration
       # -------------------------------------------------------------------
       - REDIS_URL=redis://redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-khclouduser}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-khcloudpassword}
       - DDOS_GLOBAL_LIMIT=${DDOS_GLOBAL_LIMIT:-200}
       - DDOS_API_LIMIT=${DDOS_API_LIMIT:-60}
       - DDOS_AUTH_LIMIT=${DDOS_AUTH_LIMIT:-10}

@@ -260,8 +260,8 @@ export class DatabasesService implements OnModuleInit {
     const isProd = process.env.NODE_ENV === 'production';
     const host = isProd ? 'postgres' : (process.env.POSTGRES_HOST || 'localhost');
     const port = parseInt(process.env.POSTGRES_PORT || '5432', 10);
-    const user = process.env.POSTGRES_USER || 'khclouduser';
-    const password = process.env.POSTGRES_PASSWORD || 'khcloudpassword';
+    const user = db.username || process.env.POSTGRES_USER || 'khclouduser';
+    const password = db.password || process.env.POSTGRES_PASSWORD || 'khcloudpassword';
     const database = db.dbName || 'postgres';
 
     return new PgClient({
