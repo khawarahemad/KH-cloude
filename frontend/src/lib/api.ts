@@ -53,7 +53,17 @@ export const getApiBase = (): string => {
 export const API_BASE = getApiBase();
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
-  const url = `${API_BASE}${path}`;
+  // Normalize path to prevent accidental '/api/api/...' double prefixing
+  let cleanPath = path;
+  if (cleanPath.startsWith('/api/')) {
+    cleanPath = cleanPath.substring(4);
+  } else if (cleanPath.startsWith('api/')) {
+    cleanPath = cleanPath.substring(3);
+  }
+  if (!cleanPath.startsWith('/')) {
+    cleanPath = '/' + cleanPath;
+  }
+  const url = `${API_BASE}${cleanPath}`;
 
   // Get current user, active team, and access token from store
   let userId: string | undefined;

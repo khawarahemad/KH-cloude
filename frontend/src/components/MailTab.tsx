@@ -125,10 +125,10 @@ export default function MailTab() {
     setLoading(true);
     try {
       const [statsRes, domainsRes, keysRes, logsRes] = await Promise.all([
-        apiRequest(`/api/mail/stats?teamId=${activeTeam.id}`).catch(() => null),
-        apiRequest(`/api/mail/domains?teamId=${activeTeam.id}`).catch(() => []),
-        apiRequest(`/api/mail/keys?teamId=${activeTeam.id}`).catch(() => []),
-        apiRequest(`/api/mail/logs?teamId=${activeTeam.id}&status=${logStatus}&search=${encodeURIComponent(logSearch)}`).catch(() => ({ logs: [] })),
+        apiRequest(`/mail/stats?teamId=${activeTeam.id}`).catch(() => null),
+        apiRequest(`/mail/domains?teamId=${activeTeam.id}`).catch(() => []),
+        apiRequest(`/mail/keys?teamId=${activeTeam.id}`).catch(() => []),
+        apiRequest(`/mail/logs?teamId=${activeTeam.id}&status=${logStatus}&search=${encodeURIComponent(logSearch)}`).catch(() => ({ logs: [] })),
       ]);
 
       if (statsRes) setStats(statsRes);
@@ -157,7 +157,7 @@ export default function MailTab() {
     e.preventDefault();
     if (!newDomainName.trim() || !activeTeam) return;
     try {
-      const res = await apiRequest('/api/mail/domains', {
+      const res = await apiRequest('/mail/domains', {
         method: 'POST',
         body: JSON.stringify({ domain: newDomainName.trim(), teamId: activeTeam.id }),
       });
@@ -165,9 +165,9 @@ export default function MailTab() {
       setSelectedDomain(res);
       setAddDomainOpen(false);
       setNewDomainName('');
-      alert('Domain Added', `Domain ${res.domain} has been registered! Please add the DNS records to verify ownership.`);
+      alert({ title: 'Domain Added', message: `Domain ${res.domain} has been registered! Please add the DNS records to verify ownership.`, type: 'success' });
     } catch (err: any) {
-      alert('Error', err.message || 'Failed to add domain');
+      alert({ title: 'Error', message: err.message || 'Failed to add domain', type: 'error' });
     }
   };
 
@@ -176,7 +176,7 @@ export default function MailTab() {
     if (!activeTeam) return;
     setRefreshing(true);
     try {
-      const res = await apiRequest(`/api/mail/domains/${domainId}/verify?teamId=${activeTeam.id}`, {
+      const res = await apiRequest(`/mail/domains/${domainId}/verify?teamId=${activeTeam.id}`, {
         method: 'POST',
       });
       setDomains((prev) => prev.map((d) => (d.id === domainId ? res.domain : d)));
@@ -184,15 +184,16 @@ export default function MailTab() {
         setSelectedDomain(res.domain);
       }
       if (res.results.status === 'VERIFIED') {
-        alert('Domain Verified!', `Congratulations! ${res.domain.domain} is verified and ready to send emails.`);
+        alert({ title: 'Domain Verified!', message: `Congratulations! ${res.domain.domain} is verified and ready to send emails.`, type: 'success' });
       } else {
-        alert(
-          'Verification Incomplete',
-          `DNS check results:\n• SPF: ${res.results.spf ? '✓ Verified' : '✗ Not Found'}\n• DKIM: ${res.results.dkim ? '✓ Verified' : '✗ Not Found'}\n• DMARC: ${res.results.dmarc ? '✓ Verified' : '○ Pending'}\n\nDNS changes can take several minutes to propagate. Please check your DNS provider.`
-        );
+        alert({
+          title: 'Verification Incomplete',
+          message: `DNS check results:\n• SPF: ${res.results.spf ? '✓ Verified' : '✗ Not Found'}\n• DKIM: ${res.results.dkim ? '✓ Verified' : '✗ Not Found'}\n• DMARC: ${res.results.dmarc ? '✓ Verified' : '○ Pending'}\n\nDNS changes can take several minutes to propagate. Please check your DNS provider.`,
+          type: 'warning',
+        });
       }
     } catch (err: any) {
-      alert('Verification Error', err.message || 'Failed to verify DNS');
+      alert({ title: 'Verification Error', message: err.message || 'Failed to verify DNS', type: 'error' });
     } finally {
       setRefreshing(false);
     }
@@ -207,7 +208,7 @@ export default function MailTab() {
     if (!ok || !activeTeam) return;
 
     try {
-      await apiRequest(`/api/mail/domains/${domainId}?teamId=${activeTeam.id}`, {
+      await apiRequest(`/mail/domains/${domainId}?teamId=${activeTeam.id}`, {
         method: 'DELETE',
       });
       setDomains((prev) => prev.filter((d) => d.id !== domainId));
@@ -215,7 +216,7 @@ export default function MailTab() {
         setSelectedDomain(null);
       }
     } catch (err: any) {
-      alert('Error', err.message || 'Failed to delete domain');
+      alert({ title: 'Error', message: err.message || 'Failed to delete domain', type: 'error' });
     }
   };
 
@@ -224,7 +225,7 @@ export default function MailTab() {
     e.preventDefault();
     if (!activeTeam) return;
     try {
-      const res = await apiRequest('/api/mail/keys', {
+      const res = await apiRequest('/mail/keys', {
         method: 'POST',
         body: JSON.stringify({ name: newKeyName.trim() || 'Production Mail Key', teamId: activeTeam.id }),
       });
@@ -232,7 +233,7 @@ export default function MailTab() {
       setCreatedKey(res.key);
       setNewKeyName('');
     } catch (err: any) {
-      alert('Error', err.message || 'Failed to create API key');
+      alert({ title: 'Error', message: err.message || 'Failed to create API key', type: 'error' });
     }
   };
 
@@ -245,12 +246,12 @@ export default function MailTab() {
     if (!ok || !activeTeam) return;
 
     try {
-      await apiRequest(`/api/mail/keys/${keyId}?teamId=${activeTeam.id}`, {
+      await apiRequest(`/mail/keys/${keyId}?teamId=${activeTeam.id}`, {
         method: 'DELETE',
       });
       setKeys((prev) => prev.filter((k) => k.id !== keyId));
     } catch (err: any) {
-      alert('Error', err.message || 'Failed to revoke key');
+      alert({ title: 'Error', message: err.message || 'Failed to revoke key', type: 'error' });
     }
   };
 
@@ -260,7 +261,7 @@ export default function MailTab() {
     if (!activeTeam || !sendFrom || !sendTo) return;
     setSending(true);
     try {
-      const res = await apiRequest('/api/mail/send', {
+      const res = await apiRequest('/mail/send', {
         method: 'POST',
         body: JSON.stringify({
           from: sendFrom,
@@ -270,11 +271,11 @@ export default function MailTab() {
           teamId: activeTeam.id,
         }),
       });
-      alert('Email Dispatched', `Test email successfully queued/dispatched! Message ID: ${res.messageId}`);
+      alert({ title: 'Email Dispatched', message: `Test email successfully queued/dispatched! Message ID: ${res.messageId}`, type: 'success' });
       setSendOpen(false);
       loadData();
     } catch (err: any) {
-      alert('Send Failed', err.message || 'Could not send test email');
+      alert({ title: 'Send Failed', message: err.message || 'Could not send test email', type: 'error' });
     } finally {
       setSending(false);
     }
@@ -1270,3 +1271,4 @@ await transporter.sendMail({
     </div>
   );
 }
+

@@ -20,7 +20,7 @@ interface AlertOptions {
 
 interface CustomDialogContextType {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
-  alert: (options: AlertOptions | string) => Promise<void>;
+  alert: (options: AlertOptions | string, legacyMessage?: string) => Promise<void>;
 }
 
 const CustomDialogContext = createContext<CustomDialogContextType | null>(null);
@@ -72,8 +72,22 @@ export default function CustomDialogProvider({ children }: { children: React.Rea
     });
   }, []);
 
-  const alert = useCallback((options: AlertOptions | string) => {
-    const opts = typeof options === 'string' ? { message: options } : options;
+  const alert = useCallback((options: AlertOptions | string, legacyMessage?: string) => {
+    let opts: AlertOptions;
+    if (typeof options === 'string') {
+      if (typeof legacyMessage === 'string') {
+        const isErr = options.toLowerCase().includes('error') || options.toLowerCase().includes('fail');
+        opts = {
+          title: options,
+          message: legacyMessage,
+          type: isErr ? 'error' : 'info',
+        };
+      } else {
+        opts = { message: options };
+      }
+    } else {
+      opts = options;
+    }
     return new Promise<void>((resolve) => {
       setDialog({
         type: 'alert',
