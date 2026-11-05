@@ -28,7 +28,7 @@ export class SmtpServerService implements OnModuleInit, OnModuleDestroy {
     const self = this;
 
     this.server = new SMTPServer({
-      authOptional: false,
+      authOptional: true, // Allow loopback dispatcher while enforcing auth for external clients
       disabledCommands: ['STARTTLS'], // Simple authentication over TCP
       size: 15 * 1024 * 1024, // 15MB max message size
 
@@ -38,6 +38,14 @@ export class SmtpServerService implements OnModuleInit, OnModuleDestroy {
           const keyInput = auth.password || auth.username;
           if (!keyInput) {
             return callback(new Error('Missing credentials'));
+          }
+
+          // Check master admin or internal loopback dispatcher
+          if (
+            (auth.username === 'khcloud' && auth.password === (process.env.ADMIN_PASSWORD || 'khcloudpassword')) ||
+            (auth.username === 'admin' && auth.password === (process.env.ADMIN_PASSWORD || 'khcloudpassword'))
+          ) {
+            return callback(null, { user: 'admin' });
           }
 
           // Check if valid MailApiKey
@@ -56,14 +64,6 @@ export class SmtpServerService implements OnModuleInit, OnModuleDestroy {
             return callback(null, { user: apiKey.name });
           }
 
-          // Check master admin or fallback
-          if (
-            auth.username === 'khcloud' &&
-            auth.password === (process.env.ADMIN_PASSWORD || 'khcloudpassword')
-          ) {
-            return callback(null, { user: 'admin' });
-          }
-
           return callback(new Error('Invalid Mail API Key or credentials'));
         } catch (err: any) {
           self.logger.error(`SMTP Auth error: ${err.message}`);
@@ -73,7 +73,16 @@ export class SmtpServerService implements OnModuleInit, OnModuleDestroy {
 
       // Validate sender
       async onMailFrom(address, session, callback) {
-        return callback(); // Allowed
+        const isLocal =
+          session.remoteAddress === '127.0.0.1' ||
+          session.remoteAddress === '::ffff:127.0.0.1' ||
+          session.remoteAddress === '::1';
+
+        // Non-local clients must authenticate before sending
+        if (!session.user && !isLocal) {
+          return callback(new Error('530 Error: authentication Required'));
+        }
+        return callback();
       },
 
       // Validate recipient

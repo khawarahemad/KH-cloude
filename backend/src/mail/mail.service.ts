@@ -366,14 +366,33 @@ export class MailService implements OnModuleInit {
         }
       : undefined;
 
-    // Use direct MX transport or fallback to internal SMTP dispatcher
-    const transporter = nodemailer.createTransport({
+    // Configure outbound transport (internal loopback or custom upstream relay)
+    const isLocalhost =
+      !process.env.UPSTREAM_SMTP_HOST ||
+      process.env.UPSTREAM_SMTP_HOST === '127.0.0.1' ||
+      process.env.UPSTREAM_SMTP_HOST === 'localhost';
+
+    const transportOptions: any = {
       host: process.env.UPSTREAM_SMTP_HOST || '127.0.0.1',
       port: parseInt(process.env.UPSTREAM_SMTP_PORT || '2525', 10),
-      secure: false,
-      ignoreTLS: true,
+      secure: process.env.UPSTREAM_SMTP_SECURE === 'true',
+      ignoreTLS: isLocalhost,
       dkim: dkimConfig,
-    });
+    };
+
+    if (process.env.UPSTREAM_SMTP_USER && process.env.UPSTREAM_SMTP_PASS) {
+      transportOptions.auth = {
+        user: process.env.UPSTREAM_SMTP_USER,
+        pass: process.env.UPSTREAM_SMTP_PASS,
+      };
+    } else if (isLocalhost) {
+      transportOptions.auth = {
+        user: 'khcloud',
+        pass: process.env.ADMIN_PASSWORD || 'khcloudpassword',
+      };
+    }
+
+    const transporter = nodemailer.createTransport(transportOptions);
 
     const mailOptions: nodemailer.SendMailOptions = {
       from,
