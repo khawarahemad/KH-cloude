@@ -17,6 +17,7 @@ import { RbacService } from './guards/rbac.service';
 import { BackupModule } from './backup/backup.module';
 import { AuthModule } from './auth/auth.module';
 import { NetworkingModule } from './networking/networking.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NetworkingModule } from './networking/networking.module';
     DDoSModule,   // Global DDoS protection — registers APP_GUARD across all routes
     BackupModule, // Automated Disaster Recovery & Remote Backups
     NetworkingModule, // Networking and proxy orchestration
+    MailModule,   // High-performance transactional email & embedded SMTP service
   ],
   controllers: [AppController, StoragePublicController],
   providers: [

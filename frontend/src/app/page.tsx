@@ -15,6 +15,7 @@ import AdminTab from '@/components/AdminTab';
 import EdgeFunctionsTab from '@/components/EdgeFunctionsTab';
 import SettingsTab from '@/components/SettingsTab';
 import BackupsTab from '@/components/BackupsTab';
+import MailTab from '@/components/MailTab';
 import { apiRequest, getDomainUrl, getBaseDomain, getApiBase } from '@/lib/api';
 import { Shield } from 'lucide-react';
 
@@ -243,6 +244,8 @@ export default function Home() {
         return <EdgeFunctionsTab />;
       case 'storage':
         return <StorageTab />;
+      case 'mail':
+        return <MailTab />;
       case 'teams':
         return <TeamsTab />;
       case 'billing':

@@ -94,6 +94,9 @@ model Team {
   edgeFunctions       EdgeFunction[]
   apiKeys             ApiKey[]
   githubInstallations GithubInstallation[]
+  mailDomains         MailDomain[]
+  mailApiKeys         MailApiKey[]
+  mailLogs            MailLog[]
 }
 
 enum TeamRole {
@@ -454,3 +457,66 @@ model NetworkResource {
 
   @@unique([networkId, type])
 }
+
+// --- Mail Service Schema ---
+
+model MailDomain {
+  id             String    @id @default(uuid())
+  teamId         String
+  team           Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  domain         String
+  dkimSelector   String    @default("khcloud")
+  dkimPrivateKey String
+  dkimPublicKey  String
+  spfRecord      String
+  dmarcRecord    String
+  mxRecord       String    @default("mail.khawarahemad.com")
+  status         String    @default("PENDING_DNS") // PENDING_DNS, VERIFIED, FAILED
+  spfVerified    Boolean   @default(false)
+  dkimVerified   Boolean   @default(false)
+  dmarcVerified  Boolean   @default(false)
+  mxVerified     Boolean   @default(false)
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  logs           MailLog[]
+
+  @@unique([teamId, domain])
+  @@map("mail_domain")
+}
+
+model MailApiKey {
+  id         String    @id @default(uuid())
+  teamId     String
+  team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name       String
+  key        String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  @@map("mail_api_key")
+}
+
+model MailLog {
+  id           String      @id @default(uuid())
+  teamId       String
+  team         Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  domainId     String?
+  domain       MailDomain? @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  from         String
+  to           String
+  subject      String
+  bodyText     String?
+  bodyHtml     String?
+  status       String      @default("SENT") // SENT, DELIVERED, FAILED, QUEUED
+  errorMessage String?
+  messageId    String?
+  sizeBytes    Int?        @default(0)
+  createdAt    DateTime    @default(now())
+
+  @@index([teamId, createdAt])
+  @@index([status])
+  @@map("mail_log")
+}
+

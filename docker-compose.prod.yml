@@ -115,8 +115,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: kh-cloud-backend
+    ports:
+      - "2525:2525"
     environment:
       - PORT=5000
+      - SMTP_PORT=2525
+      - SERVER_IP=204.168.147.13
       - NODE_ENV=production
       - DOCKER_BUILDKIT=1
       - COMPOSE_DOCKER_CLI_BUILD=1
@@ -184,8 +188,8 @@ services:
       - "traefik.http.middlewares.api-rate.ratelimit.burst=50"
       - "traefik.http.middlewares.api-rate.ratelimit.period=1s"
       - "traefik.http.middlewares.api-rate.ratelimit.sourcecriterion.ipstrategy.depth=1"
-      # API and Storage routing (api.<BASE_DOMAIN> and storage.<BASE_DOMAIN>)
-      - "traefik.http.routers.backend.rule=Host(`api.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`storage.${BASE_DOMAIN:-khawarahemad.com}`)"
+      # API, Storage, and Mail REST routing (api.<BASE_DOMAIN>, storage.<BASE_DOMAIN>, mail.<BASE_DOMAIN>)
+      - "traefik.http.routers.backend.rule=Host(`api.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`storage.${BASE_DOMAIN:-khawarahemad.com}`) || Host(`mail.${BASE_DOMAIN:-khawarahemad.com}`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.backend.middlewares=api-rate"
