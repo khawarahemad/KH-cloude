@@ -14,6 +14,7 @@ import {
   Settings,
   Activity,
   Archive,
+  Mail,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { id: 'databases',      label: 'Databases',          icon: Database },
   { id: 'edge-functions', label: 'Edge Functions',     icon: Zap },
   { id: 'storage',        label: 'Storage',            icon: HardDrive },
+  { id: 'mail',           label: 'Mail Service',       icon: Mail },
   { id: 'teams',          label: 'Team',               icon: Users },
   { id: 'billing',        label: 'Billing',            icon: CreditCard },
   { id: 'backups',        label: 'Backups & Recovery', icon: Archive },
