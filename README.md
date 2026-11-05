@@ -140,6 +140,20 @@ flowchart TD
   curl -fsSL https://raw.githubusercontent.com/khawarahemad/KH-cloude/main/restore.sh | bash
   ```
 
+### 8. ✉️ Built-In Transactional Mail Delivery System (Resend/SendGrid Alternative)
+- **Unlimited Email Sending**: Send transactional emails directly from your hosted web apps, background workers, or external services without third-party fees.
+- **Custom Sending Domains**: Add your domains with automatic 2048-bit RSA DKIM keypair generation, live DNS verification (SPF, DKIM, DMARC, MX), and one-click copyable DNS records.
+- **Drop-in Resend-Compatible REST API**: Full compatibility with `POST /api/v1/emails` and `POST /api/mail/send` using `Authorization: Bearer kh_mail_live_...`.
+- **Embedded RFC-Compliant SMTP Server**: Standard SMTP submission on port `2525` and `587` with Mail API Key authentication.
+- **Full Delivery Outbox & Logs**: Comprehensive delivery tracking, search, status filtering (`SENT`, `QUEUED`, `FAILED`), and test email modal.
+
+> [!IMPORTANT]
+> **Hosting & Port 25 Network Requirement**:  
+> Delivering emails directly from your server to external recipient inboxes (such as Google `@gmail.com`, Microsoft `@outlook.com`, and Yahoo) strictly requires **outbound TCP Port 25** to be unblocked on your VPS by your hosting provider.
+> 
+> * **If your VPS provider allows outbound Port 25**: You can send unlimited emails directly to all external inboxes with zero third-party dependencies.
+> * **If your VPS provider blocks Port 25** (e.g. HidenCloud, Hetzner, AWS, DigitalOcean default anti-spam policies): Direct outbound delivery to external inboxes will be blocked by your host's network router. In this case, you must request an unblock from your host or configure an upstream relay (`UPSTREAM_SMTP_HOST`) over open alternative ports like `2525` or `2587`.
+
 ---
 
 ## 🚑 Disaster Recovery & Migration Guide
@@ -202,6 +216,7 @@ Once deployed with your `BASE_DOMAIN`, the following endpoints are automatically
 | **Auth Hub** | `https://auth.yourdomain.com` | Dedicated OAuth Gateway & Session Router |
 | **Backend API** | `https://api.yourdomain.com` | NestJS REST API & GitHub Webhook Receiver |
 | **Object Storage** | `https://storage.yourdomain.com` | S3 Gateway & Media Streaming CDN |
+| **Mail Service (SMTP)**| `mail.yourdomain.com` (Port 2525 / 587) | Inbound/Outbound SMTP Mail Server & REST Delivery API |
 | **Admin Console** | `https://admin.yourdomain.com` | Platform Administration, Logs, & Security Metrics |
 | **User Deployments**| `https://<project-slug>.yourdomain.com` | Deployed user web applications |
 
