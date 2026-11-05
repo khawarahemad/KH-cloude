@@ -1092,7 +1092,12 @@ FLUSH PRIVILEGES;
       const safeUser = (username || 'default').replace(/[^a-zA-Z0-9_]/g, '');
       const safePass = password.replace(/["\\]/g, '');
 
-      // In Redis 7, configure ACL for this instance user
+      // In Redis 7, keep the default user unconstrained for internal platform services (DDoS guard, queues)
+      if (safeUser === 'default') {
+        return true;
+      }
+
+      // Configure ACL for this instance-specific user
       const cmd = `docker exec -i kh-cloud-redis redis-cli ACL SETUSER ${safeUser} on ">${safePass}" "~*" "+@all"`;
       await execAsync(cmd, { timeout: 10000 });
       this.logger.log(`Provisioned Redis ACL user "${safeUser}" in kh-cloud-redis`);

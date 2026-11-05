@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { Public } from '../auth/public.decorator';
 
 @Controller('api/mail')
 export class MailController {
@@ -131,6 +132,7 @@ export class MailController {
     return this.mailService.deleteApiKey(resolvedTeamId, keyId);
   }
 
+  @Public()
   @Get('smtp-config')
   getSmtpConfig() {
     return this.mailService.getSmtpConfig();
@@ -158,6 +160,7 @@ export class MailController {
   /**
    * Primary REST API for sending emails (Resend style).
    */
+  @Public()
   @Post('send')
   async sendEmail(
     @Req() req: any,
@@ -188,6 +191,7 @@ export class ResendCompatibleController {
     private readonly prisma: PrismaService,
   ) {}
 
+  @Public()
   @Post('emails')
   async sendEmail(
     @Headers('authorization') authHeader: string,

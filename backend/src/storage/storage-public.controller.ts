@@ -53,6 +53,10 @@ export class StoragePublicController {
       return this.root(req);
     }
 
+    if (rawPath.startsWith('api/') || rawPath.startsWith('auth/')) {
+      throw new NotFoundException(`Resource not found: /${rawPath}`);
+    }
+
     const segments = rawPath.split('/');
     if (segments.length < 2) {
       throw new BadRequestException(
