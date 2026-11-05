@@ -5,6 +5,7 @@ import {
   Headers,
   Req,
   Res,
+  Next,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
@@ -44,6 +45,7 @@ export class StoragePublicController {
   async serveObject(
     @Req() req: express.Request,
     @Res() res: express.Response,
+    @Next() next: express.NextFunction,
     @Query('token') token?: string,
     @Query('apikey') queryApiKey?: string,
     @Headers() headers?: any,
@@ -54,7 +56,7 @@ export class StoragePublicController {
     }
 
     if (rawPath.startsWith('api/') || rawPath.startsWith('auth/')) {
-      throw new NotFoundException(`Resource not found: /${rawPath}`);
+      return next();
     }
 
     const segments = rawPath.split('/');
