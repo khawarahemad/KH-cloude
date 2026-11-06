@@ -245,6 +245,36 @@ export default function ProjectsTab() {
   const [logStatus, setLogStatus] = useState('');
   const [logsOpen, setLogsOpen] = useState(false);
 
+  // Deployment pagination state (20 deployments per page)
+  const [deploymentsPage, setDeploymentsPage] = useState(1);
+  const [pagedDeployments, setPagedDeployments] = useState<any[] | null>(null);
+  const [pagedDeploymentsTotal, setPagedDeploymentsTotal] = useState<number | null>(null);
+  const [loadingDeploymentsPage, setLoadingDeploymentsPage] = useState(false);
+
+  const fetchDeploymentsPage = async (projectId: string, page: number) => {
+    setLoadingDeploymentsPage(true);
+    try {
+      const res = await apiRequest(`/projects/${projectId}/deployments?page=${page}&pageSize=20`);
+      setPagedDeployments(res.deployments || []);
+      setPagedDeploymentsTotal(res.total ?? (res.deployments?.length || 0));
+    } catch (err) {
+      console.error('Failed to fetch paged deployments:', err);
+    } finally {
+      setLoadingDeploymentsPage(false);
+    }
+  };
+
+  const handleDeploymentsPageChange = (newPage: number) => {
+    if (!activeProjectId || newPage === deploymentsPage) return;
+    setDeploymentsPage(newPage);
+    if (newPage === 1) {
+      setPagedDeployments(null);
+      fetchProjectDetails(activeProjectId, true);
+    } else {
+      fetchDeploymentsPage(activeProjectId, newPage);
+    }
+  };
+
   // Metrics state
   const [metrics, setMetrics] = useState<any | null>(null);
 
@@ -555,6 +585,9 @@ export default function ProjectsTab() {
   // Real-time periodic polling of active project details & deployments (3s)
   useEffect(() => {
     if (activeProjectId) {
+      setDeploymentsPage(1);
+      setPagedDeployments(null);
+      setPagedDeploymentsTotal(null);
       fetchProjectDetails(activeProjectId);
       fetchMetrics(activeProjectId);
 
@@ -800,6 +833,8 @@ export default function ProjectsTab() {
           userId: user?.id,
         }),
       });
+      setDeploymentsPage(1);
+      setPagedDeployments(null);
       setDetailsTab('deployments');
       setActiveDeploymentId(data.id);
       setBuildLogs('Triggering build...');
@@ -809,6 +844,35 @@ export default function ProjectsTab() {
     } catch (err: any) {
       console.error(err);
       alert({ title: 'Deploy Failed', message: err.message || 'Failed to trigger deployment.', type: 'error' });
+    }
+  };
+
+  const handleRollback = async (deploymentId: string) => {
+    if (!canDeploy) {
+      alert({ title: 'Permission Denied', message: 'You need Developer or higher role to roll back deployments.', type: 'error' });
+      return;
+    }
+    if (!activeProjectId || !activeTeam) return;
+    if (!window.confirm('Are you sure you want to rollback to this build? A new sequential deployment targeting this exact commit will be triggered.')) return;
+    try {
+      const rollback = await apiRequest(`/projects/${activeProjectId}/rollback`, {
+        method: 'POST',
+        body: JSON.stringify({
+          deploymentId,
+          teamId: activeTeam.id,
+        }),
+      });
+      setDeploymentsPage(1);
+      setPagedDeployments(null);
+      setDetailsTab('deployments');
+      setActiveDeploymentId(rollback.id);
+      setBuildLogs('Initiating rollback build...');
+      setLogsOpen(true);
+      fetchProjectDetails(activeProjectId, true);
+      fetchProjects();
+    } catch (err: any) {
+      console.error(err);
+      alert({ title: 'Rollback Failed', message: err.message || 'Failed to rollback deployment.', type: 'error' });
     }
   };
 
@@ -1169,100 +1233,203 @@ export default function ProjectsTab() {
             <div style={{ padding: '24px', minHeight: '400px' }}>
 
               {/* ── Deployments ── */}
-              {detailsTab === 'deployments' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Deployment History</div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Each deployment is an immutable snapshot of your container.</div>
+              {detailsTab === 'deployments' && (() => {
+                const totalDeployments = pagedDeploymentsTotal ?? (projectDetails?.totalDeployments ?? (projectDetails?.deployments?.length || 0));
+                const totalPages = Math.ceil(totalDeployments / 20) || 1;
+                const currentDeploymentsList = deploymentsPage === 1 ? (projectDetails?.deployments || []) : (pagedDeployments || []);
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#4b5563', marginBottom: '2px' }}>Deployment History</div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>Each deployment is an immutable snapshot of your container. (20 per page)</div>
+                      </div>
+                      {activeDeploymentId && (
+                        <button onClick={() => setLogsOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', backgroundColor: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', color: '#c4b5fd', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }}>
+                          <Terminal size={11} /> Live Logs
+                        </button>
+                      )}
                     </div>
-                    {activeDeploymentId && (
-                      <button onClick={() => setLogsOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 12px', borderRadius: '7px', backgroundColor: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', color: '#c4b5fd', fontSize: '11px', fontWeight: 500, cursor: 'pointer' }}>
-                        <Terminal size={11} /> Live Logs
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
-                    {projectDetails?.deployments?.length === 0 && (
-                      <div style={{ padding: '48px 24px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>No deployments yet. Click Redeploy to trigger the first build.</div>
-                    )}
-                    {projectDetails?.deployments?.map((dep: any, i: number) => (
-                      <div key={dep.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: i < (projectDetails.deployments.length - 1) ? '1px solid rgba(255,255,255,0.06)' : 'none', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                          {/* Status dot */}
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, backgroundColor: dep.status === 'READY' ? '#22c55e' : dep.status === 'FAILED' ? '#ef4444' : dep.status === 'BUILDING' || dep.status === 'DEPLOYING' ? '#a78bfa' : '#6b7280' }} />
-                          <div style={{ minWidth: 0 }}>
-                            {/* Row 1: Trigger type badge + commit message */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                              {/* Auto / Manual badge */}
-                              {dep.triggeredBy === 'GITOPS' ? (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.3)', letterSpacing: '0.03em', flexShrink: 0 }}>
-                                  ⚡ Auto Deploy
-                                </span>
-                              ) : dep.triggeredByName === 'Rollback' ? (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(234,179,8,0.12)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.25)', letterSpacing: '0.03em', flexShrink: 0 }}>
-                                  ↩ Rollback
-                                </span>
-                              ) : (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.25)', letterSpacing: '0.03em', flexShrink: 0 }}>
-                                  ▶ Manual
-                                </span>
-                              )}
-                              {/* Commit hash pill */}
-                              {dep.commitHash && (
-                                <span style={{ fontFamily: 'monospace', fontSize: '11px', padding: '1px 6px', borderRadius: '5px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.15)', flexShrink: 0 }}>
-                                  {dep.commitHash}
-                                </span>
-                              )}
-                              {/* Commit message or fallback label */}
-                              <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {dep.commitMessage || (dep.triggeredBy === 'GITOPS' ? 'Git Push' : dep.triggeredByName === 'Rollback' ? 'Rollback Deploy' : 'Manual Deploy')}
-                              </span>
-                            </div>
-                            {/* Row 2: Who triggered + branch + time */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#4b5563', flexWrap: 'wrap' }}>
-                              {dep.triggeredByName && (
-                                <>
-                                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
-                                    {dep.triggeredBy === 'GITOPS' ? (
-                                      <Github size={10} style={{ color: '#6b7280' }} />
-                                    ) : (
-                                      <span style={{ fontSize: '10px' }}>👤</span>
-                                    )}
-                                    {dep.triggeredByName}
+                    <div style={{ backgroundColor: '#111318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', overflow: 'hidden' }}>
+                      {currentDeploymentsList.length === 0 && (
+                        <div style={{ padding: '48px 24px', textAlign: 'center', color: '#4b5563', fontSize: '13px' }}>
+                          {loadingDeploymentsPage ? 'Loading deployments...' : 'No deployments yet. Click Redeploy to trigger the first build.'}
+                        </div>
+                      )}
+                      {currentDeploymentsList.map((dep: any, i: number) => {
+                        const isQueued = dep.status === 'QUEUED';
+                        const isBuilding = dep.status === 'BUILDING' || dep.status === 'DEPLOYING';
+                        const isReady = dep.status === 'READY';
+                        const isFailed = dep.status === 'FAILED';
+
+                        return (
+                          <div key={dep.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: i < (currentDeploymentsList.length - 1) ? '1px solid rgba(255,255,255,0.06)' : 'none', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                              {/* Status dot */}
+                              <div style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                                backgroundColor: isReady ? '#22c55e' : isFailed ? '#ef4444' : isBuilding ? '#a78bfa' : isQueued ? '#f59e0b' : '#6b7280',
+                                boxShadow: isBuilding ? '0 0 8px rgba(167,139,250,0.6)' : isQueued ? '0 0 8px rgba(245,158,11,0.5)' : 'none'
+                              }} />
+                              <div style={{ minWidth: 0 }}>
+                                {/* Row 1: Trigger type badge + commit message */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                                  {/* Auto / Manual badge */}
+                                  {dep.triggeredBy === 'GITOPS' ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(124,58,237,0.15)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.3)', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                      ⚡ Auto Deploy
+                                    </span>
+                                  ) : dep.triggeredByName === 'Rollback' ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(234,179,8,0.12)', color: '#fbbf24', border: '1px solid rgba(234,179,8,0.25)', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                      ↩ Rollback
+                                    </span>
+                                  ) : (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 7px', borderRadius: '9999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.25)', letterSpacing: '0.03em', flexShrink: 0 }}>
+                                      ▶ Manual
+                                    </span>
+                                  )}
+                                  {/* Commit hash pill */}
+                                  {dep.commitHash && (
+                                    <span style={{ fontFamily: 'monospace', fontSize: '11px', padding: '1px 6px', borderRadius: '5px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.15)', flexShrink: 0 }}>
+                                      {dep.commitHash}
+                                    </span>
+                                  )}
+                                  {/* Commit message or fallback label */}
+                                  <span style={{ fontSize: '13px', fontWeight: 500, color: '#f1f3f6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {dep.commitMessage || (dep.triggeredBy === 'GITOPS' ? 'Git Push' : dep.triggeredByName === 'Rollback' ? 'Rollback Deploy' : 'Manual Deploy')}
                                   </span>
+                                </div>
+                                {/* Row 2: Who triggered + branch + time */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#4b5563', flexWrap: 'wrap' }}>
+                                  {dep.triggeredByName && (
+                                    <>
+                                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#6b7280' }}>
+                                        {dep.triggeredBy === 'GITOPS' ? (
+                                          <Github size={10} style={{ color: '#6b7280' }} />
+                                        ) : (
+                                          <span style={{ fontSize: '10px' }}>👤</span>
+                                        )}
+                                        {dep.triggeredByName}
+                                      </span>
+                                      <span>·</span>
+                                    </>
+                                  )}
+                                  {dep.commitAuthor && dep.triggeredBy === 'GITOPS' && dep.commitAuthor !== dep.triggeredByName?.replace('GitHub Push by ', '') && (
+                                    <>
+                                      <span style={{ color: '#6b7280' }}>authored by {dep.commitAuthor}</span>
+                                      <span>·</span>
+                                    </>
+                                  )}
+                                  <span>Branch: {dep.branch}</span>
                                   <span>·</span>
-                                </>
+                                  <span>{new Date(dep.createdAt).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Right side: status badge + rollback + logs button */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '9999px',
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                textTransform: 'uppercase',
+                                backgroundColor: isReady ? 'rgba(34,197,94,0.1)' : isFailed ? 'rgba(239,68,68,0.1)' : isQueued ? 'rgba(245,158,11,0.12)' : 'rgba(124,58,237,0.1)',
+                                color: isReady ? '#22c55e' : isFailed ? '#ef4444' : isQueued ? '#fbbf24' : '#a78bfa',
+                                border: isReady ? '1px solid rgba(34,197,94,0.2)' : isFailed ? '1px solid rgba(239,68,68,0.2)' : isQueued ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(124,58,237,0.2)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                {isQueued && <span>⏳</span>}
+                                {dep.status}
+                              </span>
+
+                              {/* Rollback button if eligible: READY, has commitHash, user has developer permissions, and is not the very first deployment in the list */}
+                              {canDeploy && isReady && dep.commitHash && (i > 0 || deploymentsPage > 1) && (
+                                <button
+                                  onClick={() => handleRollback(dep.id)}
+                                  title="Roll back live site to this exact build snapshot"
+                                  style={{ height: '26px', padding: '0 8px', borderRadius: '6px', backgroundColor: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#fbbf24', fontSize: '11px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  className="hover:bg-amber-500/20"
+                                >
+                                  ↩ Rollback
+                                </button>
                               )}
-                              {dep.commitAuthor && dep.triggeredBy === 'GITOPS' && dep.commitAuthor !== dep.triggeredByName?.replace('GitHub Push by ', '') && (
-                                <>
-                                  <span style={{ color: '#6b7280' }}>authored by {dep.commitAuthor}</span>
-                                  <span>·</span>
-                                </>
-                              )}
-                              <span>Branch: {dep.branch}</span>
-                              <span>·</span>
-                              <span>{new Date(dep.createdAt).toLocaleString()}</span>
+
+                              <button onClick={async () => { const logs = await apiRequest(`/deployments/${dep.id}/logs`); const logsString = logs.logs || ''; const lines = logsString.split('\n'); setBuildLogs(lines.length > 200 ? lines.slice(lines.length - 200).join('\n') : logsString); setLogStatus(dep.status); setLogsOpen(true); }}
+                                style={{ height: '26px', padding: '0 10px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }} className="hover:bg-white/5 hover:text-white">
+                                <Terminal size={10} /> Logs
+                              </button>
                             </div>
                           </div>
+                        );
+                      })}
+
+                      {/* Pagination Bar */}
+                      {totalPages > 1 && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '12px 16px',
+                          backgroundColor: 'rgba(255,255,255,0.02)',
+                          borderTop: '1px solid rgba(255,255,255,0.06)',
+                          fontSize: '12px',
+                          color: '#9ca3af'
+                        }}>
+                          <div>
+                            Showing <span style={{ color: '#f3f4f6', fontWeight: 600 }}>{(deploymentsPage - 1) * 20 + 1}</span> to <span style={{ color: '#f3f4f6', fontWeight: 600 }}>{Math.min(deploymentsPage * 20, totalDeployments)}</span> of <span style={{ color: '#f3f4f6', fontWeight: 600 }}>{totalDeployments}</span> deployments
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              onClick={() => handleDeploymentsPageChange(deploymentsPage - 1)}
+                              disabled={deploymentsPage <= 1 || loadingDeploymentsPage}
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: deploymentsPage <= 1 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)',
+                                color: deploymentsPage <= 1 ? '#4b5563' : '#e5e7eb',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                cursor: deploymentsPage <= 1 ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              ← Previous
+                            </button>
+                            <div style={{ fontSize: '11px', color: '#9ca3af', padding: '0 4px' }}>
+                              Page <span style={{ color: '#f3f4f6', fontWeight: 600 }}>{deploymentsPage}</span> of <span style={{ color: '#f3f4f6', fontWeight: 600 }}>{totalPages}</span>
+                            </div>
+                            <button
+                              onClick={() => handleDeploymentsPageChange(deploymentsPage + 1)}
+                              disabled={deploymentsPage >= totalPages || loadingDeploymentsPage}
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: deploymentsPage >= totalPages ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)',
+                                color: deploymentsPage >= totalPages ? '#4b5563' : '#e5e7eb',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                cursor: deploymentsPage >= totalPages ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              Next →
+                            </button>
+                          </div>
                         </div>
-                        {/* Right side: status badge + logs button */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase',
-                            backgroundColor: dep.status === 'READY' ? 'rgba(34,197,94,0.1)' : dep.status === 'FAILED' ? 'rgba(239,68,68,0.1)' : 'rgba(124,58,237,0.1)',
-                            color: dep.status === 'READY' ? '#22c55e' : dep.status === 'FAILED' ? '#ef4444' : '#a78bfa',
-                            border: dep.status === 'READY' ? '1px solid rgba(34,197,94,0.2)' : dep.status === 'FAILED' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(124,58,237,0.2)'
-                          }}>{dep.status}</span>
-                          <button onClick={async () => { const logs = await apiRequest(`/deployments/${dep.id}/logs`); const logsString = logs.logs || ''; const lines = logsString.split('\n'); setBuildLogs(lines.length > 200 ? lines.slice(lines.length - 200).join('\n') : logsString); setLogStatus(dep.status); setLogsOpen(true); }}
-                            style={{ height: '26px', padding: '0 10px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#9ba3af', fontSize: '11px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }} className="hover:bg-white/5 hover:text-white">
-                            <Terminal size={10} /> Logs
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* ── Env Variables ── */}
               {detailsTab === 'env' && (

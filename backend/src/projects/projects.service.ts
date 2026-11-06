@@ -18,6 +18,9 @@ export class ProjectsService implements OnModuleInit {
   // Simulated live logs in-memory mapping deploymentId -> log lines
   private deploymentLogs = new Map<string, string[]>();
 
+  // In-memory set of project IDs currently executing a deployment (concurrency control)
+  private activeProjectsDeploying = new Set<string>();
+
   // Rolling real Docker container metrics history per project
   private projectMetricsHistory = new Map<
     string,
@@ -41,6 +44,102 @@ export class ProjectsService implements OnModuleInit {
     setInterval(() => {
       void this.autoHealAllDomainSSL();
     }, 6 * 60 * 60 * 1000);
+
+    // Clean up any stale building/deploying statuses after server restart and resume queued builds
+    this.cleanupStaleDeployments().catch((err) => {
+      this.logger.warn(`Failed to cleanup stale deployments on startup: ${err.message}`);
+    });
+  }
+
+  /**
+   * Resets interrupted deployments on server restart and checks for pending queued builds.
+   */
+  private async cleanupStaleDeployments() {
+    try {
+      const interrupted = await this.prisma.deployment.updateMany({
+        where: {
+          status: { in: ['BUILDING', 'DEPLOYING'] },
+        },
+        data: {
+          status: 'FAILED',
+          endedAt: new Date(),
+        },
+      });
+      if (interrupted.count > 0) {
+        this.logger.log(`[Deployment Queue] Reset ${interrupted.count} interrupted deployment(s) to FAILED on startup.`);
+      }
+
+      // Check for any pending QUEUED deployments across projects and kick off the next in line
+      const queuedProjects = await this.prisma.deployment.findMany({
+        where: { status: 'QUEUED' },
+        select: { projectId: true },
+        distinct: ['projectId'],
+      });
+
+      for (const q of queuedProjects) {
+        void this.processNextQueuedDeployment(q.projectId);
+      }
+    } catch (err: any) {
+      this.logger.error(`[Deployment Queue] Error during startup queue scan: ${err.message}`);
+    }
+  }
+
+  /**
+   * Concurrency Queue: If a deployment is already active for the project,
+   * leaves the new deployment in QUEUED state.
+   * If no deployment is active, begins building immediately.
+   */
+  private async enqueueOrRunDeployment(projectId: string, deploymentId: string, targetCommitHash?: string | null) {
+    if (this.activeProjectsDeploying.has(projectId)) {
+      this.logger.log(`[Deployment Queue] Project ${projectId} is already building. Deployment ${deploymentId} remains in QUEUED status.`);
+      const logs = this.deploymentLogs.get(deploymentId) || [];
+      logs.push(`[${new Date().toISOString()}] [Queue] Deployment is queued. Another deployment is currently in progress for this project. Build will begin automatically once the ongoing deployment finishes.\n`);
+      this.deploymentLogs.set(deploymentId, logs);
+      await this.prisma.deployment.update({
+        where: { id: deploymentId },
+        data: {
+          status: 'QUEUED',
+          buildLogs: logs.join('\n'),
+        },
+      }).catch(() => null);
+      return;
+    }
+
+    // Mark project as actively deploying and begin execution
+    this.activeProjectsDeploying.add(projectId);
+    this.runLiveDeploymentEngine(projectId, deploymentId, targetCommitHash);
+  }
+
+  /**
+   * Picks up the next QUEUED deployment for a project (FIFO: oldest first) and starts it.
+   */
+  private async processNextQueuedDeployment(projectId: string) {
+    try {
+      if (this.activeProjectsDeploying.has(projectId)) {
+        return; // Still busy
+      }
+
+      const nextDeployment = await this.prisma.deployment.findFirst({
+        where: {
+          projectId,
+          status: 'QUEUED',
+        },
+        orderBy: {
+          createdAt: 'asc', // FIFO
+        },
+      });
+
+      if (!nextDeployment) {
+        return; // No queued deployments waiting
+      }
+
+      this.logger.log(`[Deployment Queue] Picking up next queued deployment ${nextDeployment.id} for project ${projectId}.`);
+      this.activeProjectsDeploying.add(projectId);
+      this.runLiveDeploymentEngine(projectId, nextDeployment.id, nextDeployment.commitHash);
+    } catch (err: any) {
+      this.logger.error(`[Deployment Queue] Error triggering next queued deployment for project ${projectId}: ${err.message}`);
+      this.activeProjectsDeploying.delete(projectId);
+    }
   }
 
   /**
@@ -254,20 +353,29 @@ export class ProjectsService implements OnModuleInit {
   }
 
   async getProjectDetails(projectId: string, teamId: string) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: projectId, teamId },
-      include: {
-        domains: true,
-        envVars: true,
-        deployments: {
-          orderBy: { createdAt: 'desc' },
+    const [project, totalDeployments] = await Promise.all([
+      this.prisma.project.findFirst({
+        where: { id: projectId, teamId },
+        include: {
+          domains: true,
+          envVars: true,
+          deployments: {
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+          },
         },
-      },
-    });
+      }),
+      this.prisma.deployment.count({
+        where: { projectId },
+      }),
+    ]);
     if (!project) {
       throw new NotFoundException('Project not found.');
     }
-    return project;
+    return {
+      ...project,
+      totalDeployments,
+    };
   }
 
   async setEnvVars(projectId: string, vars: { key: string; value: string; isSecret: boolean }[]) {
@@ -342,8 +450,8 @@ export class ProjectsService implements OnModuleInit {
       },
     });
 
-    // Start background live deployment engine
-    this.runLiveDeploymentEngine(project.id, deployment.id);
+    // Start background live deployment engine or queue it if a deployment is currently running
+    this.enqueueOrRunDeployment(project.id, deployment.id);
 
     return deployment;
   }
@@ -390,11 +498,27 @@ export class ProjectsService implements OnModuleInit {
     }
   }
 
-  async getDeployments(projectId: string) {
-    return this.prisma.deployment.findMany({
-      where: { projectId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async getDeployments(projectId: string, page = 1, pageSize = 20) {
+    const skip = (page - 1) * pageSize;
+    const [deployments, total] = await Promise.all([
+      this.prisma.deployment.findMany({
+        where: { projectId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.deployment.count({
+        where: { projectId },
+      }),
+    ]);
+
+    return {
+      deployments,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize) || 1,
+    };
   }
 
   async getDeploymentLogs(deploymentId: string) {
@@ -486,8 +610,8 @@ export class ProjectsService implements OnModuleInit {
     });
 
     // Pass the target commit hash so the engine checks out that exact commit
-    // instead of whatever is currently at the tip of the branch.
-    this.runLiveDeploymentEngine(projectId, rollback.id, deployment.commitHash);
+    // instead of whatever is currently at the tip of the branch, or queue if another build is running.
+    this.enqueueOrRunDeployment(projectId, rollback.id, deployment.commitHash);
 
     return rollback;
   }
@@ -2014,6 +2138,10 @@ export class ProjectsService implements OnModuleInit {
         ).catch(() => null);
 
         this.deploymentLogs.delete(deploymentId);
+      } finally {
+        // Release active lock for this project and sequentially kick off the next queued deployment (FIFO)
+        this.activeProjectsDeploying.delete(projectId);
+        void this.processNextQueuedDeployment(projectId);
       }
     };
 

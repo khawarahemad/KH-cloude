@@ -401,11 +401,18 @@ export class AppController {
   }
 
   @Get('projects/:id/deployments')
-  async getProjectDeployments(@Param('id') id: string, @Req() req: express.Request) {
+  async getProjectDeployments(
+    @Param('id') id: string,
+    @Req() req: express.Request,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
     const userId = (req as any).user.id as string;
 
     await this.rbac.verifyProjectAccess(userId, id, 'VIEWER');
-    return this.projects.getDeployments(id);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const sizeNum = pageSize ? parseInt(pageSize, 10) : 20;
+    return this.projects.getDeployments(id, pageNum, sizeNum);
   }
 
   @Get('deployments/:depId/logs')
